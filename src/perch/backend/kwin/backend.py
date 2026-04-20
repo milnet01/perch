@@ -48,6 +48,12 @@ from perch.backend.types import (
 )
 
 from . import PLUGIN_ID, SERVICE_NAME
+from .hotkeys import (
+    HotkeyBusyError,
+    HotkeyParseError,
+    HotkeyProvider,
+    choose_provider,
+)
 from .install import ensure_installed
 from .protocol import (
     CommandError,
@@ -108,7 +114,7 @@ _CAPABILITIES = Capabilities(
     can_preplace_windows=True,
     notes=(
         "KWin scripting on Plasma >= 6 via bundled script + "
-        "GlobalShortcuts portal (KGlobalAccel fallback). "
+        "KGlobalAccel hotkeys (portal path follows with M8 Flatpak). "
         "Pre-paint placement is best-effort; occasional first-frame "
         "flicker is possible but usually imperceptible."
     ),
@@ -130,12 +136,14 @@ class KWinBackend(WindowBackend):
         bus_setup: _BusSetup | None = None,
         scripting_factory: _ScriptingFactory | None = None,
         script_installer: _ScriptInstaller | None = None,
+        hotkey_provider: HotkeyProvider | None = None,
     ) -> None:
         super().__init__()
         self._plugin_id = plugin_id
         self._bus_setup = bus_setup or _default_bus_setup
         self._scripting_factory = scripting_factory or _default_scripting_factory
         self._script_installer = script_installer or ensure_installed
+        self._hotkey_provider: HotkeyProvider | None = hotkey_provider
 
         self._service: PerchKWin1 | None = None
         self._scripting: KWinScripting | None = None
@@ -186,6 +194,15 @@ class KWinBackend(WindowBackend):
                 f"KWin script did not signal ScriptReady within {SCRIPT_READY_TIMEOUT_S}s"
             ) from exc
 
+        if self._hotkey_provider is None:
+            self._hotkey_provider = await choose_provider(self._emit_hotkey_fired)
+        else:
+            # Caller-supplied provider (tests, or a user swapping in a
+            # custom implementation). Wire our on_fired sink either way —
+            # a second start() on an already-started provider is allowed
+            # and simply re-binds the callback.
+            await self._hotkey_provider.start(self._emit_hotkey_fired)
+
         self._connected = True
         self.backend_connected.emit()
 
@@ -193,6 +210,13 @@ class KWinBackend(WindowBackend):
         if not self._connected:
             return
         self._connected = False
+
+        if self._hotkey_provider is not None:
+            try:
+                await self._hotkey_provider.stop()
+            except Exception as exc:
+                log.debug("hotkey provider stop: %s", exc)
+            self._hotkey_provider = None
 
         if self._service is not None:
             # Must invalidate before unloading so orphan PollCommand handlers
@@ -415,11 +439,28 @@ class KWinBackend(WindowBackend):
 
     async def register_hotkey(self, accel: str, callback_id: str) -> None:
         self._require_connected()
-        raise BackendUnsupported("register_hotkey lands in M5.f")
+        if self._hotkey_provider is None:
+            raise BackendUnsupported("no hotkey provider available")
+        try:
+            await self._hotkey_provider.register(callback_id, accel)
+        except HotkeyParseError as exc:
+            self.backend_error.emit(f"hotkey unavailable: {exc}")
+            raise
+        except HotkeyBusyError as exc:
+            # Per docs/03: non-fatal hotkey conflicts become a backend_error
+            # signal *and* re-raise so the caller can redisplay their UI.
+            self.backend_error.emit(f"hotkey unavailable: {exc}")
+            raise
 
     async def unregister_hotkey(self, callback_id: str) -> None:
         self._require_connected()
-        raise BackendUnsupported("unregister_hotkey lands in M5.f")
+        if self._hotkey_provider is None:
+            return
+        await self._hotkey_provider.unregister(callback_id)
+
+    def _emit_hotkey_fired(self, callback_id: str) -> None:
+        """Sink for the hotkey provider's ``on_fired`` callback."""
+        self.hotkey_fired.emit(callback_id)
 
     # ── Error translation ─────────────────────────────────────────────────
 

@@ -22,7 +22,6 @@ from PySide6.QtCore import QCoreApplication
 from perch.backend.base import (
     BackendDisconnected,
     BackendUnavailable,
-    BackendUnsupported,
     UnknownOutput,
     UnknownWindow,
 )
@@ -231,12 +230,18 @@ def started_backend(
     _ready_service: list[PerchKWin1],
     _mock_run_script: AsyncMock,
     _mock_unload_script: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> Any:
-    async def _build() -> KWinBackend:
+    # Route choose_provider() through MockHotkeyProvider unless the caller
+    # supplies a hotkey_provider explicitly.
+    monkeypatch.setenv("PERCH_HOTKEY_PROVIDER", "mock")
+
+    async def _build(**overrides: Any) -> KWinBackend:
         b = KWinBackend(
             bus_setup=_bus_setup,
             scripting_factory=AsyncMock(return_value=_scripting),
             script_installer=_installer,
+            **overrides,
         )
         await b.start()
         return b
@@ -363,12 +368,52 @@ async def test_current_desktop_and_count(started_backend: Any) -> None:
     assert await b.desktop_count() == 4
 
 
-async def test_hotkeys_stub_until_m5f(started_backend: Any) -> None:
-    b = await started_backend()
-    with pytest.raises(BackendUnsupported, match=r"M5\.f"):
-        await b.register_hotkey("Ctrl+A", "cb-1")
-    with pytest.raises(BackendUnsupported, match=r"M5\.f"):
-        await b.unregister_hotkey("cb-1")
+async def test_hotkey_register_round_trips_via_mock_provider(
+    started_backend: Any,
+) -> None:
+    from perch.backend.kwin.hotkeys import MockHotkeyProvider
+
+    provider = MockHotkeyProvider()
+    b = await started_backend(hotkey_provider=provider)
+    await b.register_hotkey("Ctrl+Alt+F12", "cb-1")
+    assert "cb-1" in provider.bindings
+
+    fired: list[str] = []
+    b.hotkey_fired.connect(lambda cid: fired.append(cid))
+    provider.fire("cb-1")
+    assert fired == ["cb-1"]
+
+    await b.unregister_hotkey("cb-1")
+    assert "cb-1" not in provider.bindings
+
+
+async def test_hotkey_busy_raises_and_emits_backend_error(
+    started_backend: Any,
+) -> None:
+    from perch.backend.kwin.hotkeys import HotkeyBusyError, MockHotkeyProvider
+
+    provider = MockHotkeyProvider(busy={"Ctrl+Alt+F12"})
+    b = await started_backend(hotkey_provider=provider)
+
+    errs: list[str] = []
+    b.backend_error.connect(lambda msg: errs.append(msg))
+    with pytest.raises(HotkeyBusyError):
+        await b.register_hotkey("Ctrl+Alt+F12", "cb-1")
+    assert errs, "HotkeyBusyError should have emitted a backend_error signal"
+    assert "already grabbed" in errs[0]
+
+
+async def test_hotkey_parse_error_raises_and_emits_backend_error(
+    started_backend: Any,
+) -> None:
+    from perch.backend.kwin.hotkeys import HotkeyParseError, MockHotkeyProvider
+
+    b = await started_backend(hotkey_provider=MockHotkeyProvider())
+    errs: list[str] = []
+    b.backend_error.connect(lambda msg: errs.append(msg))
+    with pytest.raises(HotkeyParseError):
+        await b.register_hotkey("NotAModifier+Q", "cb-1")
+    assert errs
 
 
 # ── Commands (M5.e) ────────────────────────────────────────────────────────
@@ -734,4 +779,4 @@ def test_capabilities_match_doc() -> None:
     assert caps.can_preplace_windows is True
     assert caps.can_register_hotkeys is True
     assert "Plasma" in caps.notes
-    assert "GlobalShortcuts" in caps.notes
+    assert "KGlobalAccel" in caps.notes
