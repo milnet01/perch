@@ -1,0 +1,15 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Id": "org.milnet01.perch",
+        "Name": "Perch",
+        "Description": "In-process eyes and hands for Perch — the persistent, compositor-aware window geometry manager. Subscribes to KWin workspace events and executes geometry / state / close commands on Perch's behalf over D-Bus.",
+        "Version": "1.0.0",
+        "EnabledByDefault": false,
+        "Authors": [{ "Name": "Perch contributors" }],
+        "License": "GPL-3.0-or-later",
+        "Website": "https://github.com/milnet01/perch"
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}

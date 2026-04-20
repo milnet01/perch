@@ -95,17 +95,19 @@ For bulk operations (apply a whole layout), Python emits a single command with a
 
 **Outbound (what the script tells Perch):**
 
-The script subscribes to `workspace.windowAdded`, `workspace.windowRemoved`, `Window.frameGeometryChanged`, and `Window.captionChanged`, and `callDBus`es each one into Perch:
+The script subscribes to `workspace.windowAdded`, `workspace.windowRemoved`, per-window `frameGeometryChanged`/`captionChanged`/`fullScreenChanged`/`minimizedChanged`/`maximizedChanged`/`desktopsChanged`/`outputChanged`, and `workspace.screensChanged`, and `callDBus`es each one into Perch.
 
-| KWin signal (Plasma 6) | Perch D-Bus method it fires |
-|---|---|
-| `workspace.windowAdded(window)` | `io.github.milnet01.Perch.KWin1.WindowAdded(s, s, s, s, i, i, i, i, s, i, s)` |
-| `workspace.windowRemoved(window)` | `WindowRemoved(s)` |
-| `window.frameGeometryChanged(old)` | `WindowGeometryChanged(s, i, i, i, i, s, i)` (debounced 50 ms) |
-| `window.captionChanged()` | `WindowPropertiesChanged(s, s, s)` |
-| `workspace.screensChanged()` | `OutputsChanged()` — Perch re-queries |
+Every method on `io.github.milnet01.Perch.KWin1` has signature `s` (one JSON-encoded string) — see "JSON strings end-to-end" below — so the D-Bus layer stays dumb about payload shape. The table below gives the JSON fields each method delivers:
 
-Arguments for `WindowAdded` are `(id, app_id, wm_class, title, x, y, w, h, output, desktop, role)`. `id` is `window.internalId.toString()` (a QUuid), stable for the window's lifetime.
+| KWin signal (Plasma 6) | Perch D-Bus method (`s` payload) | Payload fields |
+|---|---|---|
+| `workspace.windowAdded(window)` | `WindowAdded` | `id, app_id, wm_class, title, pid, type, state, x, y, w, h, output, desktop, role` |
+| `workspace.windowRemoved(window)` | `WindowRemoved` | `id` |
+| `window.frameGeometryChanged(old)` | `WindowGeometryChanged` (debounced 50 ms) | same as `WindowAdded` (full snapshot) |
+| `window.captionChanged()` (and other property signals) | `WindowPropertiesChanged` | same as `WindowAdded` |
+| `workspace.screensChanged()` | `OutputsChanged` | empty string (Perch re-queries via `queryOutputs` command) |
+
+`id` is `window.internalId.toString()` (a QUuid), stable for the window's lifetime. `desktop` is 0-based (`-1` = sticky / all desktops); the script converts from KWin's 1-based `x11DesktopNumber` at the boundary.
 
 ### Pre-placement hook (best-effort)
 
