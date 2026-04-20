@@ -67,6 +67,18 @@ def compute_topology_key(outputs: list[OutputInfo]) -> str:
     return TOPOLOGY_SEPARATOR.join(segments)
 
 
+def profile_output_names(topology_key: str) -> list[str]:
+    """Return the output names in ``topology_key`` order.
+
+    Matches the alphabetical sort used by :func:`compute_topology_key`, so
+    integer monitor indices in rules (``monitor = 0``, ``monitor = 1``) map
+    to the same output in the same topology on every evaluation.
+    """
+    if not topology_key:
+        return []
+    return [seg.split(":", 1)[0] for seg in topology_key.split(TOPOLOGY_SEPARATOR)]
+
+
 def select_profile(
     profiles: list[Profile], topology_key: str
 ) -> Profile | None:
