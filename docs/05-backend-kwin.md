@@ -57,12 +57,12 @@ The JS script does *not* register a D-Bus service. KWin's JS sandbox only expose
 
 ## The bundled KWin script
 
-**Location in repo:** `perch/backends/kwin/script/`
+**Location in repo:** `perch/backend/kwin/script/`
 
 Contents (indicative):
 
 ```
-perch/backends/kwin/script/
+perch/backend/kwin/script/
 ├── metadata.json              ← KPackage metadata (JSON; .desktop is deprecated)
 ├── contents/
 │   └── code/

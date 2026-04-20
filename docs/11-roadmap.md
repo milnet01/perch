@@ -150,7 +150,7 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 **In scope:**
 
-- `perch/backends/x11/` implementing `WindowBackend`.
+- `perch/backend/x11/` implementing `WindowBackend`.
 - XRandR output tracking.
 - Hotkey registration via `XGrabKey`.
 - Integration tests via `Xvfb` + `openbox` in CI.
@@ -173,8 +173,8 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 **In scope:**
 
-- `perch/backends/kwin/` — Python half.
-- `perch/backends/kwin/script/` — bundled KWin JS script.
+- `perch/backend/kwin/` — Python half.
+- `perch/backend/kwin/script/` — bundled KWin JS script.
 - Script versioning and load/unload lifecycle.
 - KGlobalAccel integration for hotkeys.
 - Integration test: headless KWin in CI (`kwin_wayland --virtual`).
@@ -197,9 +197,9 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 **In scope:**
 
-- `perch/backends/mutter/` — Python backend + GNOME Shell extension scaffolding.
-- `perch/backends/sway/` — Python backend using `swaymsg`.
-- `perch/backends/hyprland/` — Python backend using `hyprctl` + socket2.
+- `perch/backend/mutter/` — Python backend + GNOME Shell extension scaffolding.
+- `perch/backend/sway/` — Python backend using `swaymsg`.
+- `perch/backend/hyprland/` — Python backend using `hyprctl` + socket2.
 - `STATUS.md` per stub.
 
 **Exit criteria:**

@@ -73,8 +73,8 @@ modules:
       # The KWin script is shipped here, but is copied to ~/.local/share/kwin/scripts/
       # at first run by KWinBackend (see docs/05-backend-kwin.md) — KWin runs on the host
       # and cannot read /app/share/.
-      - install -Dm644 perch/backends/kwin/script/metadata.json  /app/share/perch/kwin/metadata.json
-      - install -Dm644 perch/backends/kwin/script/contents/code/main.js /app/share/perch/kwin/contents/code/main.js
+      - install -Dm644 perch/backend/kwin/script/metadata.json  /app/share/perch/kwin/metadata.json
+      - install -Dm644 perch/backend/kwin/script/contents/code/main.js /app/share/perch/kwin/contents/code/main.js
     sources:
       - type: dir
         path: .
@@ -158,9 +158,9 @@ install -Dm644 data/io.github.milnet01.Perch.desktop    %{buildroot}%{_datadir}/
 install -Dm644 data/io.github.milnet01.Perch.metainfo.xml %{buildroot}%{_metainfodir}/
 install -Dm644 data/icons/hicolor/scalable/apps/*.svg     %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 
-install -Dm644 perch/backends/kwin/script/metadata.json \
+install -Dm644 perch/backend/kwin/script/metadata.json \
     %{buildroot}%{_datadir}/perch/kwin/metadata.json
-install -Dm644 perch/backends/kwin/script/contents/code/main.js \
+install -Dm644 perch/backend/kwin/script/contents/code/main.js \
     %{buildroot}%{_datadir}/perch/kwin/contents/code/main.js
 
 %check
@@ -226,8 +226,8 @@ package() {
   install -Dm644 data/io.github.milnet01.Perch.metainfo.xml "$pkgdir/usr/share/metainfo/io.github.milnet01.Perch.metainfo.xml"
   install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg \
                  "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg"
-  install -Dm644 perch/backends/kwin/script/metadata.json "$pkgdir/usr/share/perch/kwin/metadata.json"
-  install -Dm644 perch/backends/kwin/script/contents/code/main.js "$pkgdir/usr/share/perch/kwin/contents/code/main.js"
+  install -Dm644 perch/backend/kwin/script/metadata.json "$pkgdir/usr/share/perch/kwin/metadata.json"
+  install -Dm644 perch/backend/kwin/script/contents/code/main.js "$pkgdir/usr/share/perch/kwin/contents/code/main.js"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 ```

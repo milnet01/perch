@@ -18,7 +18,7 @@ Perch does not speak any WM-specific extension on X11. Anything WM-specific is a
 
 ## Transport
 
-- One X11 connection via **`python-xlib`** directly. A small in-tree EWMH helper (`perch/backends/x11/ewmh.py`) wraps atoms we actually use (`_NET_WM_STATE`, `_NET_MOVERESIZE_WINDOW`, `_NET_WM_DESKTOP`, `_NET_FRAME_EXTENTS`, `_NET_WM_WINDOW_TYPE`, `_NET_CURRENT_DESKTOP`, `_NET_NUMBER_OF_DESKTOPS`, `_NET_WM_PID`, `_NET_WM_NAME`). Scope is deliberately narrow — we don't reimplement a full EWMH library.
+- One X11 connection via **`python-xlib`** directly. A small in-tree EWMH helper (`perch/backend/x11/ewmh.py`) wraps atoms we actually use (`_NET_WM_STATE`, `_NET_MOVERESIZE_WINDOW`, `_NET_WM_DESKTOP`, `_NET_FRAME_EXTENTS`, `_NET_WM_WINDOW_TYPE`, `_NET_CURRENT_DESKTOP`, `_NET_NUMBER_OF_DESKTOPS`, `_NET_WM_PID`, `_NET_WM_NAME`). Scope is deliberately narrow — we don't reimplement a full EWMH library.
 - Event loop integration via `QSocketNotifier(conn.fileno(), Read)` → dispatch pending events in the Qt main thread.
 - No threads. X11 is single-connection, single-reader; we keep it that way. `python-xlib`'s `Display` is not thread-safe; if background work is ever needed, open a **second** `Display()` in the worker — never share.
 
@@ -69,7 +69,11 @@ For `can_set_state`:
 
 - **Maximize** — set `_NET_WM_STATE_MAXIMIZED_HORZ` + `_NET_WM_STATE_MAXIMIZED_VERT` via `_NET_WM_STATE` client message.
 - **Fullscreen** — `_NET_WM_STATE_FULLSCREEN`.
-- **Minimize** — `_NET_WM_STATE_HIDDEN` + `XIconifyWindow`.
+- **Minimize** — ICCCM `WM_CHANGE_STATE` client message with `IconicState = 3`. (`python-xlib` 0.33 has no `XIconifyWindow` wrapper; this is the underlying protocol `XIconifyWindow` emits in `libX11`.)
+
+### Source-indication bits
+
+`_NET_MOVERESIZE_WINDOW`'s `data.l[0]` packs a **source-indication value in bits 12..15** (not 12..13, which is a common misreading). Perch sends `2` (pager/taskbar), the same value `wmctrl` and `libwnck` use. Applications sending for their own windows use `1`; WM-internal clients use `0`. Same three-value set applies to `data.l[3]` of `_NET_WM_STATE` client messages.
 
 ## Monitors (XRandR)
 
@@ -154,15 +158,18 @@ Healthy EWMH clients (wmctrl, tint2, polybar) all do this:
 2. For every top-level listed in `_NET_CLIENT_LIST`, select `PropertyChangeMask` so we get `PropertyNotify` for `_NET_WM_STATE`, `_NET_FRAME_EXTENTS`, `WM_CLASS`, `WM_NAME`.
 3. On `PropertyNotify(_NET_CLIENT_LIST)` on root, diff old/new list and `change_attributes` on the newcomers. `DestroyNotify` cleans up naturally.
 
-**Always guard per-window calls for `BadWindow` / `BadMatch`** — windows vanish mid-request and the `change_attributes` call races their destruction:
+**Always guard per-window calls for `BadWindow` / `BadMatch`** — windows vanish mid-request and the `change_attributes` call races their destruction. `change_attributes` is a `Request` (no reply), so errors surface *asynchronously* through the global error handler, not as Python exceptions. Use `CatchError` with an explicit `flush()`:
 
 ```python
+catch = Xlib.error.CatchError(Xlib.error.BadWindow, Xlib.error.BadMatch)
 for w in client_list():
-    try:
-        w.change_attributes(event_mask=X.PropertyChangeMask)
-    except (Xlib.error.BadWindow, Xlib.error.BadMatch):
-        pass  # window died between list read and attribute set
+    w.change_attributes(event_mask=X.PropertyChangeMask, onerror=catch)
+d.flush()
+# Errors materialise via the global error handler; CatchError captures the
+# first BadWindow/BadMatch seen so we can demote it to a debug log.
 ```
+
+The same rule applies to `send_event`, `grab_key`, and `destroy` — only `ReplyRequest`s (`get_geometry`, `get_full_property`, `translate_coords`) raise `BadWindow` / `BadMatch` inline.
 
 ## Edge cases and known workarounds
 
@@ -183,7 +190,7 @@ Phase 2 research confirmed these are worth documenting:
 ## Testing strategy
 
 - **Unit tests** against `MockBackend` cover the core's assumptions.
-- **Integration tests** spin up an `Xvfb` server and a lightweight WM (`openbox` is 800 KB and behaves as an EWMH-compliant reference). A pytest fixture starts Xvfb on `:99`, starts openbox, and Perch's X11 backend connects to `:99` with a throwaway config. CI runs these under `pytest -m x11`.
+- **Integration tests** spin up an `Xvfb` server and a lightweight WM (`openbox` is 800 KB and behaves as an EWMH-compliant reference). A pytest fixture launches `Xvfb -displayfd N` so Xvfb picks a free display number and writes it to the FD (fixed-number `Xvfb :99` is flaky in CI — shared runners leave stale `/tmp/.X99-lock` files). Openbox is launched with `--sm-disable` against that display; the fixture then polls root for `_NET_SUPPORTING_WM_CHECK` to confirm the WM has claimed the session before yielding. Perch's X11 backend connects to that display with a throwaway config. CI runs these under `pytest -m x11`. `pytest-xvfb` alone is insufficient — it manages the Xvfb process only and does not launch a WM.
 - Known window managers tested: openbox (reference), i3 (workspace WM), Plasma-X11 (heavyweight). The test matrix lives in CI config, not in this doc.
 - **Openbox status**: upstream is dormant (last release 3.6.1, 2015) but openbox remains packaged on every relevant distro and is still the de-facto reference EWMH WM for headless Xvfb testing. Keep using it; flag for revisit in the roadmap if that ever changes.
 
