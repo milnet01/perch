@@ -3,10 +3,8 @@
 The live end-to-end tests live in ``test_live_openbox.py`` (M4.g). What we
 cover here is:
   - :class:`BackendUnavailable` when ``$DISPLAY`` / explicit name is missing.
-  - :class:`BackendDisconnected` when a method is called before ``start()``.
-  - Skeleton commands (``set_geometry`` / ``set_state`` / ``close_window``)
-    raise :class:`BackendUnsupported` prior to M4.e landing.
-  - Hotkey methods raise :class:`BackendUnsupported` prior to M4.f landing.
+  - :class:`BackendDisconnected` when *any* method is called before
+    ``start()``.
   - :attr:`capabilities` matches the X11 design (``docs/04-backend-x11.md``).
 """
 
@@ -17,7 +15,6 @@ import pytest
 from perch.backend.base import (
     BackendDisconnected,
     BackendUnavailable,
-    BackendUnsupported,
 )
 from perch.backend.types import Geometry, WindowState
 from perch.backend.x11 import X11Backend
@@ -87,14 +84,14 @@ def test_commands_require_connection() -> None:
     asyncio.run(go())
 
 
-def test_hotkey_methods_raise_backend_unsupported_until_m4f() -> None:
+def test_hotkey_methods_require_connection() -> None:
     backend = X11Backend(display_name=":99999.0")
     import asyncio
 
     async def go() -> None:
-        with pytest.raises(BackendUnsupported):
+        with pytest.raises(BackendDisconnected):
             await backend.register_hotkey("Meta+Left", "cb1")
-        with pytest.raises(BackendUnsupported):
+        with pytest.raises(BackendDisconnected):
             await backend.unregister_hotkey("cb1")
 
     asyncio.run(go())

@@ -55,6 +55,16 @@ from .ewmh import (
     desktop_from_wire,
     desktop_to_wire,
 )
+from .hotkeys import (
+    HotkeyBusyError,
+    HotkeyParseError,
+    ParsedHotkey,
+    compute_numlock_mask,
+    grab_hotkey,
+    normalise_modifier_state,
+    parse_portable_accel,
+    ungrab_hotkey,
+)
 from .identity import read_window_info
 from .outputs import apply_workarea, list_outputs
 
@@ -121,6 +131,15 @@ class X11Backend(WindowBackend):
         self._rr_screen_change: int | None = None
         self._rr_crtc_change: int | None = None
         self._rr_output_change: int | None = None
+        # Hotkey bookkeeping.
+        # callback_id → (keycode, base_mods, parsed_accel_for_unregister)
+        self._hotkeys: dict[str, tuple[int, int, ParsedHotkey]] = {}
+        # Reverse lookup used in the KeyPress handler: (keycode, base_mods) →
+        # callback_id. Base mods have lock bits stripped so the table key is
+        # invariant across CapsLock / NumLock state.
+        self._hotkey_lookup: dict[tuple[int, int], str] = {}
+        # NumLock mask, resolved once at start().
+        self._numlock_mask: int = 0
 
     # ── Lifecycle ───────────────────────────────────────────────────────────
     async def start(self) -> None:
@@ -162,6 +181,10 @@ class X11Backend(WindowBackend):
         # Subscribe to RandR events. init_extension assigns the extension-
         # event codes into d.extension_event.* (they are not static).
         self._init_randr_subscription()
+
+        # Resolve NumLock's mod bit once — it drives the lock-mask fan-out
+        # for every future XGrabKey call.
+        self._numlock_mask = compute_numlock_mask(self._d)
 
         self._d.flush()
 
@@ -442,10 +465,40 @@ class X11Backend(WindowBackend):
 
     # ── Hotkeys (optional) ─────────────────────────────────────────────────
     async def register_hotkey(self, accel: str, callback_id: str) -> None:
-        raise BackendUnsupported("X11Backend.register_hotkey lands in M4.f")
+        d = self._require_connected()
+        # Drop any prior registration under this callback_id; the contract
+        # treats register_hotkey as idempotent replacement.
+        if callback_id in self._hotkeys:
+            await self.unregister_hotkey(callback_id)
+        try:
+            parsed = parse_portable_accel(accel)
+        except HotkeyParseError as exc:
+            raise BackendUnsupported(
+                f"cannot register hotkey {accel!r}: {exc!s}"
+            ) from exc
+        try:
+            keycode = grab_hotkey(d, parsed, self._numlock_mask)
+        except HotkeyBusyError as exc:
+            # Surface as a non-fatal backend warning; the core can prompt the
+            # user to pick a different accelerator. Reraise as
+            # BackendUnsupported so the caller's error handling is uniform.
+            self.backend_error.emit(
+                f"hotkey unavailable: {accel!r} is already grabbed"
+            )
+            raise BackendUnsupported(
+                f"hotkey unavailable: {accel!r} is already grabbed"
+            ) from exc
+        self._hotkeys[callback_id] = (keycode, parsed.modifiers, parsed)
+        self._hotkey_lookup[(keycode, parsed.modifiers)] = callback_id
 
     async def unregister_hotkey(self, callback_id: str) -> None:
-        raise BackendUnsupported("X11Backend.unregister_hotkey lands in M4.f")
+        d = self._require_connected()
+        entry = self._hotkeys.pop(callback_id, None)
+        if entry is None:
+            return
+        keycode, mods, _parsed = entry
+        self._hotkey_lookup.pop((keycode, mods), None)
+        ungrab_hotkey(d, keycode, mods, self._numlock_mask)
 
     # ── Event loop ─────────────────────────────────────────────────────────
     def _init_randr_subscription(self) -> None:
@@ -502,6 +555,9 @@ class X11Backend(WindowBackend):
             return
         if etype == _X.ConfigureNotify:
             self._on_configure_notify(event)
+            return
+        if etype == _X.KeyPress:
+            self._on_key_press(event)
             return
         if etype == _X.UnmapNotify or etype == _X.DestroyNotify:
             self._on_window_gone(event)
@@ -654,6 +710,12 @@ class X11Backend(WindowBackend):
             self.geometry_changed.emit(
                 info.id, info.geometry, info.monitor, info.desktop
             )
+
+    def _on_key_press(self, event: Any) -> None:
+        base_mods = normalise_modifier_state(int(event.state), self._numlock_mask)
+        cb_id = self._hotkey_lookup.get((int(event.detail), base_mods))
+        if cb_id is not None:
+            self.hotkey_fired.emit(cb_id)
 
     def _on_window_gone(self, event: Any) -> None:
         wid_str = str(event.window.id)
