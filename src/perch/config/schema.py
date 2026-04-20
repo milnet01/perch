@@ -1,10 +1,13 @@
 """Config schema (authoritative for ``config.toml``).
 
-Shape mirrors ``docs/02-state-format.md`` §``config.toml``. M1 validates the
-top-level skeleton (``schema_version``, ``[general]``, ``[exclusions]``) and
-accepts ``rules`` / ``layouts`` / ``profiles`` / ``snaps`` as opaque tables —
-the rules engine lands in M2 and will tighten validation then. The important
-M1 invariants are here:
+Shape mirrors ``docs/02-state-format.md`` §``config.toml``. Validation is
+layered — this module handles the top-level skeleton (``schema_version``,
+``[general]``, ``[exclusions]``, ``[snaps]``, ``[layouts]``) and delegates
+per-domain parsing to the owning core module. As of M2.b, ``[[profiles]]``
+is typed via :func:`perch.core.profiles.parse_profiles`; ``rules`` and
+``layouts`` remain opaque tables pending M2.c.
+
+Invariants enforced here:
 
 * refuse a higher-than-known ``schema_version`` (forward-compat guard);
 * reject an unknown ``general.theme`` value;
@@ -15,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
+
+from perch.core.profiles import Profile, ProfileValidationError, parse_profiles
 
 CURRENT_SCHEMA_VERSION = 1
 VALID_THEMES: tuple[str, ...] = ("auto", "light", "dark")
@@ -42,7 +47,7 @@ class Config:
     snaps: dict[str, dict[str, Any]] = field(default_factory=dict)
     rules: list[dict[str, Any]] = field(default_factory=list)
     layouts: dict[str, dict[str, Any]] = field(default_factory=dict)
-    profiles: list[dict[str, Any]] = field(default_factory=list)
+    profiles: list[Profile] = field(default_factory=list)
 
 
 def _require_bool(section: str, key: str, value: Any) -> bool:
@@ -144,6 +149,12 @@ def validate(document: dict[str, Any]) -> Config:
     if version < 1:
         raise SchemaError(f"schema_version must be >= 1 (got {version})")
 
+    raw_profiles = _parse_array_of_tables("profiles", document.get("profiles"))
+    try:
+        profiles = parse_profiles(raw_profiles)
+    except ProfileValidationError as exc:
+        raise SchemaError(str(exc)) from exc
+
     return Config(
         schema_version=version,
         general=_parse_general(document.get("general")),
@@ -151,5 +162,5 @@ def validate(document: dict[str, Any]) -> Config:
         snaps=_parse_table_of_tables("snaps", document.get("snaps")),
         rules=_parse_array_of_tables("rules", document.get("rules")),
         layouts=_parse_table_of_tables("layouts", document.get("layouts")),
-        profiles=_parse_array_of_tables("profiles", document.get("profiles")),
+        profiles=profiles,
     )

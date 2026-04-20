@@ -159,6 +159,6 @@ This allows one layout name ("coding") to mean different pixel-precise arrangeme
 
 ## Implementation pointers
 
-- `perch/core/profiles.py` — `Profile` dataclass, topology-key computation, activation logic.
-- `perch/core/layouts.py` — `Layout` dataclass, apply algorithm.
+- [`src/perch/core/profiles.py`](../src/perch/core/profiles.py) — `Profile` and `ProfileOverride` dataclasses, `compute_topology_key(outputs)`, `parse_profiles(raw)` (validates duplicate names, duplicate topologies, malformed segment strings, and unknown keys), and `select_profile(profiles, key)` (first-match-wins). `src/perch/config/schema.py::validate` delegates `[[profiles]]` parsing to this module.
+- `perch/core/layouts.py` — `Layout` dataclass, apply algorithm (lands in M2.c).
 - Both sit above the rules engine and below the UI. They emit the same decision types the rules engine does, so the final "push to backend" code is one function either way.
