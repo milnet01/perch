@@ -165,7 +165,7 @@ Everything else is in the Python stdlib.
 
 ## Event loop bootstrap
 
-**Canonical pattern (2026, verified in Phase 2.5):**
+**Canonical pattern (2026, verified against qasync 0.28 during M1):**
 
 ```python
 # perch/__main__.py  (sketch)
@@ -174,7 +174,7 @@ from PySide6.QtWidgets import QApplication
 from qasync import QEventLoop
 
 async def main() -> int:
-    app = QApplication.instance() or QApplication(sys.argv)
+    app = QApplication.instance()                # constructed by cli() below
 
     close_event = asyncio.Event()
     app.aboutToQuit.connect(close_event.set)     # critical teardown handshake
@@ -186,13 +186,21 @@ async def main() -> int:
     await backend.disconnect()                   # release bus name, unload script
     return 0
 
+def cli() -> int:
+    # qasync >=0.28 requires QApplication to exist *before* QEventLoop is
+    # instantiated: the factory asserts on QApplication.instance() inside
+    # asyncio.run. Construct it here, in the sync CLI wrapper.
+    app = QApplication.instance() or QApplication(sys.argv)
+    _ = app                                      # keep the C++ object alive
+    return asyncio.run(main(), loop_factory=QEventLoop)
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main(), loop_factory=QEventLoop))
+    sys.exit(cli())
 ```
 
 Key constraints:
 
-- `QApplication` is constructed **inside** `main()`. The `loop_factory=QEventLoop` form (3.11+) has replaced the older `with loop: loop.run_forever()` incantation.
+- `QApplication` is constructed **in the sync wrapper**, not inside `main()`. qasync 0.28's `QEventLoop.__init__` asserts `QApplication.instance() is not None` and runs *before* the coroutine does, so a `QApplication` constructed inside `main()` is too late. The `loop_factory=QEventLoop` form (3.11+) has replaced the older `with loop: loop.run_forever()` incantation.
 - `app.aboutToQuit → asyncio.Event` is the handshake that keeps the qasync loop alive long enough for the last teardown coroutines to run. Without it, `loop.close()` happens while Perch is still awaiting bus-name release and spams teardown warnings.
 - Sync Qt slots that need to call async backend methods use `@qasync.asyncSlot()` — *not* `asyncio.ensure_future`, which loses exception propagation.
 - sdbus-python attaches to whatever loop is running at its first `await`; no explicit `set_event_loop` glue is needed. `sdbus.set_default_bus(await sdbus.sd_bus_open_user_async())` goes inside `main()`.

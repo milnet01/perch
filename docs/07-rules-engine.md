@@ -15,8 +15,7 @@ How Perch decides *what to do* when a window event arrives.
 
 - `IGNORE` — do nothing. (Used by exclusions.)
 - `RESTORE_LAST_SEEN` — apply the remembered geometry for this identity, if any.
-- `APPLY_GEOMETRY(geom)` — apply a specific geometry now.
-- `APPLY_LAYOUT(name)` — apply the named layout's entry that matches this window (if any).
+- `APPLY_ACTION(action)` — apply the matched rule's or layout's `apply` block (see [02-state-format.md](02-state-format.md) §Apply actions). The action carries any combination of `geometry`, `snap`, `monitor`, `desktop`, and `maximized` — the backend adapter applies them together.
 
 The engine never emits more than one decision per window per event. Chaining ("apply layout X *then* move to monitor 2") is expressed inside a single layout or rule, not by stacking decisions.
 
@@ -26,8 +25,8 @@ Top to bottom, first match wins. The order is:
 
 1. **Built-in exclusion: override-redirect windows, known system popups.** Emits `IGNORE`. Not configurable.
 2. **User exclusions** (`[exclusions]` in config). Emits `IGNORE`.
-3. **User rules** (`[[rules]]`, in config order). First match wins — `APPLY_GEOMETRY` or `APPLY_LAYOUT`.
-4. **Active layout**, if one is set and has an entry matching this window. `APPLY_LAYOUT(current)`.
+3. **User rules** (`[[rules]]`, in config order). First match wins — `APPLY_ACTION`.
+4. **Active layout**, if one is set and has an entry matching this window. `APPLY_ACTION` using the layout entry's `apply`.
 5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`.
 6. **Do nothing.**
 
@@ -83,6 +82,17 @@ When an action's `geometry` or `snap` is applied, Perch resolves it to pixel coo
 4. `monitor = "primary"` | `"current"` | an integer index → resolved against the active profile's output list.
 5. `monitor` as an output name (`"DP-1"`) → resolved directly; if that output is currently disconnected, the rule is skipped (not reassigned to primary — that would silently do the wrong thing).
 
+## Apply order
+
+An action can mix `maximized`, `geometry`/`snap`, `monitor`, and `desktop`. The backend adapter applies them in a fixed order so the user-visible result is deterministic:
+
+1. If `maximized = false` (explicit), unmaximize first. This lets a subsequent `set_geometry` actually move the window on backends that ignore geometry writes on maximized windows (Mutter; see [06-backend-stubs.md](06-backend-stubs.md)).
+2. If `desktop` is set and differs from the current desktop, move the window first so geometry is evaluated against the target desktop's work area.
+3. If `geometry` / `snap` is set, apply it (with `monitor` resolving the target output).
+4. If `maximized = true`, call `set_state(wid, WindowState.MAXIMIZED)`.
+
+If the active backend declares `can_set_state = False` and the action sets `maximized = true`, Perch substitutes `geometry = "maximize"` against the resolved target monitor and logs at DEBUG. This is the only automatic substitution the engine performs; the semantic difference is noted at [02-state-format.md](02-state-format.md) §Apply actions.
+
 ## Reactive evaluation
 
 The engine is reactive:
@@ -126,7 +136,8 @@ Window events are rare (dozens per minute at most during heavy use). Matching is
 The config loader rejects a rule with:
 
 - A `match` block that is entirely empty (would match every window — users almost never want that; use an explicit `catch_all = true` field if you really do).
-- An `apply` block missing both `geometry` and `snap` (no effect).
+- An `apply` block that has no effect — i.e. none of `geometry`, `snap`, `maximized`, `desktop` is set.
+- An `apply` block setting both `maximized = true` and an explicit `geometry` or `snap` (contradiction — see [02-state-format.md](02-state-format.md) §Apply actions). `maximized = false` alongside a geometry/snap is allowed and means "unmaximize first, then place."
 - A `monitor` referring to an output index higher than the current profile declares.
 - A `snap` name not in the built-in set or the user's `[snaps]` table.
 

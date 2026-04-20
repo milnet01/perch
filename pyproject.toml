@@ -48,14 +48,49 @@ Issues = "https://github.com/milnet01/perch/issues"
 Documentation = "https://github.com/milnet01/perch/tree/main/docs"
 
 [project.scripts]
-perch = "perch.__main__:main"
+perch = "perch.__main__:cli"
+
+[tool.hatch.version]
+path = "src/perch/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/perch"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/perch",
+    "tests",
+    "docs",
+    "data",
+    "packaging",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "README.md",
+    "LICENSE",
+]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["src/perch", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["qasync", "Xlib.*", "sdbus.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+qt_api = "pyside6"
+xvfb_width = 1280
+xvfb_height = 720

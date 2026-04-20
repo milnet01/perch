@@ -119,11 +119,47 @@ A geometry can be written three ways:
 2. **Percent of monitor work area** — `{ x = "25%", y = "0%", w = "50%", h = "100%", monitor = "primary" }`
 3. **Named preset** — `"maximize"`, `"center"`, `"left-half"`, `"top-right-quarter"`, or any user-defined preset under `[snaps]`.
 
+The named preset `"maximize"` writes a work-area-filling rectangle as geometry — it is not the same as asking the compositor to put the window into its native *maximized state*. For that, use `maximized = true` in `apply` (see §Apply actions below). The geometry preset is universal; the state toggle is more natural for the user but depends on backend support.
+
 `monitor` accepts:
 
 - The output name as reported by the compositor (`DP-1`, `HDMI-1`, `eDP-1`).
 - The strings `primary` (compositor's primary output), `current` (output containing the active window), or `all`.
 - An integer index into the current profile's monitor list (`0`, `1`, …), stable across topology changes.
+
+### Apply actions
+
+Rules, layouts, and the snap-preset CLI all emit an *apply action* — a description of what to do once a match is found. Fields:
+
+| Field | Type | Effect |
+|---|---|---|
+| `geometry` | geometry expression (see above) or named preset string | Place the window at this geometry. |
+| `snap` | built-in snap name or user-defined `[snaps]` key | Shorthand for a geometry preset. |
+| `monitor` | output name / `"primary"` / `"current"` / index | Target output for the geometry. |
+| `desktop` | integer, or `"current"` / `"all"` | Virtual-desktop placement. |
+| `maximized` | `true` \| `false` | Set the compositor's native maximize state (see below). |
+
+#### `maximized` — compositor state vs. geometry preset
+
+Perch exposes two mechanisms that look superficially similar:
+
+1. `apply = { geometry = "maximize" }` — Perch writes `x/y/w/h` spanning the target monitor's work area. The window appears full-work-area but the compositor does not mark it as maximized: the user's maximize/restore toggle button and drag-to-unmaximize are unaffected.
+2. `apply = { maximized = true }` — Perch calls `WindowBackend.set_state(wid, WindowState.MAXIMIZED)` (see [03-backend-interface.md](03-backend-interface.md) §Data types). The compositor sets its native maximized state; the user's maximize/restore affordances behave naturally; a subsequent drag-to-unmaximize restores the pre-maximize geometry.
+
+Use `maximized = true` whenever you want the window to behave as if the user themselves had clicked "maximize." Use the `"maximize"` geometry preset when you want a specific pixel rectangle equivalent to the work area regardless of compositor state — e.g. for a pinned-by-rule position inside a layout.
+
+**Backend support.** `maximized` needs `Capabilities.can_set_state = True` *and* the backend's `set_state(wid, WindowState.MAXIMIZED)` implementation to succeed. X11, KWin, and Mutter all implement native maximize. Sway and Hyprland declare `can_set_state = True` (they support minimize and fullscreen) but raise `BackendUnsupported` for `MAXIMIZED` specifically — their tiling models have no equivalent state. When Perch catches `BackendUnsupported`, it falls back to geometry equivalent to the `"maximize"` preset against the target monitor's work area and emits a DEBUG log line naming the rule. The fallback is documented per-backend in [04-backend-x11.md](04-backend-x11.md), [05-backend-kwin.md](05-backend-kwin.md), and [06-backend-stubs.md](06-backend-stubs.md).
+
+**Interaction with `geometry`.** `maximized = true` together with an explicit `geometry` is a contradiction; the config loader rejects it. `maximized = false` with `geometry = ...` is permitted and means "unmaximize first, then move/resize" — useful for layouts that reposition a previously-maximized window (on backends where setting geometry on a maximized window is a no-op; see [06-backend-stubs.md](06-backend-stubs.md) §Mutter).
+
+Example:
+
+```toml
+[[rules]]
+name  = "Firefox maximised on external"
+match = { app_id = "firefox" }
+apply = { maximized = true, monitor = "HDMI-1" }
+```
 
 ### Match patterns
 
@@ -232,4 +268,8 @@ That's fine for `state.json` but means `config.toml` lives somewhere users don't
 
 ## Schema reference
 
-The exact schema (keys, types, defaults, validation rules) is authoritative in code once M1 lands: `perch/config/schema.py`. This document covers shape and intent; the code is the source of truth for the field list at any given version.
+The exact schema (keys, types, defaults, validation rules) is authoritative in code: [`src/perch/config/schema.py`](../src/perch/config/schema.py). This document covers shape and intent; the code is the source of truth for the field list at any given version.
+
+Read / validate / seed logic lives in [`src/perch/config/loader.py`](../src/perch/config/loader.py). The atomic-write recipe described above in §Atomic writes is implemented in [`src/perch/config/writer.py`](../src/perch/config/writer.py). The migration registry lives at [`src/perch/config/migrations/__init__.py`](../src/perch/config/migrations/__init__.py); it is wired but empty at schema version 1. A failing migration — or a document whose `schema_version` exceeds what this Perch understands — surfaces as a `ConfigError` that produces a non-zero exit and a pinpoint log line.
+
+Comment preservation across `config.toml` round-trips is enforced by `tests/test_config_roundtrip.py`, which exercises the representative document shapes (top-level, `[general]`, `[exclusions]`, nested `[snaps.*]`, `[[rules]]`, `[layouts.<name>.windows]`, `[[profiles]]`). A failure in that test is treated as release-blocking per the trust-violation note above.

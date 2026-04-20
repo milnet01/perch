@@ -24,7 +24,7 @@ Perch uses a backend-plugin architecture so it can target any mainstream Linux d
 
 | Backend | Status | How it works |
 |---|---|---|
-| X11 (any EWMH window manager) | planned for v1 | `python-ewmh` / `wmctrl` |
+| X11 (any EWMH window manager) | planned for v1 | `python-xlib` + an in-tree EWMH helper |
 | KWin / Plasma Wayland | planned for v1 | KWin D-Bus + a bundled KWin JavaScript script |
 | Mutter / GNOME Wayland | stub + docs | GNOME Shell extension (contributor-welcome) |
 | Sway / wlroots | stub + docs | `swaymsg` |

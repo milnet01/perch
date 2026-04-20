@@ -136,6 +136,10 @@ The mismatch between Perch's "set absolute geometry" model and Sway's tiling mod
 
 For general tiling users, Sway's own `for_window` directive is already the right tool. Perch does not compete with it.
 
+### Window state
+
+`set_state(wid, WindowState.MINIMIZED)` maps to `move scratchpad`; `WindowState.FULLSCREEN` maps to `fullscreen enable`. `WindowState.MAXIMIZED` has no equivalent in Sway's model (tiled windows already fill their container; floating windows have no maximize toggle) and raises `BackendUnsupported`. The core engine's apply pipeline catches this and substitutes geometry equivalent to the `"maximize"` preset — see [07-rules-engine.md](07-rules-engine.md) §Apply order.
+
 ### Hotkeys
 
 Sway hardcodes hotkeys in its config file; there is no runtime API to grab keys. `can_register_hotkeys = False`. Users who want Perch hotkeys on Sway can bind keys to `swaymsg exec` invocations of Perch's CLI (coming in v1.x) in their Sway config. This is documented in the stub's `STATUS.md`.
@@ -179,6 +183,10 @@ Capabilities(
             "Like Sway, geometry applies cleanly only to floating windows."
 )
 ```
+
+### Window state
+
+Same story as Sway: `MINIMIZED` and `FULLSCREEN` map to `hyprctl` dispatches (`movetoworkspace special` and `fullscreen 1`), while `MAXIMIZED` has no Hyprland equivalent and raises `BackendUnsupported`. The core engine substitutes geometry against the work area — see [07-rules-engine.md](07-rules-engine.md) §Apply order.
 
 ### Contributor path
 

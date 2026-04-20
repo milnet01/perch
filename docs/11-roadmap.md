@@ -19,11 +19,13 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen pending M1 start. |
-| 4 | Implementation | pending | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 underway from 2026-04-20) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
 ## M1 — Skeleton + config
+
+**Status:** **in progress** (started 2026-04-20). See `src/perch/` and `tests/`.
 
 **Goal:** a runnable Perch binary that parses config, logs what it sees, and quits cleanly. No backend yet.
 
@@ -46,8 +48,8 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 
 **Docs updates at M1:**
 
-- `02-state-format.md` cross-references the actual schema module.
-- A new `docs/contributing-dev-setup.md` describing the dev workflow.
+- `02-state-format.md` cross-references the actual schema module — **done**.
+- A new `docs/contributing-dev-setup.md` describing the dev workflow — **done**.
 
 ---
 

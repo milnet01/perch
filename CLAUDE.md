@@ -51,7 +51,7 @@ The core (tray, UI, state, rules engine, hotkey dispatcher) is backend-agnostic 
 
 | Backend | Transport | Priority |
 |---|---|---|
-| X11 (any EWMH WM) | `python-ewmh` | v1 |
+| X11 (any EWMH WM) | `python-xlib` + in-tree EWMH helper | v1 |
 | KWin / Plasma Wayland | KWin D-Bus + bundled KWin JS script | v1 |
 | Mutter / GNOME Wayland | GNOME Shell extension | stub, community |
 | Sway / wlroots | `swaymsg` | stub, community |
