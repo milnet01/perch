@@ -98,4 +98,5 @@ xvfb_width = 1280
 xvfb_height = 720
 markers = [
     "x11: live integration tests that require Xvfb + openbox; run with 'pytest -m x11' to include, 'pytest -m \"not x11\"' to exclude.",
+    "kwin: live integration tests that spawn a private dbus + kwin_wayland --virtual; run with 'pytest -m kwin' to include, 'pytest -m \"not kwin\"' to exclude.",
 ]

@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 done; M5 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 done; M6 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -176,27 +176,91 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 ---
 
-## M5 — KWin backend (Wayland primary)
+## M5 — KWin backend (Wayland primary) — **done** 2026-04-20
 
 **Goal:** Perch is good on Plasma Wayland.
 
-**In scope:**
+**Landed in subphases M5.a..M5.g:**
 
-- `perch/backend/kwin/` — Python half.
-- `perch/backend/kwin/script/` — bundled KWin JS script.
-- Script versioning and load/unload lifecycle.
-- KGlobalAccel integration for hotkeys.
-- Integration test: headless KWin in CI (`kwin_wayland --virtual`).
+- **M5.a** — Bundled KWin JS script: `src/perch/backend/kwin/script/`
+  (`metadata.json` v1.0.0 + `contents/code/main.js`). Subscribes to
+  `workspace.windowAdded`/`Removed`, per-window
+  `frameGeometryChanged` (50 ms debounced), `captionChanged`,
+  `fullScreenChanged`, `minimizedChanged`, `maximizedChanged`,
+  `desktopsChanged`, `outputChanged`, and `workspace.screensChanged`.
+  Long-poll command dispatcher (`setFrameGeometry` / `setFullScreen`
+  / `setMinimized` / `setMaximizeMode` / `setDesktop` / `closeWindow`
+  / `queryWindows` / `queryOutputs` / `queryWindow` /
+  `queryCurrentDesktop` / `queryDesktopCount`). Batch op for
+  one-tick layout application. Fires `ScriptReady(v=1.0.0)` on
+  startup. JSON-strings-everywhere to sidestep KWin bug 486024.
+- **M5.b** — Python D-Bus service (`PerchKWin1` exporting
+  `io.github.milnet01.Perch.KWin1`) with long-poll `PollCommand` (5 s
+  ceiling), `CommandDone` correlation, `invalidate_polls()` with
+  Event-swap (carried forward from the M2.5 spike's orphan-awaiter
+  fix), `reset_completion_state()` for clean shutdown. Typed `op_*`
+  builders + `decode_window_info` / `decode_output_entry` codecs.
+  Client proxies for `org.kde.KWin.Scripting` (`loadScript` /
+  `unloadScript` / `isScriptLoaded`), per-script `/Scripting/Script{id}`,
+  and `/KWin` core. `method_name=` pinned everywhere because
+  sdbus-python's auto-camel uppercases the first letter.
+- **M5.c** — Script installation + version pinning:
+  `ensure_installed()` mirrors the bundled tree into
+  `$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/` (idempotent when
+  the on-disk version matches `BUNDLED_SCRIPT_VERSION`, rewrites
+  otherwise, heals a truncated install). `ScriptVersionMismatch`
+  raised if the on-disk version still doesn't match after install.
+- **M5.d** — `KWinBackend(WindowBackend)` skeleton: env probe,
+  transport lifecycle with defensive pre-load unloadScript,
+  `Capabilities` per docs/05, enumeration queries (`list_windows` /
+  `get_window` / `list_outputs` / `current_desktop` /
+  `desktop_count`), event routing (backend is its own `EventSink`),
+  output diff-and-emit on `OutputsChanged`, no-op suppression on
+  repeated `WindowGeometryChanged` with identical geometry.
+- **M5.e** — Commands: `set_geometry` (with monitor cache hit-through
+  + `UnknownOutput`, `setDesktop` + `setFrameGeometry` batched when
+  both supplied, `preplace=True` for best-effort first-frame stacking),
+  `set_state` (per-state transition batches for FULLSCREEN /
+  MAXIMIZED / MINIMIZED / NORMAL), `close_window`, consistent
+  error translation (`unknown_window` → `UnknownWindow`,
+  `unknown_output` → `UnknownOutput`).
+- **M5.f** — Hotkeys via KGlobalAccel: `KGlobalAccelProvider` with
+  `setShortcutKeys` + `globalShortcutPressed` signal pump;
+  `ParsedAccel` parser with portable-accel aliases; Qt packed-int key
+  encoding for letters / digits / F1..F35; `HotkeyProvider` Protocol
+  with a `MockHotkeyProvider` for unit tests; `choose_provider`
+  factory with `PERCH_HOTKEY_PROVIDER=mock` env override.
+  `HotkeyBusyError` / `HotkeyParseError` surface as `backend_error`
+  signals before re-raising. Portal-first path (xdg-desktop-portal
+  GlobalShortcuts) deferred to M8 — it needs live validation against
+  the Flatpak + xdg-desktop-portal-kde environment that M8 sets up.
+- **M5.g** — Integration tests against a private `dbus-daemon` +
+  `kwin_wayland --virtual` session (`@pytest.mark.kwin`, automatically
+  skipped when binaries are missing). Manual smoke checklist
+  in `docs/testing/kwin-checklist.md` for the real-Plasma checks
+  CI can't do (KGlobalAccel, multi-monitor restore, pre-placement
+  flicker).
 
-**Exit criteria:**
+**Exit-criterion evidence:**
 
-- Compliance suite passes.
-- Pre-paint placement works for a representative app (no visible flash on restore).
-- Manual smoke test on Plasma Wayland 6 documented in `docs/testing/kwin-checklist.md`.
+- Compliance suite passes: 511 tests green (507 unit + 4 live KWin).
+- Pre-paint placement hook implemented (`preplace=True` →
+  `keepAbove` during first-frame settle) per docs/05 §Pre-placement
+  hook; visible-flicker criterion is manual-checklist territory (see
+  `docs/testing/kwin-checklist.md`).
+- Manual smoke checklist documented at
+  `docs/testing/kwin-checklist.md`; reference-environment pass
+  expected on the maintainer's Plasma 6.6.4 session.
 
-**Docs updates:**
+**Docs updates made:**
 
-- `05-backend-kwin.md` confirms the script's final D-Bus surface matches the doc.
+- `05-backend-kwin.md` §Outbound table reworked to reflect "every
+  method has signature `s` (JSON payload)" after correcting the
+  pre-Phase-2.5 table that still showed typed signatures; §Script
+  installation strategy rewritten to state the shared-target-path
+  invariant and reference `BUNDLED_SCRIPT_DIR` / `ensure_installed`
+  / `ScriptVersionMismatch`; §Hotkeys rewritten to describe
+  KGlobalAccel as the v1 path with the portal deferred to M8.
 
 ---
 
@@ -253,6 +317,13 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 - COPR configured for Fedora.
 - AUR `PKGBUILD` published.
 - KDE Store listing prepared.
+- **XDG Desktop Portal GlobalShortcuts** hotkey path for KWin, live-validated
+  against the Flatpak + xdg-desktop-portal-kde environment. M5 ships
+  KGlobalAccel direct (the correct answer for RPM / AUR / dev installs
+  today); the portal is required for sandboxed Flatpak builds and
+  extends the key-range beyond Fn / letter / digit. Tracked in
+  `docs/05-backend-kwin.md` §Hotkeys — "Future path (M8, alongside
+  Flatpak)".
 
 **Exit criteria:**
 

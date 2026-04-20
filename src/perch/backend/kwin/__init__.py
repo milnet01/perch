@@ -14,6 +14,10 @@ Authoritative design: ``docs/05-backend-kwin.md``.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .backend import KWinBackend as KWinBackend
 
 #: Directory containing the bundled KWin script (``metadata.json`` +
 #: ``contents/code/main.js``). Shipped inside the wheel; installers mirror

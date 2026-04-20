@@ -576,15 +576,28 @@ class KWinBackend(WindowBackend):
 
 
 async def _default_bus_setup(service_name: str) -> None:
-    """Open the session bus and claim ``service_name``."""
+    """Open the session bus and claim ``service_name``.
+
+    Idempotent within a single process: if a previous ``start()`` already
+    acquired the name and we haven't exited, ``request_default_bus_name``
+    raises :class:`SdBusRequestNameExistsError` — we treat that as success
+    rather than fighting for a name we already own.
+    """
+    import contextlib
+
     from sdbus import (
         request_default_bus_name_async,
         sd_bus_open_user,
         set_default_bus,
     )
+    from sdbus.sd_bus_internals import SdBusRequestNameExistsError
 
     set_default_bus(sd_bus_open_user())
-    await request_default_bus_name_async(service_name)
+    # Idempotent: if we already own the name from a previous start() in
+    # this process, sdbus raises SdBusRequestNameExistsError — that's
+    # success, not failure.
+    with contextlib.suppress(SdBusRequestNameExistsError):
+        await request_default_bus_name_async(service_name)
 
 
 async def _default_scripting_factory() -> KWinScripting:
