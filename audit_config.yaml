@@ -22,6 +22,13 @@ project:
   source_dirs:
     - src/
     - experiments/   # M2.5 KWin IPC spike lands here
+  # NB: tests/ is deliberately NOT in source_dirs — upstream audit.py's
+  # exclude_pattern is line-content based (not path-based), so the standard
+  # `test_|conftest\.py|/tests/` excludes on patterns like assert_in_production
+  # and print_debug silently fail. Scanning tests/ produces ~90 noise
+  # findings per run (assert in tests is fine; print in tests is fine) that
+  # drown the actionable src/ signal. Security-scanning tests is still
+  # valuable in principle — revisit once upstream supports path excludes.
   shader_dirs: []
   shader_glob: '*.glsl'
   source_extensions:
@@ -63,7 +70,10 @@ patterns:
   # ─── Python security ────────────────────────────────────────────────────────
   security:
     - name: eval_exec
-      pattern: \b(eval|exec)\s*\(
+      # Negative lookbehind: skip `.exec(` (QDialog.exec, QApplication.exec,
+      # any `obj.exec(...)`) and `foo_exec(` / `proc.execute(` — we only want
+      # bare top-level `eval(` / `exec(` calls that evaluate Python strings.
+      pattern: (?<![.\w])(eval|exec)\s*\(
       file_glob: '*.py'
       severity: high
       description: eval/exec — code injection risk
@@ -115,7 +125,12 @@ patterns:
       file_glob: '*.py'
       severity: info
       description: assert removed with -O — use explicit validation for non-test code
-      exclude_pattern: test_|_test\.py|conftest\.py|/tests/
+      # `is None`/`is not None`/`isinstance(...)` asserts are the idiomatic mypy
+      # type-narrowing pattern; they are invariants, not validation, so -O
+      # stripping them is a bug in the caller's deployment, not a code smell.
+      # Path-like excludes (`/tests/`) are kept for completeness but are inert
+      # in upstream audit.py (exclude_pattern matches line content, not path).
+      exclude_pattern: is\s+(not\s+)?None|isinstance\(|test_|_test\.py|conftest\.py|/tests/
     - name: bare_except
       pattern: 'except\s*:'
       file_glob: '*.py'
@@ -126,7 +141,11 @@ patterns:
       file_glob: '*.py'
       severity: low
       description: print() — use logging instead
-      exclude_pattern: test_|__main__\.py|/cli\.py|/experiments/
+      # Path-based excludes like `__main__\.py` are inert (upstream audit.py
+      # matches line content, not filename); the content-based `file=sys.stderr`
+      # catches the legitimate CLI-error case that lives in __main__.py before
+      # logging is configured.
+      exclude_pattern: file\s*=\s*sys\.stderr|test_|__main__\.py|/cli\.py|/experiments/
 
   # ─── Perch-specific drift detectors ─────────────────────────────────────────
   # These catch code that slips back into decisions Phase 2 research overturned.
@@ -183,7 +202,10 @@ patterns:
       exclude_pattern: /docs/|CHANGELOG|# Plasma 5|// Plasma 5
       skip_comments: true
     - name: tight_poll_loop
-      pattern: (QTimer\.singleShot\(\s*(25|50|75|100)\b|asyncio\.sleep\(\s*0\.0?(25|5|75|1)\b)
+      # Bug in the prior regex: `0\.0?(25|5|75|1)` matched `0.5` as well as
+      # `0.025/0.05/0.075/0.1` because the `0?` made the leading zero optional.
+      # Anchor the tenth digit explicitly — we only want 25/50/75/100 ms.
+      pattern: (QTimer\.singleShot\(\s*(25|50|75|100)\b|asyncio\.sleep\(\s*0\.(025|05|075|1)\b)
       file_glob: '*.py'
       severity: info
       description: Tight polling loop — confirm this is not the KWin IPC command poll (should be long-poll, not tight poll)
@@ -222,6 +244,16 @@ tier4:
   event_subscribe_pattern: backend\.(window|output)_\w+\.connect\(
   event_unsubscribe_pattern: disconnect\(
   complexity_threshold: 300
+  # Perch licenses at the repo root (LICENSE — GPL-3.0-or-later). Per-file
+  # SPDX headers aren't required by the project; upstream's copyright
+  # detector would otherwise flag every .py as "missing header" (48/48).
+  copyright:
+    enabled: false
+  # Raise duplication threshold — at min_lines=5, trivial imports / slot
+  # signatures / atom-table boilerplate fire 600+ clone pairs with no
+  # refactor value. 12 lines is the band where duplicated *logic* lives.
+  duplication:
+    min_lines: 12
 
 research:
   enabled: true
@@ -230,14 +262,16 @@ research:
   max_results_per_query: 3
   # Topics Perch cares about. The /audit skill's audit-triage subagent
   # cross-references findings against recent CVEs and guidance for these.
+  # Schema: each topic is a dict with a `query` key (upstream tier5_research
+  # crashes on bare strings — lib/tier5_research.py calls topic.get("query")).
   topics:
-    - PySide6 security
-    - qasync asyncio
-    - sdbus-python
-    - KWin scripting
-    - Flatpak portal
-    - python-xlib
-    - tomlkit
+    - query: site:nvd.nist.gov PySide6 vulnerability
+    - query: site:nvd.nist.gov qasync asyncio
+    - query: site:nvd.nist.gov sdbus-python
+    - query: KWin scripting API deprecation Plasma 6
+    - query: site:docs.flatpak.org portal permission
+    - query: site:nvd.nist.gov python-xlib vulnerability
+    - query: site:nvd.nist.gov tomlkit
   custom_queries: []
 
 report:
