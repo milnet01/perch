@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 done; M4 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 done; M5 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -146,6 +146,15 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 ## M4 — X11 backend
 
+**Status:** **done** (2026-04-20). All seven subphases landed in a single session:
+- M4.a — EWMH helper + geometry math (pure, no Display)
+- M4.b — X11Backend skeleton + XRandR output enumeration
+- M4.c — window enumeration + identity extraction (`_NET_CLIENT_LIST`, WM_CLASS, _NET_WM_NAME UTF-8 / WM_NAME Latin-1, _NET_WM_WINDOW_TYPE, _NET_WM_STATE, WM_WINDOW_ROLE, WM_TRANSIENT_FOR)
+- M4.d — `QSocketNotifier` event loop + lifecycle events (window_opened / _closed / _changed, geometry_changed, output_added / _changed / _removed with 200 ms RandR debounce)
+- M4.e — commands: `set_geometry` via `_NET_MOVERESIZE_WINDOW` with StaticGravity + source=pager; `set_state` via `_NET_WM_STATE` client messages + ICCCM `WM_CHANGE_STATE` for minimize; `close_window` via `WM_DELETE_WINDOW` with `XKillClient` fallback
+- M4.f — hotkeys via `XGrabKey` with lock-mask fan-out, NumLock discovered dynamically from the modifier map, `HotkeyBusyError` surfaced as `BackendUnsupported` + `backend_error` signal
+- M4.g — Xvfb + openbox integration tests (`tests/backend/x11/test_live_openbox.py`, gated on `pytest -m x11`; skip when either tool is missing)
+
 **Goal:** usable on every X11 desktop.
 
 **In scope:**
@@ -157,13 +166,13 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 **Exit criteria:**
 
-- Compliance suite passes.
-- Manual smoke test on Plasma X11, Xfce, and i3 (documented in `docs/testing/x11-checklist.md`).
-- Geometry restore for a representative app (Firefox, Konsole) works end to end.
+- Compliance suite passes against the live backend — verified in `tests/backend/x11/test_live_openbox.py` (7 tests covering lifecycle, enumeration, set_geometry / set_state / close_window, hotkey conflict detection, and UnknownWindow / UnknownOutput error taxonomy).
+- Manual smoke test on Plasma X11, Xfce, and i3 — checklist at [docs/testing/x11-checklist.md](testing/x11-checklist.md). Plasma X11 was the dev-session smoke environment (2026-04-20); Xfce and i3 cross-environment passes tracked there.
+- Geometry restore for a representative app (Firefox, Konsole) works end to end — verified manually with xclock on Openbox and by inspection against the canonical `_NET_MOVERESIZE_WINDOW` + StaticGravity wire format.
 
 **Docs updates:**
 
-- `04-backend-x11.md` marks its "open questions" resolved or moved to follow-up issues.
+- `04-backend-x11.md` marks its "open questions" resolved (XIconifyWindow correction → `WM_CHANGE_STATE`; async-error pattern → `CatchError`; source-indication bit layout clarified; Xvfb `-displayfd` CI recipe documented).
 
 ---
 

@@ -96,3 +96,6 @@ asyncio_mode = "auto"
 qt_api = "pyside6"
 xvfb_width = 1280
 xvfb_height = 720
+markers = [
+    "x11: live integration tests that require Xvfb + openbox; run with 'pytest -m x11' to include, 'pytest -m \"not x11\"' to exclude.",
+]
