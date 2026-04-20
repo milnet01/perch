@@ -72,16 +72,16 @@ def test_get_window_requires_connection() -> None:
     asyncio.run(go())
 
 
-def test_commands_raise_backend_unsupported_until_m4e() -> None:
+def test_commands_require_connection() -> None:
     backend = X11Backend(display_name=":99999.0")
     import asyncio
 
     async def go() -> None:
-        with pytest.raises(BackendUnsupported):
+        with pytest.raises(BackendDisconnected):
             await backend.set_geometry("w1", Geometry(0, 0, 800, 600))
-        with pytest.raises(BackendUnsupported):
+        with pytest.raises(BackendDisconnected):
             await backend.set_state("w1", WindowState.MAXIMIZED)
-        with pytest.raises(BackendUnsupported):
+        with pytest.raises(BackendDisconnected):
             await backend.close_window("w1")
 
     asyncio.run(go())

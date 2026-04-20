@@ -28,6 +28,7 @@ from perch.backend.base import (
     BackendDisconnected,
     BackendUnavailable,
     BackendUnsupported,
+    UnknownOutput,
     UnknownWindow,
     WindowBackend,
 )
@@ -42,7 +43,18 @@ from perch.backend.types import (
     WindowState,
 )
 
-from .ewmh import AtomTable, desktop_from_wire
+from .ewmh import (
+    WM_STATE_ADD,
+    WM_STATE_REMOVE,
+    AtomTable,
+    build_change_state_message,
+    build_close_message,
+    build_moveresize_message,
+    build_wm_desktop_message,
+    build_wm_state_message,
+    desktop_from_wire,
+    desktop_to_wire,
+)
 from .identity import read_window_info
 from .outputs import apply_workarea, list_outputs
 
@@ -296,20 +308,137 @@ class X11Backend(WindowBackend):
         monitor: OutputName | None = None,
         desktop: DesktopIndex | None = None,
     ) -> None:
-        # M4.e will implement _NET_MOVERESIZE_WINDOW dispatch here.
-        raise BackendUnsupported(
-            "X11Backend.set_geometry lands in M4.e; no WindowId is yet tracked"
+        d = self._require_connected()
+        atoms = self._require_atoms()
+        win = self._windows.get(wid)
+        if win is None:
+            raise UnknownWindow(f"no window with id {wid!r}")
+
+        # Monitor parameter: translate the requested (x, y) into root-absolute
+        # coords by adding the output's origin. Then validate the output is
+        # known. The X11 backend has no native "move to output N" primitive —
+        # the geometry offset is how every EWMH tool does it.
+        target_x = geom.x
+        target_y = geom.y
+        if monitor is not None:
+            out = self._outputs_cache.get(monitor)
+            if out is None:
+                raise UnknownOutput(f"no output named {monitor!r}")
+            target_x = out.geometry.x + geom.x
+            target_y = out.geometry.y + geom.y
+
+        # Send the client message routed through the WM for correct
+        # decoration-aware placement (StaticGravity → client-area coords).
+        msg = build_moveresize_message(
+            win, atoms, target_x, target_y, geom.w, geom.h
         )
+        root = d.screen().root
+        root.send_event(
+            msg,
+            event_mask=_X.SubstructureRedirectMask | _X.SubstructureNotifyMask,
+        )
+
+        # Move to the requested desktop in the same batch so pager-style
+        # "send to desktop N and place at (x, y)" moves land atomically from
+        # the user's perspective.
+        if desktop is not None:
+            desk_msg = build_wm_desktop_message(
+                win, atoms, desktop_to_wire(desktop)
+            )
+            root.send_event(
+                desk_msg,
+                event_mask=_X.SubstructureRedirectMask
+                | _X.SubstructureNotifyMask,
+            )
+
+        d.flush()
 
     async def set_state(self, wid: WindowId, state: WindowState) -> None:
-        raise BackendUnsupported(
-            "X11Backend.set_state lands in M4.e; no WindowId is yet tracked"
-        )
+        d = self._require_connected()
+        atoms = self._require_atoms()
+        win = self._windows.get(wid)
+        if win is None:
+            raise UnknownWindow(f"no window with id {wid!r}")
+
+        root = d.screen().root
+        ev_mask = _X.SubstructureRedirectMask | _X.SubstructureNotifyMask
+
+        if state is WindowState.MINIMIZED:
+            # ICCCM: WM_CHANGE_STATE client message with IconicState=3 is the
+            # wire-level equivalent of libX11's XIconifyWindow.
+            root.send_event(build_change_state_message(win, atoms), event_mask=ev_mask)
+            d.flush()
+            return
+
+        # Compute the add/remove pairs against the standard triple (MAXIMIZED_*,
+        # FULLSCREEN). This keeps transitions idempotent: going NORMAL from
+        # any state clears every sticky bit.
+        fs = atoms["_NET_WM_STATE_FULLSCREEN"]
+        mh = atoms["_NET_WM_STATE_MAXIMIZED_HORZ"]
+        mv = atoms["_NET_WM_STATE_MAXIMIZED_VERT"]
+
+        if state is WindowState.FULLSCREEN:
+            msg = build_wm_state_message(win, atoms, WM_STATE_ADD, fs)
+            root.send_event(msg, event_mask=ev_mask)
+            # Clear any lingering maximised state so the transition is clean.
+            root.send_event(
+                build_wm_state_message(win, atoms, WM_STATE_REMOVE, mh, mv),
+                event_mask=ev_mask,
+            )
+        elif state is WindowState.MAXIMIZED:
+            root.send_event(
+                build_wm_state_message(win, atoms, WM_STATE_ADD, mh, mv),
+                event_mask=ev_mask,
+            )
+            root.send_event(
+                build_wm_state_message(win, atoms, WM_STATE_REMOVE, fs),
+                event_mask=ev_mask,
+            )
+        elif state is WindowState.NORMAL:
+            # Remove everything.
+            root.send_event(
+                build_wm_state_message(win, atoms, WM_STATE_REMOVE, mh, mv),
+                event_mask=ev_mask,
+            )
+            root.send_event(
+                build_wm_state_message(win, atoms, WM_STATE_REMOVE, fs),
+                event_mask=ev_mask,
+            )
+        else:
+            raise BackendUnsupported(f"unknown WindowState: {state!r}")
+        d.flush()
 
     async def close_window(self, wid: WindowId) -> None:
-        raise BackendUnsupported(
-            "X11Backend.close_window lands in M4.e; no WindowId is yet tracked"
-        )
+        d = self._require_connected()
+        atoms = self._require_atoms()
+        win = self._windows.get(wid)
+        if win is None:
+            raise UnknownWindow(f"no window with id {wid!r}")
+
+        # If the window advertises WM_DELETE_WINDOW in WM_PROTOCOLS, the
+        # polite path is an ICCCM client message. Otherwise fall back to a
+        # hard kill.
+        if self._supports_delete_protocol(win, atoms):
+            # Send directly to the target window (not routed through root).
+            msg = build_close_message(win, atoms)
+            win.send_event(msg, event_mask=0, propagate=False)
+        else:
+            # XKillClient — the last-resort abrupt close. python-xlib exposes
+            # this as display.kill_client(resource). Matches what xkill does.
+            d.kill_client(win)
+        d.flush()
+
+    def _supports_delete_protocol(
+        self, win: Window, atoms: AtomTable
+    ) -> bool:
+        try:
+            prop = win.get_full_property(atoms["WM_PROTOCOLS"], _X.AnyPropertyType)
+        except (_xerror.BadWindow, _xerror.BadMatch):
+            return False
+        if prop is None or prop.format != 32:
+            return False
+        delete_atom = atoms["WM_DELETE_WINDOW"]
+        return any(int(a) == delete_atom for a in prop.value)
 
     # ── Hotkeys (optional) ─────────────────────────────────────────────────
     async def register_hotkey(self, accel: str, callback_id: str) -> None:

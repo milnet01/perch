@@ -37,10 +37,7 @@ from .ewmh import (
     map_window_type,
 )
 from .geometry import (
-    FrameExtents,
-    client_area_from_frame,
     monitor_for_geometry,
-    read_frame_extents,
     translate_to_root,
 )
 
@@ -208,18 +205,26 @@ def _read_transient_for(window: Window) -> int | None:
 def _read_client_geometry(
     display: Display, atoms: AtomTable, window: Window
 ) -> Geometry | None:
-    """Compute client-area root-coord geometry or return None on BadWindow."""
+    """Compute the client-area rectangle in root coords or None on BadWindow.
+
+    ``root.translate_coords(window, 0, 0)`` already returns the root-relative
+    position of the *client* window's top-left (reparenting WMs don't fool
+    TranslateCoordinates — it walks the window tree), and ``get_geometry``
+    returns the client's own width / height. ``_NET_FRAME_EXTENTS`` is not
+    subtracted: both inputs are already expressed in client-area terms, and
+    applying extents on top would double-count the decoration offset.
+    Smoke-verified against Openbox 3.6.1 during M4.e.
+    """
+    # atoms is reserved for a future FrameExtents-aware code path (e.g. when
+    # the backend starts consuming the ConfigureNotify payload, whose x/y
+    # fields *are* frame-relative). Silence the unused-arg warning for now.
+    del atoms
     try:
         raw = window.get_geometry()
         root_x, root_y = translate_to_root(display, window)
-        extents: FrameExtents = read_frame_extents(
-            window, atoms["_NET_FRAME_EXTENTS"]
-        )
     except _DEAD:
         return None
-    return client_area_from_frame(
-        root_x, root_y, int(raw.width), int(raw.height), extents
-    )
+    return Geometry(root_x, root_y, int(raw.width), int(raw.height))
 
 
 def _read_desktop(atoms: AtomTable, window: Window) -> int:

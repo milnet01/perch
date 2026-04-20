@@ -177,10 +177,11 @@ def test_override_redirect_windows_are_ignored() -> None:
 
 def test_basic_window_info_matches_expected_shape() -> None:
     atoms = _FakeAtoms()
-    # Geometry: frame at (100, 40), frame 820x640, extents 10/10/30/10.
-    # → client area at (110, 70), 800x600. That overlaps DP-1 fully.
+    # root.translate_coords(window, 0, 0) returns the client top-left in
+    # root coords (extents are NOT double-applied — see the comment in
+    # identity._read_client_geometry). So translate_to=(110, 70) + geom
+    # 800x600 → Geometry(110, 70, 800, 600) straight through.
     props = {
-        atoms["_NET_FRAME_EXTENTS"]: _Prop(value=[10, 10, 30, 10], format=32),
         atoms["_NET_WM_PID"]: _Prop(value=[4321], format=32),
         atoms["_NET_WM_STATE"]: _Prop(value=[atoms["_NET_WM_STATE_HIDDEN"]], format=32),
         atoms["_NET_WM_WINDOW_TYPE"]: _Prop(
@@ -190,8 +191,8 @@ def test_basic_window_info_matches_expected_shape() -> None:
     }
     win = _FakeWindow(
         props=props,
-        geom=(820, 640),
-        translate_to=(100, 40),
+        geom=(800, 600),
+        translate_to=(110, 70),
     )
     got = read_window_info(_FakeDisplay(), atoms, win, _OUTPUTS)
     assert got is not None
