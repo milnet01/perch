@@ -47,4 +47,15 @@ __all__ = [
     "OBJECT_PATH",
     "PLUGIN_ID",
     "SERVICE_NAME",
+    "KWinBackend",
 ]
+
+
+def __getattr__(name: str) -> object:
+    # Lazy re-export so importing the package constants doesn't drag in
+    # sdbus / asyncio / PySide6 until someone actually uses the backend.
+    if name == "KWinBackend":
+        from .backend import KWinBackend
+
+        return KWinBackend
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
