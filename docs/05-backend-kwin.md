@@ -128,13 +128,28 @@ Uses **`sdbus-python`** for D-Bus. The backend owns the `io.github.milnet01.Perc
    b. Acquire the bus name `io.github.milnet01.Perch` (release it in `stop`).
    c. Install the bundled script:
       - For Flatpak installs, ensure the script is copied to `$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/` (see [10-packaging.md](10-packaging.md)). KWin runs on the host and cannot read Flatpak's `/app/` path.
-      - Call `org.kde.KWin.Scripting.loadScript(path)` → `run()`.
+      - Call `org.kde.KWin.Scripting.loadScript(path, pluginId)` → `run()`. The two-argument form is required so `unloadScript(pluginId)` later works; the single-argument form loads anonymously and cannot be unloaded cleanly.
    d. Wait up to 2 s for the first `WindowAdded` or `OutputsChanged` to confirm the script is alive and wired.
    e. Emit `backend_connected`.
 2. `stop()`:
-   a. Unload the script via `Scripting.unloadScript(id)`.
-   b. Release the bus name.
-3. If the script disappears (KWin crash/restart): re-install and re-subscribe. Re-emit `backend_connected`. Window state is not lost because `state.json` on disk is authoritative.
+   a. **Invalidate in-flight `PollCommand` awaiters** (see "Poll invalidation" below). Without this, an orphan awaiter from the previous JS instance consumes the next queued command and routes its reply to a KWin callback that no longer exists.
+   b. Unload the script via `Scripting.unloadScript(pluginId)` (returns `bool`).
+   c. Release the bus name.
+3. If the script disappears (KWin crash/restart): invalidate polls (same reason), re-install and re-subscribe. Re-emit `backend_connected`. Window state is not lost because `state.json` on disk is authoritative.
+
+### Poll invalidation
+
+Bug surfaced by the M2.5 spike and fixed there before the real backend inherits it (see [`experiments/kwin_ipc_spike/SPIKE_RESULTS.md`](../experiments/kwin_ipc_spike/SPIKE_RESULTS.md) §cycle probe).
+
+When `unloadScript` is called, the JS callback chain dies, but any Python coroutines that are currently inside a `PollCommand` method handler are still `await`ing the command queue. The next command Perch queues (after reload) gets handed to one of those orphans, which sends its reply back over D-Bus to a callback ID KWin has already freed — so the *new* script instance never sees the command. Symptom: first echo after reload hangs until its 5 s timeout.
+
+The fix is a generation-gated `PollCommand`:
+
+1. `KWinBackend` holds an `asyncio.Event` (`_invalidated`).
+2. Each `PollCommand` snapshots `self._invalidated` at entry and races `queue.get()` against `invalidated.wait()` (plus the 5 s heartbeat ceiling).
+3. On unload / reload, `stop()` calls `invalidate_polls()`: atomically swaps in a fresh `Event` and signals the old one. All orphan awaiters bound to the old event immediately return `{"nop": true, "reason": "invalidated"}`; all new `PollCommand` calls see the fresh event.
+
+Inbound ordering: `stop()` must call `invalidate_polls()` *before* `unloadScript`, to guarantee orphans are drained before KWin tears down the callbacks.
 
 ### Script installation strategy
 
@@ -230,7 +245,7 @@ If/when Plasma 5 support is added (post-v1), it ships as a *second* bundled scri
 ## Testing strategy
 
 - **Unit tests** against `MockBackend` (same as all backends).
-- **M2.5 spike**: `perch/experiments/kwin_ipc_spike/` — a minimal 30-line JS script + 60-line Python host that exercises the long-poll round-trip, **before M5 lands**. Measures (a) round-trip latency distribution over 10k iterations, (b) behaviour when Python disconnects mid-call, (c) behaviour across a `Scripting.unloadScript`/`loadScript` cycle, (d) callback-chain memory growth, (e) behaviour on Plasma 6.2, 6.3, and Neon-unstable. If any probe fails, Perch falls back to the documented 50 ms polling — ugly but known-working. See [11-roadmap.md](11-roadmap.md) M2.5 for details.
+- **M2.5 spike**: [`experiments/kwin_ipc_spike/`](../experiments/kwin_ipc_spike/) — a ~30-line JS script + sdbus-python host + measurement harness that exercises the long-poll round-trip, **done 2026-04-20 on Plasma 6.6.4**. See [`SPIKE_RESULTS.md`](../experiments/kwin_ipc_spike/SPIKE_RESULTS.md) for the recorded numbers (p50 = 138 µs, p99 = 452 µs over 10 000 round-trips; reload/recovery clean after the orphan-awaiter fix). Plasma 6.2 / 6.3 / Neon-unstable runs are deferred to M5-prep.
 - **Integration test (M5)**: spin up `kwin_wayland --virtual` in CI, install the script, drive scripted window lifecycles, assert round-trip. Command: `dbus-run-session -- kwin_wayland --virtual --width 1920 --height 1080 --exit-with-session <test-runner>`. Packages: `kwin-wayland` on Fedora/openSUSE, `kwin-wayland + kwin-wayland-backend-virtual` on Debian. Ubuntu 24.04 runner's `kwin-wayland` is 1-2 minor versions behind KDE upstream; a Fedora container (`registry.fedoraproject.org/fedora:42` or `ghcr.io/kdeneon/plasma:unstable`) is more reliable for edge-version testing.
 - **CI cadence**: the headless KWin test is a **nightly job**, not a per-PR gate. Phase 2.5 finding: `kwin_wayland --virtual` in GitHub Actions is fragile (needs `libseat`/`seatd` or `--no-lockscreen`, writable `XDG_RUNTIME_DIR`, and the upstream-vs-distro version skew). Gating every PR on it would cause frequent false-red builds. PRs run the mock-backend compliance suite; the nightly job runs the real-KWin integration.
 - **Manual test checklist** in `docs/testing/kwin-checklist.md` (created in M5).

@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 done; M2.5 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 done; M3 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -85,25 +85,27 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 
 ## M2.5 — Spike: KWin IPC validation
 
+**Status:** **done** (2026-04-20) on the developer machine (Plasma 6.6.4). See [`experiments/kwin_ipc_spike/SPIKE_RESULTS.md`](../experiments/kwin_ipc_spike/SPIKE_RESULTS.md). The full Plasma 6.2 / 6.3 / `kdeneon:unstable` matrix is deferred to M5-preparation work (needs containerised runners that don't exist yet); it does not block M3 or M4.
+
 **Goal:** de-risk the KWin backend's long-poll IPC pattern (see [05-backend-kwin.md](05-backend-kwin.md)) **before** M5 commits to it.
 
 Phase 2.5 research established that the originally-planned 50 ms polling is wasteful and that kdotool's long-poll-via-callback-chaining pattern is demonstrably better. But no public precedent exists for a *tray app* + *bundled persistent KWin script* using this pattern, so we need empirical confirmation that it holds across Plasma 6.x versions before designing a whole backend around it.
 
 **In scope:**
 
-- `perch/experiments/kwin_ipc_spike/` containing:
-  - A 30-ish-line JS script that registers a `workspace.windowAdded` handler, fires `WindowAdded` via `callDBus`, and maintains a `PollCommand` long-poll loop.
-  - A 60-ish-line Python host using `sdbus` that owns `io.github.milnet01.Perch.spike`, counts round-trips, and cycles the script through `Scripting.unloadScript` / `loadScript`.
-  - A measurement harness: 10,000 round-trips; latency distribution; behaviour when the Python side disconnects mid-call; memory growth of the callback chain over an hour.
-- Run the harness on Plasma 6.2, 6.3, and whatever `kdeneon:unstable` is at the time.
+- `experiments/kwin_ipc_spike/` (at the repo root, outside `src/` — not shipped in the wheel) containing:
+  - `script/` — a ~30-line JS script packaged as a KPackage (`metadata.json` + `contents/code/main.js`) that registers a `workspace.windowAdded` handler, fires `WindowAdded` via `callDBus`, and maintains a `PollCommand` long-poll loop.
+  - `host.py` — the Python host using `sdbus` that owns `io.github.milnet01.Perch.spike`, counts round-trips, and exposes an `invalidate_polls()` hook so the harness can cycle the script through `Scripting.unloadScript`/`loadScript` without leaking orphan awaiters.
+  - `harness.py` — the measurement harness: 10,000 round-trips (latency distribution), the `unloadScript`/`loadScript` cycle probe, and a configurable-duration idle probe that samples Python + KWin RSS.
+- Run the harness on Plasma 6.2, 6.3, and whatever `kdeneon:unstable` is at the time (deferred — see status).
 - A `SPIKE_RESULTS.md` recording latency numbers, failure modes observed, and a go/no-go decision.
 
-**Exit criteria:**
+**Exit criteria (status after 2026-04-20 run on Plasma 6.6.4):**
 
-- Long-poll round-trip median latency < 5 ms on all three Plasma versions.
-- No memory growth after 1 hour of idle-script operation.
-- Clean recovery across `unloadScript`/`loadScript`.
-- `SPIKE_RESULTS.md` committed; [05-backend-kwin.md](05-backend-kwin.md) updated to either confirm or replace the long-poll design.
+- Long-poll round-trip median latency < 5 ms on all three Plasma versions. — **met on 6.6.4** (p50 = 138 µs, p99 = 452 µs). 6.2 / 6.3 / Neon-unstable pending M5-prep.
+- No memory growth after 1 hour of idle-script operation. — **2-minute smoke: met** (Python-side RSS delta 0.0 MiB). Full 60-minute run pending.
+- Clean recovery across `unloadScript`/`loadScript`. — **met, after fixing an orphan-awaiter bug** surfaced by the probe (`invalidate_polls()`; see `SPIKE_RESULTS.md`).
+- `SPIKE_RESULTS.md` committed; [05-backend-kwin.md](05-backend-kwin.md) updated to either confirm or replace the long-poll design. — **done.**
 
 **Fallback if any criterion fails:** document the observed failure mode in [05-backend-kwin.md](05-backend-kwin.md) and revert to the 50 ms polling design (known to work but ugly). Better to know in M2.5 than in M5.
 

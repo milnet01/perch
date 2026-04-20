@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Id": "org.milnet01.perch.spike",
+        "Name": "Perch IPC Spike",
+        "Description": "Temporary KWin script used by the Perch M2.5 spike to validate the long-poll IPC pattern before the real KWin backend is built. Not intended for end-user installation.",
+        "Version": "0.0.1",
+        "EnabledByDefault": false,
+        "Authors": [{ "Name": "Perch contributors" }],
+        "License": "GPL-3.0-or-later"
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}
