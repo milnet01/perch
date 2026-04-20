@@ -60,6 +60,7 @@ from perch.config.writer import load_document, write_document
 from perch.core.rules import Rule
 
 from .rules_model import RulesModel
+from .widgets import HotkeyEdit
 
 log = logging.getLogger(__name__)
 
@@ -394,6 +395,71 @@ class ExclusionsPage(QWidget):
             reorder_exclusions(self._state.document, new_order)
 
 
+class HotkeysPage(QWidget):
+    """Hotkeys section — live :class:`HotkeyEdit` next to each snap preset.
+
+    M3.c ships the widget + a browse-and-rebind UX inside the dialog's
+    working copy; the actual registration path (KGlobalAccel on Plasma,
+    GlobalShortcuts portal on Flathub, ``XGrabKey`` on X11) lands with
+    the real backends in M4 / M5. Until those arrive the working-copy
+    edits round-trip through the dialog but are **not yet persisted** —
+    the page is visibly not-dirty on close so Cancel and OK both leave
+    disk alone. A visible banner at the top makes that contract
+    explicit to avoid a silent "why isn't my hotkey working" surprise.
+    """
+
+    def __init__(
+        self, state: _DialogState, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self._state = state
+        self._edits: dict[str, HotkeyEdit] = {}
+
+        root = QVBoxLayout(self)
+        notice = QLabel(
+            self.tr(
+                "Previewing hotkey bindings. Edits made here are not yet "
+                "saved to config.toml — the registration transports "
+                "(KGlobalAccel, portal, XGrabKey) land with the real "
+                "backends in M4 / M5."
+            )
+        )
+        notice.setWordWrap(True)
+        root.addWidget(notice)
+
+        form = QFormLayout()
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+
+        presets = list(state.config.snaps.values())
+        if not presets:
+            empty = QLabel(
+                self.tr(
+                    "Define snap presets under [snaps] in config.toml to "
+                    "assign hotkeys here."
+                )
+            )
+            empty.setWordWrap(True)
+            root.addWidget(empty)
+        else:
+            for preset in presets:
+                edit = HotkeyEdit(self)
+                if preset.hotkey:
+                    edit.set_accel(preset.hotkey)
+                self._edits[preset.name] = edit
+                form.addRow(preset.name, edit)
+            root.addLayout(form)
+        root.addStretch(1)
+
+    def is_dirty(self) -> bool:
+        # M3.c scope: preview-only. See the class docstring.
+        return False
+
+    def commit(self) -> None:
+        return None
+
+
 class _PlaceholderPage(QWidget):
     """Stub page used for sections whose editor lands in a later milestone."""
 
@@ -418,7 +484,7 @@ class _PlaceholderPage(QWidget):
 
 # ── Dialog shell ────────────────────────────────────────────────────────
 
-_Page = GeneralPage | RulesPage | ExclusionsPage | _PlaceholderPage
+_Page = GeneralPage | RulesPage | ExclusionsPage | HotkeysPage | _PlaceholderPage
 
 
 class ConfigDialog(QDialog):
@@ -499,26 +565,26 @@ class ConfigDialog(QDialog):
             return RulesPage(self._state)
         if section == SECTION_EXCLUSIONS:
             return ExclusionsPage(self._state)
+        if section == SECTION_HOTKEYS:
+            return HotkeysPage(self._state)
         placeholders = {
             SECTION_WINDOWS: self.tr(
                 "The live window list arrives with the real backend in "
                 "M4 (X11) and M5 (KWin)."
             ),
             SECTION_LAYOUTS: self.tr(
-                "The layout editor and preview arrive alongside the "
-                "reusable widgets in M3.c."
+                "The per-rule layout editor uses the new match and "
+                "geometry widgets; it lands alongside the real backend "
+                "in M4 / M5."
             ),
             SECTION_PROFILES: self.tr(
-                "The profile editor arrives alongside the reusable "
-                "widgets in M3.c."
-            ),
-            SECTION_HOTKEYS: self.tr(
-                "The hotkey picker arrives with the key-capture widget in "
-                "M3.c. Until then, bind hotkeys directly in config.toml."
+                "The profile editor surfaces the match and geometry "
+                "widgets per monitor topology; it lands alongside the "
+                "real backend in M4 / M5."
             ),
             SECTION_IMPORT_EXPORT: self.tr(
-                "Config import / export lands in M3.c alongside the "
-                "dry-run diff viewer."
+                "Config import / export + dry-run diff viewer land in a "
+                "follow-up UX milestone."
             ),
         }
         return _PlaceholderPage(placeholders[section])

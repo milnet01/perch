@@ -20,11 +20,13 @@ from perch.config.writer import load_document
 from perch.ui.dialog import (
     SECTION_EXCLUSIONS,
     SECTION_GENERAL,
+    SECTION_HOTKEYS,
     SECTION_ORDER,
     SECTION_RULES,
     ConfigDialog,
     ExclusionsPage,
     GeneralPage,
+    HotkeysPage,
     RulesPage,
 )
 
@@ -195,6 +197,39 @@ def test_rules_page_delete_drops_entry_and_persists(
 
 
 # ── Exclusions edit flow ────────────────────────────────────────────────
+
+
+# ── Hotkeys page ────────────────────────────────────────────────────────
+
+
+def test_hotkeys_page_shows_existing_snap_bindings(
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path,
+) -> None:
+    dialog, _path, _saves = _open_dialog(tmp_path, xdg_env)
+    qtbot.addWidget(dialog)
+    dialog.select_section(SECTION_HOTKEYS)
+    page = dialog._pages[SECTION_HOTKEYS]
+    assert isinstance(page, HotkeysPage)
+    # The fixture defines a single snap "center-60" with hotkey Meta+C.
+    assert "center-60" in page._edits
+    assert page._edits["center-60"].accel() == "Meta+C"
+
+
+def test_hotkeys_page_is_never_dirty_in_m3c_preview(
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path,
+) -> None:
+    """M3.c ships hotkey preview only; commit is a no-op until M5."""
+    dialog, _path, saves = _open_dialog(tmp_path, xdg_env)
+    qtbot.addWidget(dialog)
+    page = dialog._pages[SECTION_HOTKEYS]
+    assert isinstance(page, HotkeysPage)
+
+    # Edit the displayed hotkey; the page stays not-dirty, so OK is a no-op.
+    page._edits["center-60"].set_accel("Ctrl+Alt+C")
+    assert not page.is_dirty()
+
+    dialog._on_ok()
+    assert saves == []
 
 
 def test_exclusions_page_delete_drops_entry_and_persists(
