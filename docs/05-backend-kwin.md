@@ -155,11 +155,41 @@ Inbound ordering: `stop()` must call `invalidate_polls()` *before* `unloadScript
 
 ### Script installation strategy
 
-- **Packaged install (RPM/AUR)**: the script is shipped at `/usr/share/perch/kwin/...`. `KWinBackend` symlinks or copies it to `~/.local/share/kwin/scripts/org.milnet01.perch/` on first run so KWin can load it by name or absolute path.
-- **Flatpak** (see [10-packaging.md](10-packaging.md)): the script must live in a host-visible path. On first run, `KWinBackend` copies `/app/share/perch/kwin/` → `~/.local/share/kwin/scripts/org.milnet01.perch/`. The Flatpak manifest grants `--filesystem=xdg-data/kwin/scripts:create` to allow this.
-- **Dev install** (`pip install -e .`): exports the script to `$XDG_DATA_HOME/perch/kwin/` on first run and loads from there.
+All install modes mirror the bundled script into the same destination:
+`$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/` (default
+`~/.local/share/kwin/scripts/org.milnet01.perch/`). KWin on Wayland runs
+on the host and only reads scripts from the standard search path — so a
+dev checkout in the repo, a Flatpak container's `/app/` path, and an RPM's
+`/usr/share/` path all need the same copy-out step.
 
-The script is **versioned** (in `metadata.json` `KPlugin.Version`) and **pinned** by the Python backend — Perch refuses to load a script whose version isn't the bundled one, to avoid behaviour drift between JS and Python halves.
+Only the *source* differs:
+
+- **Packaged install (RPM/AUR)**: source tree is shipped as package
+  data under the installed `perch` Python package. The backend reads it
+  via :data:`perch.backend.kwin.BUNDLED_SCRIPT_DIR`. No additional
+  system-wide `/usr/share/perch/kwin/` path is created — the package
+  directory is the source of truth.
+- **Flatpak** (see [10-packaging.md](10-packaging.md)): source is the
+  Flatpak-private package directory (same
+  `BUNDLED_SCRIPT_DIR` read from inside the sandbox). The Flatpak
+  manifest grants `--filesystem=xdg-data/kwin/scripts:create` so the
+  mirror step can write the host-visible copy.
+- **Dev install** (`pip install --user --break-system-packages -e .`):
+  source is the in-tree `src/perch/backend/kwin/script/` directory; target
+  is unchanged. ``PERCH_KWIN_SCRIPT_TARGET`` can redirect the target
+  (tests use this; end users shouldn't).
+
+The mirror is handled by :func:`perch.backend.kwin.install.ensure_installed`.
+It's idempotent when the on-disk version already matches the bundled
+version, and will tear down / rewrite a stale install otherwise.
+
+The script is **versioned** (in `metadata.json` `KPlugin.Version` — see
+:data:`perch.backend.kwin.BUNDLED_SCRIPT_VERSION`) and **pinned** by the
+Python backend — Perch refuses to load a script whose version isn't the
+bundled one, to avoid behaviour drift between JS and Python halves.
+:class:`perch.backend.kwin.install.ScriptVersionMismatch` is raised if
+after install the on-disk version still doesn't match (shipped package
+is broken or filesystem intervened).
 
 ### Outputs
 
