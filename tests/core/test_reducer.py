@@ -558,3 +558,112 @@ async def test_validate_plus_reducer_end_to_end(tmp_path: Path) -> None:
     assert wid == "sig"
     # top-right-quarter of DP-1's 2560x1400 work area = (1280, 0, 1280, 700)
     assert geom == Geometry(1280, 0, 1280, 700)
+
+
+# ── Profile overrides on layouts ───────────────────────────────────────────
+async def test_profile_override_replaces_layout_entry(tmp_path: Path) -> None:
+    """Per docs/09 §Per-profile overrides: under the Docked profile, the
+    coding layout's `code` entry is replaced with a full-screen override."""
+    topology_key = "DP-1:2560x1440@0,0;HDMI-1:1920x1080@2560,360"
+    backend, reducer, _ = await _make(
+        {
+            "layouts": {
+                "coding": {
+                    "windows": [
+                        {
+                            "match": {"app_id": "code"},
+                            "geometry": "left-half",
+                            "monitor": "DP-1",
+                        }
+                    ],
+                }
+            },
+            "profiles": [
+                {
+                    "name": "Docked",
+                    "topology": topology_key,
+                    "default_layout": "coding",
+                    "override": [
+                        {
+                            "layout": "coding",
+                            "windows": [
+                                {
+                                    "match": {"app_id": "code"},
+                                    "geometry": "maximize",
+                                    "monitor": "HDMI-1",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        },
+        tmp_path,
+    )
+    await reducer.start()
+    assert reducer.active_profile is not None
+
+    backend._spawn_window(_window(app_id="code"))
+    backend.commands.clear()
+    await reducer.activate_layout("coding")
+
+    geom_calls = [
+        args for n, args in backend.commands.entries if n == "set_geometry"
+    ]
+    assert len(geom_calls) == 1
+    _, geom, monitor, _ = geom_calls[0]
+    # Override replaced left-half@DP-1 with maximize@HDMI-1.
+    assert monitor == "HDMI-1"
+    assert geom == Geometry(2560, 360, 1920, 1040)
+
+
+async def test_profile_override_with_no_matching_base_is_appended(
+    tmp_path: Path,
+) -> None:
+    """Overrides whose match doesn't exist in the base layout are appended."""
+    topology_key = "DP-1:2560x1440@0,0;HDMI-1:1920x1080@2560,360"
+    backend, reducer, _ = await _make(
+        {
+            "layouts": {
+                "coding": {
+                    "windows": [
+                        {
+                            "match": {"app_id": "code"},
+                            "geometry": "left-half",
+                        }
+                    ],
+                }
+            },
+            "profiles": [
+                {
+                    "name": "Docked",
+                    "topology": topology_key,
+                    "override": [
+                        {
+                            "layout": "coding",
+                            "windows": [
+                                {
+                                    "match": {"app_id": "signal"},
+                                    "geometry": "maximize",
+                                    "monitor": "HDMI-1",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        },
+        tmp_path,
+    )
+    await reducer.start()
+
+    backend._spawn_window(_window("sig", app_id="signal"))
+    backend.commands.clear()
+    await reducer.activate_layout("coding")
+
+    geom_calls = [
+        args for n, args in backend.commands.entries if n == "set_geometry"
+    ]
+    # signal was not in the base layout; the override adds it.
+    assert len(geom_calls) == 1
+    assert geom_calls[0][0] == "sig"

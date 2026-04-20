@@ -123,7 +123,9 @@ def test_parse_profiles_with_default_layout_and_override() -> None:
     override = p.overrides[0]
     assert isinstance(override, ProfileOverride)
     assert override.layout == "coding"
-    assert override.windows[0]["match"] == {"app_id": "code"}
+    # Override windows are now typed LayoutEntry instances (parsed at config
+    # load); the match signature is reachable through ``entry.match``.
+    assert override.windows[0].match.app_id == "code"
 
 
 def test_parse_profiles_empty_returns_empty() -> None:

@@ -83,6 +83,26 @@ def parse_match(raw: Any, prefix: str) -> MatchPattern:
     )
 
 
+def match_signature(pattern: MatchPattern) -> tuple[object, ...]:
+    """Hashable summary of the pattern's source shape.
+
+    Used when comparing patterns across independent ``parse_match`` calls —
+    most notably for layout override replacement, where the user expresses
+    equality by writing the same match block twice and expects the
+    override to replace the base entry. The compiled :class:`re.Pattern`
+    objects themselves compare by identity, so this signature reduces
+    ``title`` to its original regex string for that comparison.
+    """
+    return (
+        pattern.app_id,
+        pattern.wm_class,
+        pattern.title.pattern if pattern.title is not None else None,
+        pattern.pid,
+        pattern.types,
+        pattern.catch_all,
+    )
+
+
 def match_window(pattern: MatchPattern, window: WindowInfo) -> bool:
     """Return True if ``window`` satisfies every specified field in ``pattern``."""
     if pattern.catch_all:

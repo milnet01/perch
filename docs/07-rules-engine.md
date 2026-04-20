@@ -141,7 +141,7 @@ The config loader rejects a rule with:
 - An `apply` block specifying `monitor` both at the apply level and inside the `geometry` table with *different* values. Redundant-but-agreeing specifications are accepted.
 - `geometry` and `snap` together (mutually exclusive — two ways of writing the same "where" intent).
 - A `monitor` referring to an output index higher than the current profile declares (reducer-side check; the parser accepts any non-negative index).
-- A `snap` name not in the built-in set or the user's `[snaps]` table (reducer-side check — the parser does not yet know the snap table).
+- A `snap` name not in the built-in set or the user's `[snaps]` table. This check runs at apply time inside the resolver ([`src/perch/core/resolver.py`](../src/perch/core/resolver.py)), not at parse time, so a rule that refers to a snap via a variable will only fail when it fires — the failure surfaces as a logged warning and the rule is skipped.
 
 Validation errors are shown in the config dialog's problem inspector; Perch does not silently drop bad rules.
 

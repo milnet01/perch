@@ -89,6 +89,10 @@ class Reducer:
 
         self.active_profile: Profile | None = None
         self.active_layout: Layout | None = None
+        # Active layout with the current profile's ``[[profiles.override]]``
+        # entries applied. Recomputed whenever either input changes; the
+        # engine consults this, not ``active_layout``.
+        self._effective_layout: Layout | None = None
         self.current_desktop: DesktopIndex = 0
         self._outputs: dict[OutputName, OutputInfo] = {}
         self._topology_key: str = ""
@@ -112,6 +116,7 @@ class Reducer:
         self.active_profile = select_profile(
             self.config.profiles, self._topology_key
         )
+        self._recompute_effective_layout()
         self.state_store.set_active(
             profile=self.active_profile.name if self.active_profile else None,
             layout=self.active_layout.name if self.active_layout else None,
@@ -141,7 +146,7 @@ class Reducer:
             trigger,
             rules=self.config.rules,
             user_exclusions=self.config.exclusions,
-            active_layout=self.active_layout,
+            active_layout=self._effective_layout,
             active_profile_name=(
                 self.active_profile.name if self.active_profile else None
             ),
@@ -239,6 +244,7 @@ class Reducer:
         self._topology_key = new_key
         new_profile = select_profile(self.config.profiles, new_key)
         self.active_profile = new_profile
+        self._recompute_effective_layout()
         self.state_store.set_active(
             profile=new_profile.name if new_profile else None,
             layout=self.active_layout.name if self.active_layout else None,
@@ -263,6 +269,7 @@ class Reducer:
             if layout is None:
                 raise ValueError(f"unknown layout {name!r}")
             self.active_layout = layout
+        self._recompute_effective_layout()
         self.state_store.set_active(
             profile=self.active_profile.name if self.active_profile else None,
             layout=name,
@@ -272,6 +279,22 @@ class Reducer:
             await self.handle_window_opened(
                 window, trigger=TriggerEvent.USER_TRIGGER
             )
+
+    # ── Effective layout (base layout + profile overrides) ────────────────
+    def _recompute_effective_layout(self) -> None:
+        if self.active_layout is None:
+            self._effective_layout = None
+            return
+        if self.active_profile is None:
+            self._effective_layout = self.active_layout
+            return
+        overrides = tuple(
+            entry
+            for override in self.active_profile.overrides
+            if override.layout == self.active_layout.name
+            for entry in override.windows
+        )
+        self._effective_layout = self.active_layout.with_overrides(overrides)
 
     # ── Decision execution ─────────────────────────────────────────────────
     async def _execute(

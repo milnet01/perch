@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 done, M2 underway from 2026-04-20) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 done; M2.5 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -55,7 +55,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 
 ## M2 — Mock backend + rules engine + core
 
-**Status:** **in progress** (started 2026-04-20). M2.a (backend interface + `MockBackend` + compliance suite) landed; M2.b–M2.e cover profiles/topology, rules + layouts, reducer + `state.json` persistence, and integration tests.
+**Status:** **done** (2026-04-20). Exit criteria verified: compliance suite passes against `MockBackend`, rules engine at 100 % line coverage, and `tests/core/test_reducer.py` is the table-driven pytest asserting scripted event sequences produce the expected `set_geometry` calls. Sub-phases M2.a (backend interface + `MockBackend` + compliance suite), M2.b (profiles + topology), M2.c (rules engine + layouts), M2.d (event reducer + `state.json` persistence), and M2.e (profile overrides + reconciliation, 100 % coverage backfill) are all landed.
 
 **Goal:** all the compositor-agnostic logic works against an in-memory backend.
 

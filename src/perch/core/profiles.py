@@ -17,6 +17,8 @@ from typing import Any
 
 from perch.backend.types import OutputInfo
 
+from .layouts import LayoutEntry, LayoutValidationError, parse_layout_window
+
 TOPOLOGY_SEPARATOR = ";"
 
 # Segment shape: ``<output-name>:<w>x<h>@<x>,<y>``. Output names follow
@@ -32,14 +34,13 @@ class ProfileValidationError(ValueError):
 class ProfileOverride:
     """Per-profile tweak to a named layout.
 
-    The ``windows`` list stays as raw TOML tables at M2.b — layout-window
-    entries are typed in M2.c when the layout engine lands. Keeping it as
-    ``list[dict]`` here avoids a forward reference and doesn't cost anything
-    at runtime.
+    ``windows`` carries typed :class:`LayoutEntry` objects; the reducer
+    calls :meth:`Layout.with_overrides` with them when activating the
+    override's target layout under this profile.
     """
 
     layout: str
-    windows: tuple[dict[str, Any], ...] = ()
+    windows: tuple[LayoutEntry, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,17 +161,18 @@ def _parse_override(prefix: str, raw: Any) -> ProfileOverride:
     if not isinstance(raw, dict):
         raise ProfileValidationError(f"{prefix} must be a table")
     layout = _require_str(raw, "layout", prefix)
-    windows = raw.get("windows", [])
-    if not isinstance(windows, list):
+    windows_raw = raw.get("windows", [])
+    if not isinstance(windows_raw, list):
         raise ProfileValidationError(
             f"{prefix}.windows must be an array of tables"
         )
-    for j, w in enumerate(windows):
-        if not isinstance(w, dict):
-            raise ProfileValidationError(
-                f"{prefix}.windows[{j}] must be a table"
-            )
-    return ProfileOverride(layout=layout, windows=tuple(dict(w) for w in windows))
+    entries: list[LayoutEntry] = []
+    for j, w in enumerate(windows_raw):
+        try:
+            entries.append(parse_layout_window(f"{prefix}.windows[{j}]", w))
+        except LayoutValidationError as exc:
+            raise ProfileValidationError(str(exc)) from exc
+    return ProfileOverride(layout=layout, windows=tuple(entries))
 
 
 def _require_str(entry: dict[str, Any], key: str, prefix: str) -> str:

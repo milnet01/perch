@@ -12,7 +12,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .actions import ActionValidationError, ApplyAction, parse_action
-from .matching import MatchPattern, MatchValidationError, parse_match
+from .matching import (
+    MatchPattern,
+    MatchValidationError,
+    match_signature,
+    parse_match,
+)
 
 
 class LayoutValidationError(ValueError):
@@ -32,6 +37,37 @@ class Layout:
     name: str
     description: str = ""
     windows: tuple[LayoutEntry, ...] = field(default=())
+
+    def with_overrides(
+        self, overrides: tuple[LayoutEntry, ...]
+    ) -> Layout:
+        """Return a new :class:`Layout` with ``overrides`` substituted in.
+
+        Per ``docs/09-layouts-profiles.md`` §Per-profile overrides for
+        layouts: each override entry replaces a base entry whose match
+        compares equal (via :func:`match_signature`). Overrides whose
+        match doesn't correspond to a base entry are appended at the end,
+        so a profile can extend as well as replace.
+        """
+        if not overrides:
+            return self
+        by_sig = {match_signature(e.match): e for e in overrides}
+        replaced_sigs: set[tuple[object, ...]] = set()
+        merged: list[LayoutEntry] = []
+        for entry in self.windows:
+            sig = match_signature(entry.match)
+            override = by_sig.get(sig)
+            if override is not None:
+                merged.append(override)
+                replaced_sigs.add(sig)
+            else:
+                merged.append(entry)
+        for override in overrides:
+            if match_signature(override.match) not in replaced_sigs:
+                merged.append(override)
+        return Layout(
+            name=self.name, description=self.description, windows=tuple(merged)
+        )
 
 
 def parse_layouts(raw: dict[str, Any]) -> dict[str, Layout]:
@@ -70,6 +106,15 @@ def parse_layouts(raw: dict[str, Any]) -> dict[str, Layout]:
 
         out[name] = Layout(name=name, description=description, windows=windows)
     return out
+
+
+def parse_layout_window(prefix: str, raw: Any) -> LayoutEntry:
+    """Parse one ``{match, geometry/snap/monitor/desktop/maximized}`` table.
+
+    Exposed publicly so that profile-override ``windows`` entries can be
+    parsed at config load time (see :class:`perch.core.profiles.ProfileOverride`).
+    """
+    return _parse_window(prefix, raw)
 
 
 def _parse_window(prefix: str, raw: Any) -> LayoutEntry:

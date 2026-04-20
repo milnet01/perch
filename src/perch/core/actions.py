@@ -233,17 +233,11 @@ def _classify_geometry_values(values: dict[str, Any], prefix: str) -> str:
     )
 
 
-def _percent_to_float(raw: Any, prefix: str) -> float:
-    if not isinstance(raw, str):
-        raise ActionValidationError(
-            f"{prefix} must be a percent string like '20%' "
-            f"(got {type(raw).__name__})"
-        )
+def _percent_to_float(raw: str, prefix: str) -> float:
+    # Caller (``_classify_geometry_values``) has already verified that ``raw``
+    # is a string matching ``_PERCENT_RE``; no further checks needed here.
     match = _PERCENT_RE.match(raw)
-    if match is None:
-        raise ActionValidationError(
-            f"{prefix} must be a percent string like '20%' (got {raw!r})"
-        )
+    assert match is not None, f"{prefix}: caller failed to pre-validate"
     return float(match.group(1)) / 100.0
 
 
