@@ -119,14 +119,19 @@ def _overlap_area(a: Geometry, b: Geometry) -> int:
 def translate_to_root(display: Display, window: Window) -> tuple[int, int]:
     """Translate ``(0, 0)`` of ``window`` into root coordinates.
 
-    ``python-xlib``'s ``translate_coords`` is a :class:`ReplyRequest`, so
-    ``BadWindow`` / ``BadMatch`` surface *inline* as ``Xlib.error`` exceptions
-    — the caller handles them. Returns the root ``(x, y)`` of the window's
-    top-left corner, which is what we feed into
-    :func:`client_area_from_frame` along with the window's own geometry.
+    ``python-xlib``'s ``translate_coords`` is called on the *destination*
+    window with the *source* window as an argument — i.e.
+    ``root.translate_coords(window, 0, 0)`` translates ``(0, 0)`` given in
+    ``window``'s coordinate system into root coordinates. The inverse form
+    (``window.translate_coords(root, 0, 0)``) is a common mis-translation
+    from the underlying X11 ``TranslateCoordinates`` request name and
+    returns nonsense negative offsets for any reparented window.
+
+    Being a :class:`ReplyRequest`, ``BadWindow`` / ``BadMatch`` surface
+    *inline* as ``Xlib.error`` exceptions — the caller handles them.
     """
     root = display.screen().root
-    reply = window.translate_coords(root, 0, 0)
+    reply = root.translate_coords(window, 0, 0)
     return int(reply.x), int(reply.y)
 
 

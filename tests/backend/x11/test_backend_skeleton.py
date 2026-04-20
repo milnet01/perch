@@ -18,7 +18,6 @@ from perch.backend.base import (
     BackendDisconnected,
     BackendUnavailable,
     BackendUnsupported,
-    UnknownWindow,
 )
 from perch.backend.types import Geometry, WindowState
 from perch.backend.x11 import X11Backend
@@ -58,15 +57,16 @@ def test_methods_require_start_first() -> None:
     asyncio.run(go())
 
 
-def test_get_window_raises_unknown_even_before_start() -> None:
-    # Matches MockBackend behaviour: an unknown wid is UnknownWindow, not
-    # BackendDisconnected — callers shouldn't have to special-case "not
-    # connected yet" and "window doesn't exist" separately here.
+def test_get_window_requires_connection() -> None:
+    # X11Backend.get_window must hit the live display (unlike the MockBackend
+    # dict-lookup). With no Display attached, BackendDisconnected is the
+    # correct surface — an UnknownWindow here would promise that "no such
+    # window exists" when really we simply can't answer the question.
     backend = X11Backend(display_name=":99999.0")
     import asyncio
 
     async def go() -> None:
-        with pytest.raises(UnknownWindow):
+        with pytest.raises(BackendDisconnected):
             await backend.get_window("nope")
 
     asyncio.run(go())

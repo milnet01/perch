@@ -42,10 +42,12 @@ from perch.backend.types import (
 )
 
 from .ewmh import AtomTable, desktop_from_wire
+from .identity import read_window_info
 from .outputs import apply_workarea, list_outputs
 
 if TYPE_CHECKING:
     from Xlib.display import Display
+    from Xlib.xobject.drawable import Window
 
 _X11_CAPABILITIES = Capabilities(
     can_set_position=True,
@@ -84,6 +86,11 @@ class X11Backend(WindowBackend):
         self._d: Display | None = None
         self._atoms: AtomTable | None = None
         self._connected: bool = False
+        # WindowId string → Xlib Window handle. Populated during enumeration
+        # and used by every command that targets a specific window. IDs are
+        # the int X resource cast to str to keep the interface type stable
+        # (OutputName/WindowId are both ``str``).
+        self._windows: dict[WindowId, Window] = {}
 
     # ── Lifecycle ───────────────────────────────────────────────────────────
     async def start(self) -> None:
@@ -148,13 +155,61 @@ class X11Backend(WindowBackend):
 
     # ── Queries ─────────────────────────────────────────────────────────────
     async def list_windows(self) -> list[WindowInfo]:
-        # Full enumeration lands in M4.c.
-        self._require_connected()
-        return []
+        d = self._require_connected()
+        atoms = self._require_atoms()
+        outputs = await self.list_outputs()
+
+        # _NET_CLIENT_LIST is a WINDOW[] CARDINAL/32 on root.
+        root = d.screen().root
+        try:
+            prop = root.get_full_property(atoms["_NET_CLIENT_LIST"], _X.AnyPropertyType)
+        except _xerror.BadWindow:
+            # Only possible if the root window itself was destroyed, which
+            # would be a session exit — let the error bubble through stop().
+            return []
+        if prop is None or prop.format != 32 or not prop.value:
+            self._windows.clear()
+            return []
+
+        seen: set[str] = set()
+        infos: list[WindowInfo] = []
+        new_table: dict[WindowId, Window] = {}
+        for wid_int in prop.value:
+            wid_int = int(wid_int)
+            win = d.create_resource_object("window", wid_int)
+            info = read_window_info(d, atoms, win, outputs)
+            if info is None:
+                continue
+            wid_str = str(wid_int)
+            seen.add(wid_str)
+            new_table[wid_str] = win
+            infos.append(info)
+
+            # Subscribe to property changes so we get updates for this window.
+            catch = _xerror.CatchError(_xerror.BadWindow, _xerror.BadMatch)
+            win.change_attributes(
+                event_mask=_X.PropertyChangeMask | _X.StructureNotifyMask,
+                onerror=catch,
+            )
+        d.flush()
+
+        self._windows = new_table
+        return infos
 
     async def get_window(self, wid: WindowId) -> WindowInfo:
-        # Until M4.c populates the window table, every lookup is a miss.
-        raise UnknownWindow(f"no window with id {wid!r}")
+        d = self._require_connected()
+        atoms = self._require_atoms()
+        win = self._windows.get(wid)
+        if win is None:
+            raise UnknownWindow(f"no window with id {wid!r}")
+        outputs = await self.list_outputs()
+        info = read_window_info(d, atoms, win, outputs)
+        if info is None:
+            # Window died between list_windows() and get_window(). Drop the
+            # stale handle so the next caller gets a clean miss.
+            self._windows.pop(wid, None)
+            raise UnknownWindow(f"window {wid!r} no longer exists")
+        return info
 
     async def list_outputs(self) -> list[OutputInfo]:
         d = self._require_connected()
