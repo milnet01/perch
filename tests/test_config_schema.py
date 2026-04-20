@@ -71,14 +71,30 @@ def test_representative_full_config_validates() -> None:
             "theme": "dark",
         },
         "exclusions": {"patterns": [{"app_id": "plasmashell"}]},
-        "snaps": {"center-60": {"geometry": {}, "hotkey": "Meta+C"}},
-        "rules": [{"name": "Firefox", "match": {"app_id": "firefox"}, "apply": {}}],
+        "snaps": {
+            "center-60": {
+                "geometry": {
+                    "x": "20%", "y": "20%", "w": "60%", "h": "60%",
+                    "monitor": "current",
+                },
+                "hotkey": "Meta+C",
+            }
+        },
+        "rules": [
+            {
+                "name": "Firefox",
+                "match": {"app_id": "firefox"},
+                "apply": {"geometry": "maximize", "monitor": "HDMI-1"},
+            }
+        ],
         "layouts": {"coding": {"description": "x"}},
         "profiles": [{"name": "Laptop", "topology": "eDP-1:1920x1200@0,0"}],
     }
     config = validate(document)
     assert config.general.theme == "dark"
     assert len(config.exclusions) == 1
+    assert "center-60" in config.snaps
     assert len(config.rules) == 1
+    assert config.rules[0].name == "Firefox"
     assert "coding" in config.layouts
     assert len(config.profiles) == 1

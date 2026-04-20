@@ -1,17 +1,20 @@
 """Config schema (authoritative for ``config.toml``).
 
 Shape mirrors ``docs/02-state-format.md`` §``config.toml``. Validation is
-layered — this module handles the top-level skeleton (``schema_version``,
-``[general]``, ``[exclusions]``, ``[snaps]``, ``[layouts]``) and delegates
-per-domain parsing to the owning core module. As of M2.b, ``[[profiles]]``
-is typed via :func:`perch.core.profiles.parse_profiles`; ``rules`` and
-``layouts`` remain opaque tables pending M2.c.
+layered — this module handles the top-level skeleton and delegates
+per-domain parsing to the owning core module. As of M2.c every section
+(``[exclusions]``, ``[snaps]``, ``[[rules]]``, ``[layouts]``, and
+``[[profiles]]``) is typed; nothing is carried as an opaque
+``dict[str, Any]`` out of this module.
 
 Invariants enforced here:
 
 * refuse a higher-than-known ``schema_version`` (forward-compat guard);
 * reject an unknown ``general.theme`` value;
 * reject non-boolean general toggles.
+
+Domain errors from the core parsers are re-raised as :class:`SchemaError`
+so callers have a single exception class to catch at the config boundary.
 """
 
 from __future__ import annotations
@@ -19,7 +22,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
+from perch.core.exclusions import (
+    ExclusionValidationError,
+    parse_user_exclusions,
+)
+from perch.core.layouts import Layout, LayoutValidationError, parse_layouts
+from perch.core.matching import MatchPattern
 from perch.core.profiles import Profile, ProfileValidationError, parse_profiles
+from perch.core.rules import Rule, RuleValidationError, parse_rules
+from perch.core.snaps import SnapPreset, SnapValidationError, parse_snaps
 
 CURRENT_SCHEMA_VERSION = 1
 VALID_THEMES: tuple[str, ...] = ("auto", "light", "dark")
@@ -43,10 +54,10 @@ class GeneralSettings:
 class Config:
     schema_version: int = CURRENT_SCHEMA_VERSION
     general: GeneralSettings = field(default_factory=GeneralSettings)
-    exclusions: list[dict[str, Any]] = field(default_factory=list)
-    snaps: dict[str, dict[str, Any]] = field(default_factory=dict)
-    rules: list[dict[str, Any]] = field(default_factory=list)
-    layouts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    exclusions: list[MatchPattern] = field(default_factory=list)
+    snaps: dict[str, SnapPreset] = field(default_factory=dict)
+    rules: list[Rule] = field(default_factory=list)
+    layouts: dict[str, Layout] = field(default_factory=dict)
     profiles: list[Profile] = field(default_factory=list)
 
 
@@ -89,7 +100,7 @@ def _parse_general(raw: Any) -> GeneralSettings:
     return out
 
 
-def _parse_exclusions(raw: Any) -> list[dict[str, Any]]:
+def _parse_exclusions_raw(raw: Any) -> list[dict[str, Any]]:
     if raw is None:
         return []
     if not isinstance(raw, dict):
@@ -100,6 +111,9 @@ def _parse_exclusions(raw: Any) -> list[dict[str, Any]]:
     for i, entry in enumerate(patterns):
         if not isinstance(entry, dict):
             raise SchemaError(f"[exclusions].patterns[{i}] must be a table")
+    unknown = set(raw.keys()) - {"patterns"}
+    if unknown:
+        raise SchemaError(f"[exclusions] has unknown keys: {sorted(unknown)!r}")
     return [dict(entry) for entry in patterns]
 
 
@@ -149,7 +163,28 @@ def validate(document: dict[str, Any]) -> Config:
     if version < 1:
         raise SchemaError(f"schema_version must be >= 1 (got {version})")
 
+    raw_exclusions = _parse_exclusions_raw(document.get("exclusions"))
+    raw_snaps = _parse_table_of_tables("snaps", document.get("snaps"))
+    raw_rules = _parse_array_of_tables("rules", document.get("rules"))
+    raw_layouts = _parse_table_of_tables("layouts", document.get("layouts"))
     raw_profiles = _parse_array_of_tables("profiles", document.get("profiles"))
+
+    try:
+        exclusions = parse_user_exclusions(raw_exclusions)
+    except ExclusionValidationError as exc:
+        raise SchemaError(str(exc)) from exc
+    try:
+        snaps = parse_snaps(raw_snaps)
+    except SnapValidationError as exc:
+        raise SchemaError(str(exc)) from exc
+    try:
+        rules = parse_rules(raw_rules)
+    except RuleValidationError as exc:
+        raise SchemaError(str(exc)) from exc
+    try:
+        layouts = parse_layouts(raw_layouts)
+    except LayoutValidationError as exc:
+        raise SchemaError(str(exc)) from exc
     try:
         profiles = parse_profiles(raw_profiles)
     except ProfileValidationError as exc:
@@ -158,9 +193,9 @@ def validate(document: dict[str, Any]) -> Config:
     return Config(
         schema_version=version,
         general=_parse_general(document.get("general")),
-        exclusions=_parse_exclusions(document.get("exclusions")),
-        snaps=_parse_table_of_tables("snaps", document.get("snaps")),
-        rules=_parse_array_of_tables("rules", document.get("rules")),
-        layouts=_parse_table_of_tables("layouts", document.get("layouts")),
+        exclusions=exclusions,
+        snaps=snaps,
+        rules=rules,
+        layouts=layouts,
         profiles=profiles,
     )

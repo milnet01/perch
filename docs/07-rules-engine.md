@@ -23,12 +23,12 @@ The engine never emits more than one decision per window per event. Chaining ("a
 
 Top to bottom, first match wins. The order is:
 
-1. **Built-in exclusion: override-redirect windows, known system popups.** Emits `IGNORE`. Not configurable.
+1. **Built-in exclusion: system surfaces.** Emits `IGNORE`. Not configurable. Concrete list at `src/perch/core/exclusions.py::BUILTIN_EXCLUDED_TYPES` — currently `WindowType.DESKTOP` and `WindowType.DOCK`. X11 override-redirect windows and Wayland layer-shell surfaces are filtered upstream by the backend and never reach the engine.
 2. **User exclusions** (`[exclusions]` in config). Emits `IGNORE`.
-3. **User rules** (`[[rules]]`, in config order). First match wins — `APPLY_ACTION`.
+3. **User rules** (`[[rules]]`, in config order). First match whose `context` also matches — `APPLY_ACTION`. Context mismatches are skipped silently, not treated as misses.
 4. **Active layout**, if one is set and has an entry matching this window. `APPLY_ACTION` using the layout entry's `apply`.
-5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`.
-6. **Do nothing.**
+5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`. Only fires on `OPENED` / `USER_TRIGGER`; on `CHANGED` the engine falls through to `IGNORE`.
+6. **Do nothing.** (`IGNORE` with `source = "no-match"`.)
 
 This ordering is deliberate:
 
@@ -136,9 +136,20 @@ Window events are rare (dozens per minute at most during heavy use). Matching is
 The config loader rejects a rule with:
 
 - A `match` block that is entirely empty (would match every window — users almost never want that; use an explicit `catch_all = true` field if you really do).
-- An `apply` block that has no effect — i.e. none of `geometry`, `snap`, `maximized`, `desktop` is set.
+- An `apply` block that has no effect — i.e. none of `geometry`, `snap`, `maximized`, `desktop` is set. `maximized = false` alone is a legitimate unmaximize action and is accepted.
 - An `apply` block setting both `maximized = true` and an explicit `geometry` or `snap` (contradiction — see [02-state-format.md](02-state-format.md) §Apply actions). `maximized = false` alongside a geometry/snap is allowed and means "unmaximize first, then place."
-- A `monitor` referring to an output index higher than the current profile declares.
-- A `snap` name not in the built-in set or the user's `[snaps]` table.
+- An `apply` block specifying `monitor` both at the apply level and inside the `geometry` table with *different* values. Redundant-but-agreeing specifications are accepted.
+- `geometry` and `snap` together (mutually exclusive — two ways of writing the same "where" intent).
+- A `monitor` referring to an output index higher than the current profile declares (reducer-side check; the parser accepts any non-negative index).
+- A `snap` name not in the built-in set or the user's `[snaps]` table (reducer-side check — the parser does not yet know the snap table).
 
 Validation errors are shown in the config dialog's problem inspector; Perch does not silently drop bad rules.
+
+## Implementation pointers
+
+- [`src/perch/core/matching.py`](../src/perch/core/matching.py) — `MatchPattern` + `parse_match` + `match_window`.
+- [`src/perch/core/actions.py`](../src/perch/core/actions.py) — `ApplyAction`, the `GeometryExpr` ADT (`AbsoluteGeometry` / `PercentGeometry` / `PresetGeometry`), `BUILTIN_PRESETS`, `parse_action`. Geometry resolution to pixels lives in the reducer (M2.d).
+- [`src/perch/core/rules.py`](../src/perch/core/rules.py) — `Rule`, `Context`, `parse_rules`.
+- [`src/perch/core/layouts.py`](../src/perch/core/layouts.py) — `Layout`, `LayoutEntry`, `parse_layouts`.
+- [`src/perch/core/exclusions.py`](../src/perch/core/exclusions.py) — `BUILTIN_EXCLUDED_TYPES`, `is_builtin_excluded`, `parse_user_exclusions`.
+- [`src/perch/core/engine.py`](../src/perch/core/engine.py) — `evaluate(...)`, `Decision` (`Ignore` / `RestoreLastSeen` / `ApplyActionDecision`), `TriggerEvent` enum.
