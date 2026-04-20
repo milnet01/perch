@@ -197,6 +197,12 @@ class WindowBackend(QObject):
     hotkey_fired = Signal(str)   # emits callback_id
 ```
 
+### Hotkey accelerators
+
+The `accel` argument to `register_hotkey` is a **QKeySequence Portable Text string** — e.g. `"Meta+Left"`, `"Ctrl+Alt+T"`, `"Ctrl+Shift+F11"`. Portable Text is what `QKeySequence.toString(QKeySequence.PortableText)` emits and what `QKeySequence.fromString` accepts; it is also the form KGlobalAccel D-Bus and the X11 `XGrabKey` path consume directly.
+
+The `org.freedesktop.portal.GlobalShortcuts` path wants the XDG Shortcuts spec form instead — uppercase modifier names (`LOGO` instead of `Meta`, `CTRL`, `ALT`, `SHIFT`) and xkbcommon keysyms. Backends that implement the portal path (KWin when running under Flatpak, Hyprland) translate at the boundary via a `portable_to_xdg()` helper; the accelerator stored in `config.toml` stays Portable Text so swapping the transport does not rewrite the config. The XDG form is never exposed to the core or the UI.
+
 ## Errors
 
 ```python

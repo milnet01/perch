@@ -30,7 +30,9 @@ def test_version_flag_prints_version_and_exits_zero(
 
 
 def test_fresh_xdg_creates_default_config(xdg_env: Path) -> None:
-    exit_code = entry.cli([])
+    # --check-config is the CI / packaging smoke path: load config then
+    # exit, without entering the qasync loop or creating a QApplication.
+    exit_code = entry.cli(["--check-config"])
     assert exit_code == 0
     config_path = xdg_env / "config" / "perch" / "config.toml"
     assert config_path.exists()
@@ -44,7 +46,7 @@ def test_malformed_config_exits_nonzero(xdg_env: Path) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text("not = valid [ toml", encoding="utf-8")
 
-    exit_code = entry.cli([])
+    exit_code = entry.cli(["--check-config"])
     assert exit_code == 1
 
 
@@ -55,5 +57,5 @@ def test_malformed_config_falls_back_to_backup(xdg_env: Path) -> None:
     (config_dir / "config.toml.bak").write_text(
         'schema_version = 1\n[general]\ntheme = "light"\n', encoding="utf-8"
     )
-    exit_code = entry.cli([])
+    exit_code = entry.cli(["--check-config"])
     assert exit_code == 0

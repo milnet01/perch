@@ -1,9 +1,14 @@
 """CLI entry point.
 
-``perch --version`` prints the version and exits. Otherwise we configure
-logging, install the Qt→Python log bridge, and drive :func:`perch.app.main`
-via the canonical ``asyncio.run(main(), loop_factory=QEventLoop)`` pattern
-(see ``docs/01-architecture.md`` §Event loop bootstrap).
+``perch --version`` prints the version and exits. ``perch --check-config``
+loads the config (creating defaults on a fresh XDG dir) and exits before
+touching Qt — used for packaging self-tests and CI smoke.
+
+Otherwise we configure logging, install the Qt→Python log bridge, construct
+the ``QApplication`` in this sync wrapper (qasync 0.28 asserts on
+``QApplication.instance() is not None`` before the coroutine runs — see
+``docs/01-architecture.md`` §Event loop bootstrap), and drive
+:func:`perch.app.main` via ``asyncio.run(..., loop_factory=QEventLoop)``.
 
 Structural / user-visible config errors produce a non-zero exit and a
 pinpoint message in both the log file and stderr.
@@ -17,12 +22,8 @@ import logging
 import os
 import sys
 
-from PySide6.QtWidgets import QApplication
-from qasync import QEventLoop
-
 from . import __version__
-from .app import main as app_main
-from .config import ConfigError
+from .config import ConfigError, load_or_create
 from .logging_setup import configure_logging, install_qt_bridge
 
 log = logging.getLogger(__name__)
@@ -43,6 +44,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable DEBUG logging (equivalent to PERCH_DEBUG=1).",
     )
+    parser.add_argument(
+        "--check-config",
+        action="store_true",
+        help=(
+            "Load config (creating defaults on a fresh XDG dir) then exit. "
+            "Used by packaging self-tests and CI smoke."
+        ),
+    )
     return parser
 
 
@@ -55,7 +64,30 @@ def cli(argv: list[str] | None = None) -> int:
         os.environ["PERCH_DEBUG"] = "1"
 
     configure_logging()
+
+    if args.check_config:
+        try:
+            load_or_create()
+        except ConfigError as exc:
+            log.error("config error: %s", exc)
+            print(f"perch: config error: {exc}", file=sys.stderr)
+            return 1
+        log.info("check-config: ok")
+        return 0
+
     install_qt_bridge()
+
+    # Qt / qasync imports are deferred so --version and --check-config
+    # work on systems without PySide6 at import time (doc-only or
+    # config-inspection use-cases) and so the offscreen bootstrap can
+    # be applied before anything tries to open a display.
+    from PySide6.QtWidgets import QApplication
+    from qasync import QEventLoop
+
+    from .app import allow_headless_bootstrap
+    from .app import main as app_main
+
+    allow_headless_bootstrap()
 
     # qasync >=0.28 requires a QApplication to exist *before* QEventLoop is
     # instantiated (the factory asserts on it). Holding the reference keeps

@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 done; M3 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 done; M3 in progress — M3.a + M3.d landed) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -112,6 +112,8 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 **Why here in the schedule:** M2 finishes the core + MockBackend, so the spike has a realistic harness to piggy-back on. M3 (UI) and M4 (X11 backend) do not depend on the spike outcome — they can run in parallel after M2.5 is kicked off. Only M5 blocks on the spike's go/no-go.
 
 ## M3 — UI: tray + minimal config dialog
+
+**Status:** in progress. M3.a (tray skeleton + intents + SNI probe + app wiring) and M3.d (i18n plumbing — `translations/` with `.ts` extraction via `pyside6-lupdate`, `i18n.py` loader) landed 2026-04-20. M3.b (config dialog), M3.c (reusable widgets), and M3.e (screenshots + AppStream metainfo) are still pending.
 
 **Goal:** Perch has a face. Tray icon, menu, basic config dialog that wires to the core.
 

@@ -40,6 +40,9 @@ coverage.xml
 *.pyo
 .qtcreator/
 
+# Translation artifacts — .ts source is versioned; .qm is a build product
+translations/*.qm
+
 # IDEs / editors
 .idea/
 .vscode/
