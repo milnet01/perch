@@ -23,10 +23,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 - **M1 CI:** GitHub Actions matrix (Ubuntu 24.04 × Python 3.12 / 3.13 / 3.14) running `ruff`, `mypy --strict`, and `pytest`. PySide6 installed from PyPI to step over Ubuntu 24.04's 6.4 distro package.
 - `docs/contributing-dev-setup.md` covering editable install, smoke-test, and the house rules.
 - **`apply = { maximized = true | false }` rule vocabulary** (design, lands in code with the rules engine at M2). Toggles the compositor's native maximized state via `WindowBackend.set_state(wid, WindowState.MAXIMIZED)`, distinct from the existing `geometry = "maximize"` preset which writes a work-area-sized rectangle. Sway and Hyprland raise `BackendUnsupported` for the maximize state (their tiling models have no equivalent); the core substitutes work-area geometry and logs at DEBUG. Documented in `docs/02-state-format.md` §Apply actions, `docs/07-rules-engine.md` §Apply order + §Validation, `docs/06-backend-stubs.md` (Sway, Hyprland).
+- **M2.a — Backend interface + MockBackend + compliance suite:** `src/perch/backend/` package — `types.py` (frozen dataclasses, `WindowType`/`WindowState` enums, `Capabilities`), `base.py` (error taxonomy + `WindowBackend` abstract base class extending `QObject` with the event signal surface), `mock.py` (`MockBackend` with a driver API — `_spawn_window`, `_move_window`, output lifecycle, `_fire_hotkey`, `_fail_state` for the MAXIMIZED fallback contract). Reusable compliance tests at `tests/backend/test_compliance.py` parameterised over `BACKEND_CLASSES` in `tests/backend/conftest.py` — covers lifecycle, shape validation, capability↔behaviour alignment, event ordering, and the error taxonomy (22 new tests; 66 total green).
 
 ### Changed
 
 - `pyproject.toml`: hatchling `src/`-layout wheel + sdist config wired; `tool.hatch.version` sources `__version__` from the package; `ruff.target-version` lifted from the stray `py311` to `py312` to match the locked Python floor; `mypy --strict` and `pytest-qt`/`asyncio_mode = "auto"` knobs added.
+- **Backend lifecycle methods renamed `connect()` / `disconnect()` → `start()` / `stop()`** to avoid the collision with `QObject.connect` / `QObject.disconnect` (Qt's signal/slot staticmethods). Signal names (`backend_connected`, `backend_disconnected`) are unchanged. Docs updated across `01-architecture.md`, `03-backend-interface.md`, `05-backend-kwin.md`, `06-backend-stubs.md`, `11-roadmap.md`.
 
 ### Deprecated
 

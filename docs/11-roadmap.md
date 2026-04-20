@@ -18,14 +18,14 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 1 | Design docs | **done** (2026-04-20) | `docs/00` … `docs/11` (this file is the last one) |
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
-| 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen pending M1 start. |
-| 4 | Implementation | in progress (M1 underway from 2026-04-20) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
+| 4 | Implementation | in progress (M1 done, M2 underway from 2026-04-20) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
 ## M1 — Skeleton + config
 
-**Status:** **in progress** (started 2026-04-20). See `src/perch/` and `tests/`.
+**Status:** **done** (2026-04-20). See `src/perch/` and `tests/` — exit criteria green on CI matrix 3.12 / 3.13 / 3.14.
 
 **Goal:** a runnable Perch binary that parses config, logs what it sees, and quits cleanly. No backend yet.
 
@@ -55,13 +55,15 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 
 ## M2 — Mock backend + rules engine + core
 
+**Status:** **in progress** (started 2026-04-20). M2.a (backend interface + `MockBackend` + compliance suite) landed; M2.b–M2.e cover profiles/topology, rules + layouts, reducer + `state.json` persistence, and integration tests.
+
 **Goal:** all the compositor-agnostic logic works against an in-memory backend.
 
 **In scope:**
 
-- `perch/backend/base.py` — the interface from [03-backend-interface.md](03-backend-interface.md).
-- `perch/backend/mock.py` — `MockBackend` with a test-driver API.
-- `perch/backend/tests/compliance.py` — the compliance suite.
+- `src/perch/backend/base.py` + `types.py` — the interface from [03-backend-interface.md](03-backend-interface.md).
+- `src/perch/backend/mock.py` — `MockBackend` with a test-driver API.
+- `tests/backend/test_compliance.py` — the reusable compliance suite, parameterised over `BACKEND_CLASSES` in `tests/backend/conftest.py`.
 - `perch/core/rules.py` — rules engine per [07-rules-engine.md](07-rules-engine.md).
 - `perch/core/layouts.py` — layout apply logic.
 - `perch/core/profiles.py` — topology-key computation and profile activation.
@@ -278,7 +280,7 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 - **KWin scripting API stability** across Plasma point releases. *Confirmed risk*: 5→6 renamed `client*` → `window*` across the scripting API; minor 6.x releases occasionally add or rename signals without deprecation. Mitigation: pin the script and expected KWin version at each Perch release; smoke-test against each new Plasma point release.
 - **Mutter extension API instability**: every GNOME major release breaks something (ESM in 45, removals in 48, etc.). Mitigation: ~3 parallel per-GNOME source branches of the extension; the stub status in [06-backend-stubs.md](06-backend-stubs.md) documents this cost honestly.
-- **Hyprland IPC informal stability**: socket2 event format has broken backwards across minor Hyprland versions. Mitigation: defensive parsing (unknown events logged + skipped), minimum-version check at `connect()`.
+- **Hyprland IPC informal stability**: socket2 event format has broken backwards across minor Hyprland versions. Mitigation: defensive parsing (unknown events logged + skipped), minimum-version check at `start()`.
 - **Ubuntu 24.04 LTS PySide6 too old**: 6.4 vs. required 6.7. Mitigation: Flathub or pipx; DEB package built only for 24.10+ / Debian 13+ ([10-packaging.md](10-packaging.md)).
 - **GNOME Wayland tray visibility** requires AppIndicator extension. Mitigation: detect SNI host absence at startup; surface an install prompt (see [08-ui.md](08-ui.md)).
 - **Two-Firefox identity collision** — same `app_id`, same `title` patterns. Users have to add explicit title regexes, which is awkward. Worth a UX pass.

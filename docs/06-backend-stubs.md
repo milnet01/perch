@@ -3,7 +3,7 @@
 These three backends ship as **stubs** in v1. "Stub" means:
 
 - The Python class exists and implements `WindowBackend`.
-- `connect()` works and declares honest capabilities.
+- `start()` works and declares honest capabilities.
 - A minimum of events and commands work well enough to list windows and read/write geometry manually from the config dialog.
 - Autoplacement (restore on open, pre-placement before first paint) is explicitly **unsupported** — none of the three can do it reliably.
 - Each stub has a `STATUS.md` next to it describing what works and what doesn't, which `pytest -m <backend>` tests pass, and the known blockers.
@@ -162,7 +162,7 @@ Owned by the community. A first-pass spec is achievable because `swaymsg`'s prot
 
 ### Minimum Hyprland version
 
-**Hyprland ≥ 0.40.** Pinned via a version check at `connect()`; below that the stub refuses to run rather than dispatching to unknown-format events.
+**Hyprland ≥ 0.40.** Pinned via a version check at `start()`; below that the stub refuses to run rather than dispatching to unknown-format events.
 
 ### Capabilities target for v1
 
@@ -213,12 +213,14 @@ Stubs are allowed to:
 Every backend (stubs included) must pass:
 
 ```
-pytest perch/backend/tests/compliance.py --backend=<name>
+pytest tests/backend/test_compliance.py
 ```
+
+The suite parameterises over every backend in `tests/backend/conftest.py::BACKEND_CLASSES`. Adding a new backend means registering it there; the existing tests then run against it automatically, skipping cases where the backend declares the relevant capability off.
 
 The compliance suite exercises:
 
-1. `connect()` / `disconnect()` lifecycle.
+1. `start()` / `stop()` lifecycle.
 2. `list_windows()` shape validation.
 3. `list_outputs()` shape validation.
 4. Announced capabilities match actual behaviour (if `can_set_position`, then setting a position actually changes it).

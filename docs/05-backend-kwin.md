@@ -123,15 +123,15 @@ Uses **`sdbus-python`** for D-Bus. The backend owns the `io.github.milnet01.Perc
 
 ### Lifecycle
 
-1. `connect()`:
+1. `start()`:
    a. Probe `$KDE_SESSION_VERSION` ≥ 6 and `$XDG_SESSION_TYPE` ≥ `wayland`. Refuse older Plasmas (Plasma 5 support is out of v1 scope; see [11-roadmap.md](11-roadmap.md)).
-   b. Acquire the bus name `io.github.milnet01.Perch` (release it in `disconnect`).
+   b. Acquire the bus name `io.github.milnet01.Perch` (release it in `stop`).
    c. Install the bundled script:
       - For Flatpak installs, ensure the script is copied to `$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/` (see [10-packaging.md](10-packaging.md)). KWin runs on the host and cannot read Flatpak's `/app/` path.
       - Call `org.kde.KWin.Scripting.loadScript(path)` → `run()`.
    d. Wait up to 2 s for the first `WindowAdded` or `OutputsChanged` to confirm the script is alive and wired.
    e. Emit `backend_connected`.
-2. `disconnect()`:
+2. `stop()`:
    a. Unload the script via `Scripting.unloadScript(id)`.
    b. Release the bus name.
 3. If the script disappears (KWin crash/restart): re-install and re-subscribe. Re-emit `backend_connected`. Window state is not lost because `state.json` on disk is authoritative.

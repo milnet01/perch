@@ -183,7 +183,7 @@ async def main() -> int:
     tray = PerchTray(backend); tray.show()
     await close_event.wait()
 
-    await backend.disconnect()                   # release bus name, unload script
+    await backend.stop()                         # release bus name, unload script
     return 0
 
 def cli() -> int:
@@ -209,7 +209,7 @@ Teardown order (see `perch/core/shutdown.py`):
 
 1. Flip the shutdown flag (UI stops dispatching intents).
 2. Cancel named background tasks; `await asyncio.gather(..., return_exceptions=True)`.
-3. `await backend.disconnect()` — unloads the KWin script and releases the D-Bus service name.
+3. `await backend.stop()` — unloads the KWin script and releases the D-Bus service name.
 4. `QApplication.quit()` → triggers `aboutToQuit` → sets the close event → `main()` returns.
 
 ## Dependencies, deferred

@@ -147,11 +147,16 @@ Adding events later is allowed; removing them requires a deprecation cycle docum
 class WindowBackend(QObject):
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
-    async def connect(self) -> None: ...
-        # Open the connection, subscribe to events, emit backend_connected.
+    # Named ``start`` / ``stop`` rather than ``connect`` / ``disconnect`` to
+    # avoid the collision with ``QObject.connect`` / ``QObject.disconnect``
+    # (the Qt signal/slot staticmethods). ``backend_connected`` /
+    # ``backend_disconnected`` keep their names as signals — it's the method
+    # names that would have confused mypy and readers.
+    async def start(self) -> None: ...
+        # Open the transport, subscribe to events, emit backend_connected.
         # Raises BackendUnavailable if the transport is missing.
 
-    async def disconnect(self) -> None: ...
+    async def stop(self) -> None: ...
 
     @property
     def capabilities(self) -> Capabilities: ...
@@ -197,7 +202,7 @@ class WindowBackend(QObject):
 ```python
 class BackendError(Exception): ...
 class BackendUnavailable(BackendError): ...   # transport missing entirely
-class BackendDisconnected(BackendError): ...  # connection lost after connect()
+class BackendDisconnected(BackendError): ...  # connection lost after start()
 class BackendUnsupported(BackendError): ...   # capability not present
 class UnknownWindow(BackendError): ...
 class UnknownOutput(BackendError): ...
