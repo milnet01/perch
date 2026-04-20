@@ -13,9 +13,11 @@ The module is split for testability:
 - :mod:`perch.backend.x11.geometry` — coordinate math (root translate, frame
   extents subtraction, monitor-of-window resolution). Pure module.
 
-Public entry point (``X11Backend``) lands in M4.b.
+Public entry point is :class:`X11Backend`.
 """
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .backend import X11Backend
+
+__all__ = ["X11Backend"]
