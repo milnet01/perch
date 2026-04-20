@@ -1,0 +1,63 @@
+{
+  "$comment": "Project-level Claude Code settings for Perch. Committed to the repo so every contributor's Claude Code session behaves consistently. Per-user local overrides live in settings.local.json (gitignored).",
+
+  "permissions": {
+    "allow": [
+      "Bash(ls *)",
+      "Bash(wc -l *)",
+      "Bash(find docs -*)",
+
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git blame*)",
+
+      "Bash(python -V)",
+      "Bash(python --version)",
+      "Bash(python -m pip show *)",
+      "Bash(python -m pip list*)",
+      "Bash(python -m hatch version)",
+      "Bash(python -m hatch env show*)",
+
+      "Bash(ruff check*)",
+      "Bash(ruff format --check*)",
+      "Bash(mypy *)",
+      "Bash(pytest --collect-only*)",
+      "Bash(pytest -v --co*)",
+
+      "Bash(appstream-util validate*)",
+      "Bash(desktop-file-validate *)",
+      "Bash(xmllint --noout *)",
+
+      "Read(//mnt/Storage/Scripts/Linux/perch/**)",
+      "Read(//mnt/Storage/Scripts/Linux/**)"
+    ]
+  },
+
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/docs-drift-check.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/python-post-edit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

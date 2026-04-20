@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a problem with Perch
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in as much as you can — especially the session type, since behavior differs between X11 and the various Wayland compositors.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what actually happened?
+      placeholder: "Steps to reproduce, expected vs. actual behavior."
+    validations:
+      required: true
+
+  - type: input
+    id: perch-version
+    attributes:
+      label: Perch version
+      description: Output of `perch --version`, or the git commit if running from source.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: session-type
+    attributes:
+      label: Session type
+      description: Run `echo $XDG_SESSION_TYPE` to check.
+      options:
+        - x11
+        - wayland
+        - other / unknown
+    validations:
+      required: true
+
+  - type: input
+    id: compositor
+    attributes:
+      label: Compositor / window manager
+      description: e.g. KWin (Plasma 6.4), Mutter (GNOME 47), Sway 1.10, Hyprland 0.45, i3, ...
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      description: e.g. openSUSE Tumbleweed, Fedora 41, Arch, Ubuntu 24.10.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output from `journalctl --user -u perch.service` or `perch --verbose`, if any.
+      render: shell

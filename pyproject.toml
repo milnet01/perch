@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "perch"
+version = "0.0.0"
+description = "Persistent, compositor-aware window geometry manager with a system-tray UI."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "milnet01" }]
+keywords = ["window-manager", "kde", "kwin", "wayland", "x11", "tray", "geometry", "layout"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Desktop Environment :: Window Managers",
+]
+# Version bounds from the Phase 2 + Phase 2.5 research logs (see docs/11-roadmap.md).
+dependencies = [
+    "PySide6>=6.8,<7",
+    "qasync>=0.28,<1",
+    "sdbus>=0.14.2,<1",
+    "python-xlib>=0.33",
+    "tomlkit>=0.13,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.15,<0.16",
+    "mypy>=1.20,<2",
+    "pytest>=8.4,<10",
+    "pytest-qt>=4.5,<5",
+    "pytest-asyncio>=1.3,<2",
+    "pytest-xvfb>=3",
+]
+
+[project.urls]
+Homepage = "https://github.com/milnet01/perch"
+Issues = "https://github.com/milnet01/perch/issues"
+Documentation = "https://github.com/milnet01/perch/tree/main/docs"
+
+[project.scripts]
+perch = "perch.__main__:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

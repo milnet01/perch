@@ -1,0 +1,77 @@
+# =============================================================================
+# Flathub manifest for Perch
+# =============================================================================
+# Submission checklist lives in SUBMISSION.md next to this file.
+#
+# Status: SCAFFOLD. This manifest references data/ and source layout that do
+# not yet exist (Perch is pre-M1). It will be finalised during M8 (Packaging).
+# Submitted to Flathub only after v1.0.0 is tagged — see docs/11-roadmap.md.
+# =============================================================================
+
+app-id: io.github.milnet01.Perch
+runtime: org.kde.Platform
+runtime-version: "6.8"
+sdk: org.kde.Sdk
+base: com.riverbankcomputing.PyQt.BaseApp
+base-version: "6.8"
+command: perch
+
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=session-bus
+  - --device=dri
+  - --talk-name=org.kde.KWin
+  - --talk-name=org.kde.kglobalaccel
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --own-name=io.github.milnet01.Perch
+  - --filesystem=xdg-config/perch:create
+  - --filesystem=xdg-data/kwin/scripts:create
+  - --metadata=X-DConf=migrate-path=/io/github/milnet01/Perch/
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /man
+  - /share/doc
+  - /share/gtk-doc
+  - /share/man
+  - /share/pkgconfig
+  - "*.la"
+  - "*.a"
+
+modules:
+  # --- Python deps that aren't in the org.kde.Platform runtime ---------------
+  # Each needs a python3-*.yml include with pip-generated sources (built by
+  # `flatpak-pip-generator <pkg>` during manifest authoring).
+  - python3-sdbus.yml
+  - python3-qasync.yml
+  - python3-xlib.yml
+  - python3-tomlkit.yml
+
+  # --- Perch itself ----------------------------------------------------------
+  - name: perch
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+          --prefix=${FLATPAK_DEST} --no-build-isolation .
+      - install -Dm644 data/io.github.milnet01.Perch.desktop
+          ${FLATPAK_DEST}/share/applications/io.github.milnet01.Perch.desktop
+      - install -Dm644 data/io.github.milnet01.Perch.metainfo.xml
+          ${FLATPAK_DEST}/share/metainfo/io.github.milnet01.Perch.metainfo.xml
+      - install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg
+          ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg
+      # KWin script: staged here; KWinBackend copies to ~/.local/share/kwin/scripts/
+      # at first run because KWin on the host can't read /app paths.
+      - install -Dm644 src/perch/backends/kwin/script/metadata.json
+          ${FLATPAK_DEST}/share/perch/kwin/metadata.json
+      - install -Dm644 src/perch/backends/kwin/script/contents/code/main.js
+          ${FLATPAK_DEST}/share/perch/kwin/contents/code/main.js
+    sources:
+      - type: git
+        url: https://github.com/milnet01/perch.git
+        tag: v1.0.0              # placeholder — replaced with the real tag at submission
+        # commit: <sha>           # pin after tagging so reproducible builds work

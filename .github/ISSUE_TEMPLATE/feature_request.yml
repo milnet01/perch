@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a new capability for Perch
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please skim `docs/11-roadmap.md` to see whether the idea is already planned, and `docs/` in general to see whether the relevant area has a design doc you'd be extending.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that Perch doesn't currently support?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? Reference existing Perch concepts (layouts, rules, backends) where relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried, or other ways this could be solved.
+
+  - type: checkboxes
+    id: backends
+    attributes:
+      label: Which backends would this affect?
+      options:
+        - label: Core / backend-agnostic
+        - label: X11
+        - label: KWin / Plasma Wayland
+        - label: Mutter / GNOME Wayland
+        - label: Sway / wlroots
+        - label: Hyprland
