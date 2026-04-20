@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Anthony Schemel -->
+<component type="desktop-application">
+  <id>io.github.milnet01.Perch</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Perch</name>
+  <summary>Remember where your windows belong</summary>
+
+  <description>
+    <p>
+      Perch is a persistent, compositor-aware window geometry manager.
+      It lives in the system tray, remembers where each window belongs,
+      and restores position, size, monitor, and virtual desktop when a
+      window reopens.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Per-window geometry memory across sessions</li>
+      <li>Snap presets and named layouts</li>
+      <li>Rules engine for matching windows by class, title, or role</li>
+      <li>Per-monitor profiles that reconcile on hotplug</li>
+      <li>Native backends for X11 and KWin/Plasma Wayland; community stubs for Mutter, Sway, and Hyprland</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.milnet01.Perch.desktop</launchable>
+
+  <developer id="io.github.milnet01">
+    <name>Anthony Schemel</name>
+  </developer>
+
+  <url type="homepage">https://github.com/milnet01/perch</url>
+  <url type="bugtracker">https://github.com/milnet01/perch/issues</url>
+  <url type="vcs-browser">https://github.com/milnet01/perch</url>
+  <url type="help">https://github.com/milnet01/perch/tree/main/docs</url>
+
+  <provides>
+    <binary>perch</binary>
+  </provides>
+
+  <categories>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>window</keyword>
+    <keyword>geometry</keyword>
+    <keyword>layout</keyword>
+    <keyword>tiling</keyword>
+    <keyword>tray</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">none</content_attribute>
+    <content_attribute id="violence-fantasy">none</content_attribute>
+    <content_attribute id="violence-realistic">none</content_attribute>
+    <content_attribute id="violence-bloodshed">none</content_attribute>
+    <content_attribute id="violence-sexual">none</content_attribute>
+    <content_attribute id="violence-desecration">none</content_attribute>
+    <content_attribute id="violence-slavery">none</content_attribute>
+    <content_attribute id="violence-worship">none</content_attribute>
+    <content_attribute id="drugs-alcohol">none</content_attribute>
+    <content_attribute id="drugs-narcotics">none</content_attribute>
+    <content_attribute id="drugs-tobacco">none</content_attribute>
+    <content_attribute id="sex-nudity">none</content_attribute>
+    <content_attribute id="sex-themes">none</content_attribute>
+    <content_attribute id="sex-homosexuality">none</content_attribute>
+    <content_attribute id="sex-prostitution">none</content_attribute>
+    <content_attribute id="sex-adultery">none</content_attribute>
+    <content_attribute id="sex-appearance">none</content_attribute>
+    <content_attribute id="language-profanity">none</content_attribute>
+    <content_attribute id="language-humor">none</content_attribute>
+    <content_attribute id="language-discrimination">none</content_attribute>
+    <content_attribute id="social-chat">none</content_attribute>
+    <content_attribute id="social-info">none</content_attribute>
+    <content_attribute id="social-audio">none</content_attribute>
+    <content_attribute id="social-location">none</content_attribute>
+    <content_attribute id="social-contacts">none</content_attribute>
+    <content_attribute id="money-purchasing">none</content_attribute>
+    <content_attribute id="money-gambling">none</content_attribute>
+  </content_rating>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#e8d7b0</color>
+    <color type="primary" scheme_preference="dark">#3a2f1e</color>
+  </branding>
+
+  <!--
+    Screenshots are added alongside release tags (not `main`) so Flathub's
+    mirror can cache by URL; see docs/10-packaging.md. The first tagged
+    release (v0.1.0) will update these URLs in the release commit.
+  -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>The tray menu showing active profile and snap presets</caption>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/main/docs/screenshots/tray-menu.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The rules editor matching windows by class and title</caption>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/main/docs/screenshots/rules-editor.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.1.0-dev" date="2026-04-20" type="development">
+      <url type="details">https://github.com/milnet01/perch/blob/main/CHANGELOG.md#unreleased</url>
+      <description>
+        <p>Pre-v0.1.0 development snapshot. Design docs complete; M1–M3 (partial) implementation landed.</p>
+        <ul>
+          <li>Skeleton + config subsystem (M1)</li>
+          <li>MockBackend + compliance suite + rules engine + profiles + layouts + event reducer (M2.a–M2.e)</li>
+          <li>KWin IPC long-poll spike (M2.5) — validated on Plasma 6.6.4</li>
+          <li>Tray icon + menu + SNI-host probe + config dialog scaffold with General / Rules / Exclusions edit flows (M3.a, M3.b, M3.d)</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

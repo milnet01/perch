@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Perch
+GenericName=Window Geometry Manager
+Comment=Remember where your windows belong
+Icon=io.github.milnet01.Perch
+Exec=perch
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+Keywords=window;geometry;layout;tiling;tray;

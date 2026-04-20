@@ -63,6 +63,8 @@ include = [
     "docs",
     "data",
     "packaging",
+    "scripts",
+    "translations",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
