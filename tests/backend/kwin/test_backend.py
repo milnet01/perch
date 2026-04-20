@@ -23,6 +23,7 @@ from perch.backend.base import (
     BackendDisconnected,
     BackendUnavailable,
     BackendUnsupported,
+    UnknownOutput,
     UnknownWindow,
 )
 from perch.backend.kwin.backend import KWinBackend
@@ -250,14 +251,32 @@ async def test_list_windows_round_trips_and_decodes(started_backend: Any) -> Non
         return_value={
             "ok": True,
             "windows": [
-                {"id": "w-1", "app_id": "firefox", "title": "tab",
-                 "type": "normal", "state": "normal",
-                 "x": 0, "y": 0, "w": 1920, "h": 1080,
-                 "output": "HDMI-A-1", "desktop": 0},
-                {"id": "w-2", "app_id": "kitty", "title": "prompt",
-                 "type": "normal", "state": "normal",
-                 "x": 100, "y": 200, "w": 800, "h": 600,
-                 "output": "HDMI-A-1", "desktop": 0},
+                {
+                    "id": "w-1",
+                    "app_id": "firefox",
+                    "title": "tab",
+                    "type": "normal",
+                    "state": "normal",
+                    "x": 0,
+                    "y": 0,
+                    "w": 1920,
+                    "h": 1080,
+                    "output": "HDMI-A-1",
+                    "desktop": 0,
+                },
+                {
+                    "id": "w-2",
+                    "app_id": "kitty",
+                    "title": "prompt",
+                    "type": "normal",
+                    "state": "normal",
+                    "x": 100,
+                    "y": 200,
+                    "w": 800,
+                    "h": 600,
+                    "output": "HDMI-A-1",
+                    "desktop": 0,
+                },
             ],
         }
     )
@@ -271,11 +290,14 @@ async def test_list_windows_drops_malformed_entries(started_backend: Any) -> Non
     b = await started_backend()
     assert b._service is not None
     b._service.execute = AsyncMock(
-        return_value={"ok": True, "windows": [
-            {"id": "w-1", "app_id": "ok"},
-            "not-a-dict",
-            {"no-id": "broken"},  # KeyError on decode_window_info
-        ]}
+        return_value={
+            "ok": True,
+            "windows": [
+                {"id": "w-1", "app_id": "ok"},
+                "not-a-dict",
+                {"no-id": "broken"},  # KeyError on decode_window_info
+            ],
+        }
     )
     wins = await b.list_windows()
     assert [w.id for w in wins] == ["w-1"]
@@ -297,12 +319,29 @@ async def test_list_outputs_marks_first_as_primary(started_backend: Any) -> None
     b = await started_backend()
     assert b._service is not None
     b._service.execute = AsyncMock(
-        return_value={"ok": True, "outputs": [
-            {"name": "HDMI-A-1", "x": 0, "y": 0, "w": 1920, "h": 1080,
-             "scale": 1.0, "refresh_mhz": 60000},
-            {"name": "DP-1", "x": 1920, "y": 0, "w": 2560, "h": 1440,
-             "scale": 1.25, "refresh_mhz": 144000},
-        ]}
+        return_value={
+            "ok": True,
+            "outputs": [
+                {
+                    "name": "HDMI-A-1",
+                    "x": 0,
+                    "y": 0,
+                    "w": 1920,
+                    "h": 1080,
+                    "scale": 1.0,
+                    "refresh_mhz": 60000,
+                },
+                {
+                    "name": "DP-1",
+                    "x": 1920,
+                    "y": 0,
+                    "w": 2560,
+                    "h": 1440,
+                    "scale": 1.25,
+                    "refresh_mhz": 144000,
+                },
+            ],
+        }
     )
     outs = await b.list_outputs()
     assert len(outs) == 2
@@ -324,18 +363,160 @@ async def test_current_desktop_and_count(started_backend: Any) -> None:
     assert await b.desktop_count() == 4
 
 
-async def test_commands_raise_unsupported_until_m5e(started_backend: Any) -> None:
+async def test_hotkeys_stub_until_m5f(started_backend: Any) -> None:
     b = await started_backend()
-    with pytest.raises(BackendUnsupported, match=r"M5\.e"):
-        await b.set_geometry("w", Geometry(0, 0, 10, 10))
-    with pytest.raises(BackendUnsupported, match=r"M5\.e"):
-        await b.set_state("w", WindowState.MAXIMIZED)
-    with pytest.raises(BackendUnsupported, match=r"M5\.e"):
-        await b.close_window("w")
     with pytest.raises(BackendUnsupported, match=r"M5\.f"):
         await b.register_hotkey("Ctrl+A", "cb-1")
     with pytest.raises(BackendUnsupported, match=r"M5\.f"):
         await b.unregister_hotkey("cb-1")
+
+
+# ── Commands (M5.e) ────────────────────────────────────────────────────────
+
+
+async def test_set_geometry_sends_single_op_when_monitor_and_desktop_none(
+    started_backend: Any,
+) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_geometry("w-1", Geometry(10, 20, 300, 400))
+    sent = b._service.execute.await_args.args[0]
+    assert sent["op"] == "setFrameGeometry"
+    assert sent["id"] == "w-1"
+    assert sent["x"] == 10 and sent["w"] == 300
+    assert sent["preplace"] is True
+    assert "output" not in sent
+
+
+async def test_set_geometry_batches_when_desktop_specified(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_geometry("w-1", Geometry(0, 0, 100, 100), desktop=2)
+    sent = b._service.execute.await_args.args[0]
+    assert "batch" in sent
+    assert sent["batch"][0]["op"] == "setDesktop"
+    assert sent["batch"][0]["desktop"] == 2
+    assert sent["batch"][1]["op"] == "setFrameGeometry"
+
+
+async def test_set_geometry_raises_unknown_output_for_unknown_monitor(
+    started_backend: Any,
+) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    # list_outputs() returns nothing, so the cache stays empty and the
+    # explicit monitor doesn't match.
+    b._service.execute = AsyncMock(return_value={"ok": True, "outputs": []})
+    with pytest.raises(UnknownOutput):
+        await b.set_geometry("w-1", Geometry(0, 0, 100, 100), monitor="NONE")
+
+
+async def test_set_geometry_includes_monitor_when_cached(started_backend: Any) -> None:
+    b = await started_backend()
+    # Seed the output cache.
+    b._outputs["HDMI-A-1"] = OutputInfo(
+        name="HDMI-A-1",
+        geometry=Geometry(0, 0, 1920, 1080),
+        work_area=Geometry(0, 0, 1920, 1080),
+        scale=1.0,
+        refresh_mhz=60000,
+        is_primary=True,
+        is_connected=True,
+    )
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_geometry("w-1", Geometry(0, 0, 100, 100), monitor="HDMI-A-1")
+    sent = b._service.execute.await_args.args[0]
+    assert sent["output"] == "HDMI-A-1"
+
+
+async def test_set_geometry_unknown_window_translates(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(
+        return_value={"ok": False, "error": "unknown_window", "id": "w-1"}
+    )
+    with pytest.raises(UnknownWindow):
+        await b.set_geometry("w-1", Geometry(0, 0, 100, 100))
+
+
+async def test_set_state_fullscreen_uses_batch(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_state("w-1", WindowState.FULLSCREEN)
+    sent = b._service.execute.await_args.args[0]
+    assert "batch" in sent
+    ops = [sub["op"] for sub in sent["batch"]]
+    assert ops == ["setMinimized", "setFullScreen"]
+    assert sent["batch"][1]["value"] is True
+
+
+async def test_set_state_maximized_clears_fullscreen_and_minimized(
+    started_backend: Any,
+) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_state("w-1", WindowState.MAXIMIZED)
+    sent = b._service.execute.await_args.args[0]
+    ops = [sub["op"] for sub in sent["batch"]]
+    assert ops == ["setMinimized", "setFullScreen", "setMaximizeMode"]
+    last = sent["batch"][-1]
+    assert last["vertical"] is True and last["horizontal"] is True
+
+
+async def test_set_state_minimized_is_single_op(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_state("w-1", WindowState.MINIMIZED)
+    sent = b._service.execute.await_args.args[0]
+    assert sent["op"] == "setMinimized"
+    assert sent["value"] is True
+
+
+async def test_set_state_normal_clears_everything(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.set_state("w-1", WindowState.NORMAL)
+    sent = b._service.execute.await_args.args[0]
+    ops = [sub["op"] for sub in sent["batch"]]
+    assert ops == ["setFullScreen", "setMinimized", "setMaximizeMode"]
+    last = sent["batch"][-1]
+    assert last["vertical"] is False and last["horizontal"] is False
+
+
+async def test_set_state_unknown_window_translates(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(
+        return_value={"ok": False, "error": "unknown_window", "id": "w-1"}
+    )
+    with pytest.raises(UnknownWindow):
+        await b.set_state("w-1", WindowState.FULLSCREEN)
+
+
+async def test_close_window_dispatches_close_op(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(return_value={"ok": True})
+    await b.close_window("w-1")
+    sent = b._service.execute.await_args.args[0]
+    assert sent == {"op": "closeWindow", "id": "w-1"}
+
+
+async def test_close_window_unknown_translates(started_backend: Any) -> None:
+    b = await started_backend()
+    assert b._service is not None
+    b._service.execute = AsyncMock(
+        return_value={"ok": False, "error": "unknown_window", "id": "w-1"}
+    )
+    with pytest.raises(UnknownWindow):
+        await b.close_window("w-1")
 
 
 async def test_queries_require_connection() -> None:
@@ -365,14 +546,21 @@ def test_on_window_added_emits_window_opened_and_geometry() -> None:
     opened: list[str] = []
     geom: list[str] = []
     b.window_opened.connect(lambda info: opened.append(info.id))
-    b.geometry_changed.connect(
-        lambda wid, _g, _m, _d: geom.append(wid)
-    )
+    b.geometry_changed.connect(lambda wid, _g, _m, _d: geom.append(wid))
     b.on_window_added(
-        {"id": "w-1", "app_id": "firefox", "title": "",
-         "type": "normal", "state": "normal",
-         "x": 10, "y": 20, "w": 300, "h": 400,
-         "output": "HDMI-A-1", "desktop": 0}
+        {
+            "id": "w-1",
+            "app_id": "firefox",
+            "title": "",
+            "type": "normal",
+            "state": "normal",
+            "x": 10,
+            "y": 20,
+            "w": 300,
+            "h": 400,
+            "output": "HDMI-A-1",
+            "desktop": 0,
+        }
     )
     assert opened == ["w-1"]
     assert geom == ["w-1"]
@@ -398,11 +586,18 @@ def test_on_window_removed_ignores_missing_id() -> None:
 def test_on_window_geometry_changed_skips_no_op_updates() -> None:
     b = _drive_events()
     geom: list[str] = []
-    b.geometry_changed.connect(
-        lambda wid, _g, _m, _d: geom.append(wid)
-    )
-    p = {"id": "w-1", "x": 0, "y": 0, "w": 100, "h": 100,
-         "output": "HDMI-A-1", "desktop": 0, "type": "normal", "state": "normal"}
+    b.geometry_changed.connect(lambda wid, _g, _m, _d: geom.append(wid))
+    p = {
+        "id": "w-1",
+        "x": 0,
+        "y": 0,
+        "w": 100,
+        "h": 100,
+        "output": "HDMI-A-1",
+        "desktop": 0,
+        "type": "normal",
+        "state": "normal",
+    }
     b.on_window_geometry_changed(p)
     b.on_window_geometry_changed(p)  # identical geometry — no second signal
     assert geom == ["w-1"]
@@ -413,8 +608,17 @@ def test_on_window_properties_changed_emits_window_changed() -> None:
     changed: list[WindowType] = []
     b.window_changed.connect(lambda info: changed.append(info.type))
     b.on_window_properties_changed(
-        {"id": "w-1", "type": "dialog", "state": "normal",
-         "x": 0, "y": 0, "w": 100, "h": 100, "output": "", "desktop": 0}
+        {
+            "id": "w-1",
+            "type": "dialog",
+            "state": "normal",
+            "x": 0,
+            "y": 0,
+            "w": 100,
+            "h": 100,
+            "output": "",
+            "desktop": 0,
+        }
     )
     assert changed == [WindowType.DIALOG]
 
@@ -445,15 +649,53 @@ async def test_on_outputs_changed_reconciles_added_changed_removed(
     # Seed: 2 outputs on first query.
     b._service.execute = AsyncMock()  # type: ignore[method-assign]
     b._service.execute.side_effect = [
-        {"ok": True, "outputs": [
-            {"name": "A", "x": 0, "y": 0, "w": 100, "h": 100, "scale": 1.0, "refresh_mhz": 60000},
-            {"name": "B", "x": 100, "y": 0, "w": 100, "h": 100, "scale": 1.0, "refresh_mhz": 60000},
-        ]},
+        {
+            "ok": True,
+            "outputs": [
+                {
+                    "name": "A",
+                    "x": 0,
+                    "y": 0,
+                    "w": 100,
+                    "h": 100,
+                    "scale": 1.0,
+                    "refresh_mhz": 60000,
+                },
+                {
+                    "name": "B",
+                    "x": 100,
+                    "y": 0,
+                    "w": 100,
+                    "h": 100,
+                    "scale": 1.0,
+                    "refresh_mhz": 60000,
+                },
+            ],
+        },
         # After OutputsChanged: A moved, B gone, C new.
-        {"ok": True, "outputs": [
-            {"name": "A", "x": 0, "y": 0, "w": 200, "h": 200, "scale": 1.0, "refresh_mhz": 60000},
-            {"name": "C", "x": 200, "y": 0, "w": 100, "h": 100, "scale": 1.0, "refresh_mhz": 60000},
-        ]},
+        {
+            "ok": True,
+            "outputs": [
+                {
+                    "name": "A",
+                    "x": 0,
+                    "y": 0,
+                    "w": 200,
+                    "h": 200,
+                    "scale": 1.0,
+                    "refresh_mhz": 60000,
+                },
+                {
+                    "name": "C",
+                    "x": 200,
+                    "y": 0,
+                    "w": 100,
+                    "h": 100,
+                    "scale": 1.0,
+                    "refresh_mhz": 60000,
+                },
+            ],
+        },
     ]
     await b.list_outputs()  # seed the cache
 

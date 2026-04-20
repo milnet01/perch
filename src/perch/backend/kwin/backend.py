@@ -32,6 +32,7 @@ from perch.backend.base import (
     BackendError,
     BackendUnavailable,
     BackendUnsupported,
+    UnknownOutput,
     UnknownWindow,
     WindowBackend,
 )
@@ -52,11 +53,18 @@ from .protocol import (
     CommandError,
     decode_output_entry,
     decode_window_info,
+    op_batch,
+    op_close_window,
     op_query_current_desktop,
     op_query_desktop_count,
     op_query_outputs,
     op_query_window,
     op_query_windows,
+    op_set_desktop,
+    op_set_frame_geometry,
+    op_set_full_screen,
+    op_set_maximize_mode,
+    op_set_minimized,
     unwrap_ok,
 )
 from .scripting import (
@@ -314,7 +322,7 @@ class KWinBackend(WindowBackend):
             return raw
         return 1
 
-    # ── Commands (stubs until M5.e) ────────────────────────────────────────
+    # ── Commands ───────────────────────────────────────────────────────────
 
     async def set_geometry(
         self,
@@ -324,15 +332,86 @@ class KWinBackend(WindowBackend):
         desktop: DesktopIndex | None = None,
     ) -> None:
         self._require_connected()
-        raise BackendUnsupported("set_geometry lands in M5.e")
+        assert self._service is not None
+        if monitor is not None and monitor not in self._outputs:
+            # Hit the wire once in case the cache is stale before we raise.
+            await self.list_outputs()
+            if monitor not in self._outputs:
+                raise UnknownOutput(monitor)
+
+        ops: list[dict[str, Any]] = []
+        if desktop is not None:
+            ops.append(op_set_desktop(wid, desktop))
+        ops.append(
+            op_set_frame_geometry(wid, geom, output=monitor, preplace=True)
+        )
+
+        payload = op_batch(ops) if len(ops) > 1 else ops[0]
+        try:
+            result = await self._service.execute(payload, timeout=COMMAND_TIMEOUT_S)
+        except CommandError as exc:
+            self._translate_error(wid, exc.kind, monitor=monitor)
+            raise
+        if not result.get("ok"):
+            self._translate_error(
+                wid,
+                str(result.get("error", "")),
+                monitor=monitor,
+                batch=result.get("batch"),
+            )
+            # _translate_error raises if it can; fall through if not mapped.
+            raise BackendError(f"set_geometry failed: {result!r}")
 
     async def set_state(self, wid: WindowId, state: WindowState) -> None:
         self._require_connected()
-        raise BackendUnsupported("set_state lands in M5.e")
+        assert self._service is not None
+        ops: list[dict[str, Any]] = []
+        if state is WindowState.FULLSCREEN:
+            # Fullscreen supersedes everything.
+            ops = [
+                op_set_minimized(wid, False),
+                op_set_full_screen(wid, True),
+            ]
+        elif state is WindowState.MAXIMIZED:
+            ops = [
+                op_set_minimized(wid, False),
+                op_set_full_screen(wid, False),
+                op_set_maximize_mode(wid, vertical=True, horizontal=True),
+            ]
+        elif state is WindowState.MINIMIZED:
+            ops = [op_set_minimized(wid, True)]
+        elif state is WindowState.NORMAL:
+            ops = [
+                op_set_full_screen(wid, False),
+                op_set_minimized(wid, False),
+                op_set_maximize_mode(wid, vertical=False, horizontal=False),
+            ]
+        else:  # pragma: no cover — enum exhausted above
+            raise BackendUnsupported(f"unknown window state: {state!r}")
+
+        payload = op_batch(ops) if len(ops) > 1 else ops[0]
+        try:
+            result = await self._service.execute(payload, timeout=COMMAND_TIMEOUT_S)
+        except CommandError as exc:
+            self._translate_error(wid, exc.kind)
+            raise
+        if not result.get("ok"):
+            self._translate_error(wid, str(result.get("error", "")), batch=result.get("batch"))
+            raise BackendError(f"set_state failed: {result!r}")
 
     async def close_window(self, wid: WindowId) -> None:
         self._require_connected()
-        raise BackendUnsupported("close_window lands in M5.e")
+        assert self._service is not None
+        try:
+            result = await self._service.execute(
+                op_close_window(wid), timeout=COMMAND_TIMEOUT_S
+            )
+        except CommandError as exc:
+            self._translate_error(wid, exc.kind)
+            raise
+        if not result.get("ok"):
+            self._translate_error(wid, str(result.get("error", "")))
+            raise BackendError(f"close_window failed: {result!r}")
 
     async def register_hotkey(self, accel: str, callback_id: str) -> None:
         self._require_connected()
@@ -341,6 +420,35 @@ class KWinBackend(WindowBackend):
     async def unregister_hotkey(self, callback_id: str) -> None:
         self._require_connected()
         raise BackendUnsupported("unregister_hotkey lands in M5.f")
+
+    # ── Error translation ─────────────────────────────────────────────────
+
+    def _translate_error(
+        self,
+        wid: WindowId,
+        kind: str,
+        *,
+        monitor: OutputName | None = None,
+        batch: Any = None,
+    ) -> None:
+        """Raise the right backend-taxonomy exception for a script error kind.
+
+        Called from every command site; each caller re-raises a generic
+        BackendError if nothing matches so we never swallow an unknown code.
+        When a batched op fails, ``batch`` carries the per-op results so we
+        can surface the first failure rather than the top-level 'ok' flag.
+        """
+        if isinstance(batch, list):
+            for sub in batch:
+                if isinstance(sub, dict) and not sub.get("ok"):
+                    self._translate_error(
+                        wid, str(sub.get("error", "")), monitor=monitor
+                    )
+                    # If the sub-error wasn't mappable, keep trying the rest.
+        if kind == "unknown_window":
+            raise UnknownWindow(wid)
+        if kind == "unknown_output":
+            raise UnknownOutput(monitor or "")
 
     # ── EventSink: service → Qt signals ────────────────────────────────────
 
