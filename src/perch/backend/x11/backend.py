@@ -17,8 +17,9 @@ land.
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from PySide6.QtCore import QSocketNotifier, Qt, QTimer
 from Xlib import X as _X
 from Xlib import display as _display
 from Xlib import error as _xerror
@@ -91,6 +92,23 @@ class X11Backend(WindowBackend):
         # the int X resource cast to str to keep the interface type stable
         # (OutputName/WindowId are both ``str``).
         self._windows: dict[WindowId, Window] = {}
+        # Cached last-seen info per window so PropertyNotify / ConfigureNotify
+        # can decide "was this a *real* change?" without re-querying every
+        # property. Saves about 6 round-trips per ConfigureNotify event.
+        self._info_cache: dict[WindowId, WindowInfo] = {}
+        # Cached output snapshot so we can diff on RRScreenChangeNotify.
+        self._outputs_cache: dict[OutputName, OutputInfo] = {}
+        # The QSocketNotifier that wakes us on readable X11 socket data.
+        self._notifier: QSocketNotifier | None = None
+        # Debounce timer for XRandR events — a single hot-plug typically fires
+        # RRScreenChangeNotify + several RRCrtcChangeNotify + RROutputChange
+        # within ~50 ms; we coalesce into one output-diff pass after 200 ms
+        # quiet (matches the doc).
+        self._randr_debounce: QTimer | None = None
+        # RandR extension-event codes, populated after init_extension('RANDR').
+        self._rr_screen_change: int | None = None
+        self._rr_crtc_change: int | None = None
+        self._rr_output_change: int | None = None
 
     # ── Lifecycle ───────────────────────────────────────────────────────────
     async def start(self) -> None:
@@ -115,30 +133,61 @@ class X11Backend(WindowBackend):
             raise BackendUnavailable(f"cannot open display: {exc!s}") from exc
 
         self._atoms = AtomTable(self._d)
-        # Subscribe to the root-level changes we care about for output +
-        # desktop + client-list tracking. Per-window subscriptions (for
-        # window_changed / geometry_changed) are set up in M4.c/d.
+        # Subscribe to the root-level changes: SubstructureNotify for window
+        # lifecycle (Create/Map/Unmap/Destroy reparented under root),
+        # PropertyChange for _NET_CLIENT_LIST / _NET_CURRENT_DESKTOP /
+        # _NET_NUMBER_OF_DESKTOPS / _NET_WORKAREA updates.
         root = self._d.screen().root
         try:
             root.change_attributes(
                 event_mask=_X.SubstructureNotifyMask | _X.PropertyChangeMask
             )
-            self._d.flush()
         except _xerror.BadAccess as exc:
-            # Another client already has SubstructureRedirectMask — harmless
-            # for us (we never ask for Redirect), but BadAccess is still
-            # reportable.
             raise BackendDisconnected(
                 f"cannot subscribe to root events: {exc!s}"
             ) from exc
 
+        # Subscribe to RandR events. init_extension assigns the extension-
+        # event codes into d.extension_event.* (they are not static).
+        self._init_randr_subscription()
+
+        self._d.flush()
+
+        # Wire Qt's event loop to the X socket. _drain() pumps every event
+        # that's readable — level-triggered QSocketNotifier can fire once per
+        # readable wakeup and we cover multiple queued events.
+        self._notifier = QSocketNotifier(
+            self._d.fileno(), QSocketNotifier.Type.Read
+        )
+        self._notifier.activated.connect(self._on_socket_readable)
+
+        # Debounce timer for XRandR — single-shot, re-armed on each event.
+        self._randr_debounce = QTimer()
+        self._randr_debounce.setSingleShot(True)
+        self._randr_debounce.setInterval(200)
+        self._randr_debounce.setTimerType(Qt.TimerType.CoarseTimer)
+        self._randr_debounce.timeout.connect(self._on_randr_debounce_fired)
+
         self._connected = True
+        # Prime the caches so the first live event can diff against something.
+        infos = await self.list_windows()
+        self._info_cache = {i.id: i for i in infos}
+        outs = await self.list_outputs()
+        self._outputs_cache = {o.name: o for o in outs}
         self.backend_connected.emit()
 
     async def stop(self) -> None:
         if not self._connected:
             return
         self._connected = False
+        if self._notifier is not None:
+            self._notifier.setEnabled(False)
+            self._notifier.deleteLater()
+            self._notifier = None
+        if self._randr_debounce is not None:
+            self._randr_debounce.stop()
+            self._randr_debounce.deleteLater()
+            self._randr_debounce = None
         if self._d is not None:
             # Display.close() can raise OSError on a socket already torn down
             # by the server (pathological shutdown race). Nothing actionable;
@@ -147,6 +196,8 @@ class X11Backend(WindowBackend):
                 self._d.close()
             self._d = None
         self._atoms = None
+        self._info_cache.clear()
+        self._outputs_cache.clear()
         self.backend_disconnected.emit("x11 stop")
 
     @property
@@ -266,6 +317,224 @@ class X11Backend(WindowBackend):
 
     async def unregister_hotkey(self, callback_id: str) -> None:
         raise BackendUnsupported("X11Backend.unregister_hotkey lands in M4.f")
+
+    # ── Event loop ─────────────────────────────────────────────────────────
+    def _init_randr_subscription(self) -> None:
+        """Select RandR events on the root and remember their event codes."""
+        from Xlib.ext import randr
+
+        d = self._d
+        if d is None:
+            return
+        root = d.screen().root
+        try:
+            root.xrandr_select_input(
+                randr.RRScreenChangeNotifyMask
+                | randr.RRCrtcChangeNotifyMask
+                | randr.RROutputChangeNotifyMask
+            )
+        except _xerror.BadAccess:
+            # No RandR on this server. Degrade gracefully — can_observe_outputs
+            # still holds for the static enumeration; hot-plug is simply blind.
+            return
+        # Xlib assigns extension-event codes during init_extension('RANDR'),
+        # accessed via the dynamic d.extension_event namespace.
+        ee = d.extension_event
+        self._rr_screen_change = getattr(ee, "ScreenChangeNotify", None)
+        self._rr_crtc_change = getattr(ee, "CrtcChangeNotify", None)
+        self._rr_output_change = getattr(ee, "OutputChangeNotify", None)
+
+    def _on_socket_readable(self, _fd: int) -> None:
+        """QSocketNotifier slot: drain every queued X event."""
+        d = self._d
+        if d is None:
+            return
+        try:
+            while d.pending_events():
+                event = d.next_event()
+                self._dispatch(event)
+        except (_xerror.ConnectionClosedError, OSError) as exc:
+            # The X server went away mid-drain — stop the backend cleanly.
+            self._connected = False
+            self.backend_disconnected.emit(f"x11 disconnected: {exc!s}")
+
+    def _dispatch(self, event: Any) -> None:
+        """Route an X event to the matching handler."""
+        etype = event.type
+        # RandR extension events (codes assigned at init time).
+        if etype == self._rr_screen_change:
+            self._on_randr_event()
+            return
+        if etype == self._rr_crtc_change or etype == self._rr_output_change:
+            self._on_randr_event()
+            return
+        if etype == _X.PropertyNotify:
+            self._on_property_notify(event)
+            return
+        if etype == _X.ConfigureNotify:
+            self._on_configure_notify(event)
+            return
+        if etype == _X.UnmapNotify or etype == _X.DestroyNotify:
+            self._on_window_gone(event)
+            return
+        # MapNotify intentionally not handled — EWMH WMs emit
+        # PropertyNotify(_NET_CLIENT_LIST) as soon as a window is fully
+        # managed, and our reconcile runs off that. Wiring MapNotify as a
+        # parallel trigger fires window_opened too early (before WM_CLASS /
+        # _NET_WM_STATE are set), producing spurious "empty app_id" events
+        # followed by a correction — verified against Openbox 3.6.1.
+        #
+        # Everything else (FocusIn/Out, Visibility, KeyPress when no hotkey
+        # is grabbed, …) is not our concern.
+
+    def _on_randr_event(self) -> None:
+        if self._randr_debounce is not None:
+            self._randr_debounce.start()
+
+    def _on_randr_debounce_fired(self) -> None:
+        """Refresh outputs and emit add/remove/change signals for the diff."""
+        if not self._connected:
+            return
+        # Build a fresh snapshot.
+        try:
+            outs = list_outputs(self._d) if self._d is not None else []
+        except _xerror.XError:
+            # RandR request failed mid-run; leave the cache alone.
+            return
+        workarea = self._read_workarea()
+        if workarea is not None:
+            outs = apply_workarea(outs, workarea)
+        new = {o.name: o for o in outs}
+        old = self._outputs_cache
+        # Diff.
+        for name, info in new.items():
+            if name not in old:
+                self.output_added.emit(info)
+            elif info != old[name]:
+                self.output_changed.emit(info)
+        for name in old:
+            if name not in new:
+                self.output_removed.emit(name)
+        self._outputs_cache = new
+
+    def _on_property_notify(self, event: Any) -> None:
+        """Handle PropertyNotify: root-level client-list / desktop changes,
+        or per-window title / state / type updates."""
+        d = self._d
+        atoms = self._atoms
+        if d is None or atoms is None:
+            return
+        root = d.screen().root
+        if event.window.id == root.id:
+            self._on_root_property_change(event.atom)
+            return
+        # Per-window property changes — re-read identity and emit
+        # window_changed if anything visible has changed.
+        wid_str = str(event.window.id)
+        win = self._windows.get(wid_str)
+        if win is None:
+            return
+        outputs = list(self._outputs_cache.values())
+        info = read_window_info(d, atoms, win, outputs)
+        if info is None:
+            # Window died; clean up and emit closed.
+            self._drop_window(wid_str)
+            return
+        cached = self._info_cache.get(wid_str)
+        if cached != info:
+            self._info_cache[wid_str] = info
+            self.window_changed.emit(info)
+
+    def _on_root_property_change(self, atom: int) -> None:
+        atoms = self._atoms
+        if atoms is None:
+            return
+        # Only reconcile on atoms we care about; ignore others to save work.
+        if atom == atoms["_NET_CLIENT_LIST"]:
+            # Reconcile is synchronous and fast (one property read + a small
+            # diff). Running it inline keeps the event-dispatch ordering
+            # deterministic: window_closed fires before any window_opened
+            # from the same _NET_CLIENT_LIST update.
+            self._reconcile_client_list()
+
+    def _reconcile_client_list(self) -> None:
+        """Read _NET_CLIENT_LIST, diff against cached windows, emit signals."""
+        d = self._d
+        atoms = self._atoms
+        if d is None or atoms is None:
+            return
+        root = d.screen().root
+        try:
+            prop = root.get_full_property(
+                atoms["_NET_CLIENT_LIST"], _X.AnyPropertyType
+            )
+        except _xerror.XError:
+            return
+        now_ids = (
+            [int(v) for v in prop.value] if prop is not None and prop.format == 32 else []
+        )
+        now_str = {str(i) for i in now_ids}
+        outputs = list(self._outputs_cache.values())
+
+        # Gone first so the event ordering matches the docs (closed is terminal).
+        for wid in list(self._info_cache):
+            if wid not in now_str:
+                self._drop_window(wid)
+
+        # New arrivals.
+        for wid_int in now_ids:
+            wid_str = str(wid_int)
+            if wid_str in self._info_cache:
+                continue
+            win = d.create_resource_object("window", wid_int)
+            info = read_window_info(d, atoms, win, outputs)
+            if info is None:
+                continue
+            self._windows[wid_str] = win
+            self._info_cache[wid_str] = info
+            catch = _xerror.CatchError(_xerror.BadWindow, _xerror.BadMatch)
+            win.change_attributes(
+                event_mask=_X.PropertyChangeMask | _X.StructureNotifyMask,
+                onerror=catch,
+            )
+            self.window_opened.emit(info)
+        d.flush()
+
+    def _on_configure_notify(self, event: Any) -> None:
+        """Geometry change reported by the server."""
+        wid_str = str(event.window.id)
+        win = self._windows.get(wid_str)
+        d = self._d
+        atoms = self._atoms
+        if win is None or d is None or atoms is None:
+            return
+        outputs = list(self._outputs_cache.values())
+        info = read_window_info(d, atoms, win, outputs)
+        if info is None:
+            self._drop_window(wid_str)
+            return
+        cached = self._info_cache.get(wid_str)
+        changed = (
+            cached is None
+            or cached.geometry != info.geometry
+            or cached.monitor != info.monitor
+            or cached.desktop != info.desktop
+        )
+        if changed:
+            self._info_cache[wid_str] = info
+            self.geometry_changed.emit(
+                info.id, info.geometry, info.monitor, info.desktop
+            )
+
+    def _on_window_gone(self, event: Any) -> None:
+        wid_str = str(event.window.id)
+        if wid_str in self._info_cache:
+            self._drop_window(wid_str)
+
+    def _drop_window(self, wid: WindowId) -> None:
+        self._windows.pop(wid, None)
+        self._info_cache.pop(wid, None)
+        self.window_closed.emit(wid)
 
     # ── Internals ──────────────────────────────────────────────────────────
     def _require_connected(self) -> Display:
