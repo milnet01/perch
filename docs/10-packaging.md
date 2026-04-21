@@ -8,8 +8,18 @@ Authoritative packaging artefacts live under `packaging/`:
 |---|---|
 | `packaging/flathub/io.github.milnet01.Perch.yml` + `SUBMISSION.md` | Flathub |
 | `packaging/rpm/perch.spec` + `_service` + `README.md` | openSUSE OBS, Fedora COPR |
-| `packaging/aur/PKGBUILD`, `packaging/aur/perch-git/PKGBUILD`, `README.md` | AUR |
+| `packaging/aur/PKGBUILD` + `.SRCINFO`, `packaging/aur/perch-git/PKGBUILD` + `.SRCINFO`, `README.md` | AUR |
 | `packaging/kde-store/LISTING.md` | KDE Store |
+
+Submission runbooks live under `packaging/submit/`:
+
+| Channel | Runbook | Notes |
+|---|---|---|
+| Flathub | `packaging/submit/flathub.sh` | Needs `flatpak-builder`; stages by default, `--push` opens the PR. |
+| openSUSE OBS | `packaging/submit/obs.sh` | Needs `osc` + `~/.oscrc`. |
+| Fedora COPR | `packaging/submit/copr.sh` | Needs `copr-cli` + `~/.config/copr` API token. |
+| AUR | `packaging/submit/aur.sh <perch\|perch-git>` | Needs SSH key registered on AUR account. |
+| KDE Store | `packaging/submit/kde-store.md` | Web-only submission — runbook, not CLI. |
 
 `.github/workflows/ci.yml` has a `packaging` job that runs
 `appstreamcli validate` on the metainfo, `desktop-file-validate` on the

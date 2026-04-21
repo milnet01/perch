@@ -13,11 +13,36 @@ other — not both.
 
 ## Maintenance flow
 
+### One-shot submission (recommended)
+
+Use the bundled submission script; it clones the AUR repo, copies the
+PKGBUILD + .SRCINFO, commits with an auto-generated message, and
+pushes:
+
+```bash
+./packaging/submit/aur.sh perch
+./packaging/submit/aur.sh perch-git
+```
+
+Prerequisites (run these once per machine):
+- SSH key registered on your AUR account at
+  https://aur.archlinux.org/account/ → "My Account" → "SSH Public Key".
+- `git` configured with a user.email / user.name (AUR requires it on
+  every commit).
+
+The script uses a scratch clone so your main checkout is untouched,
+prints the staged commit before pushing, and requires an interactive
+confirmation before the final `git push`. Use `AUR_DRY_RUN=1` to
+stage without pushing.
+
+### Manual flow (when you need to deviate)
+
 1. Keep this directory in sync with release reality. When we tag
-   `v1.2.3`, `/bump` rewrites `pkgver=` and `sha256sums=` in the stable
-   PKGBUILD. The `-git` PKGBUILD doesn't need editing — its `pkgver()`
-   function derives from `git describe` on each build.
-2. Generate `.SRCINFO` next to each PKGBUILD **before** pushing to AUR:
+   `v1.2.3`, `/bump` rewrites `pkgver=` in the stable PKGBUILD. The
+   `-git` PKGBUILD doesn't need editing — its `pkgver()` function
+   derives from `git describe` on each build.
+2. Regenerate `.SRCINFO` next to each PKGBUILD **before** pushing to
+   AUR:
    ```bash
    cd packaging/aur
    makepkg --printsrcinfo > .SRCINFO
@@ -25,6 +50,8 @@ other — not both.
    makepkg --printsrcinfo > .SRCINFO
    ```
    `.SRCINFO` is tracked in git alongside the PKGBUILD (AUR requires it).
+   Perch v1.0.0 ships both files pre-generated so the submission
+   script works on any machine without `makepkg` installed.
 3. Push to AUR via each package's git remote:
    ```bash
    # One-time setup (per machine):

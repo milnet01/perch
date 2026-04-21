@@ -14,44 +14,51 @@ names legitimately differ.
 
 ## openSUSE OBS flow
 
-1. **Project**: `home:milnet01` on <https://build.opensuse.org>. Promote
-   to `X11:Utilities` or `KDE:Extra` once the app is Flathub-listed and
-   has user interest.
-2. **Setup**:
-   ```bash
-   osc checkout home:milnet01 perch
-   cp packaging/rpm/perch.spec home:milnet01/perch/
-   cp packaging/rpm/_service    home:milnet01/perch/
-   osc add perch.spec _service
-   osc commit -m "Initial Perch package"
-   ```
-3. **Targets enabled**: openSUSE Tumbleweed (primary), Leap 16.0 once
-   its PySide6 is ≥ 6.8 (Leap 15.x ships 6.4 — too old, same story as
-   Ubuntu 24.04).
-4. **Tag-driven rebuilds**: the `_service` file picks up new git tags
-   automatically via `obs_scm`. Manual re-triggers via
-   `osc service runall`.
+**One-shot submission:** `./packaging/submit/obs.sh`
+
+That script checks out `home:<user>/perch` (creating the package if
+absent), copies this directory's `perch.spec` + `_service`, stages,
+and commits — OBS runs the source service + build on its nodes.
+
+Prerequisites:
+- `osc` installed (`zypper install osc` on Tumbleweed).
+- `osc -A https://api.opensuse.org login` completed (once, writes
+  `~/.oscrc`).
+
+**Project**: `home:<user>` on <https://build.opensuse.org>. Promote
+to `X11:Utilities` or `KDE:Extra` once the app is Flathub-listed and
+has user interest.
+
+**Targets enabled**: openSUSE Tumbleweed (primary), Leap 16.0 once
+its PySide6 is ≥ 6.8 (Leap 15.x ships 6.4 — too old, same story as
+Ubuntu 24.04).
+
+**Tag-driven rebuilds**: the `_service` file picks up new git tags
+automatically via `obs_scm`. Manual re-triggers via
+`osc service runall`.
 
 ## Fedora COPR flow
 
-1. **Project**: `milnet01/perch` on <https://copr.fedorainfracloud.org>.
-2. **Build source**: COPR's "Custom script" or "SCM" build type pointed
-   at `https://github.com/milnet01/perch.git`. Script:
-   ```bash
-   #!/bin/sh
-   VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
-   sed -i "s/^Version:.*/Version:        ${VERSION}/" packaging/rpm/perch.spec
-   tar -czf /tmp/perch-${VERSION}.tar.gz --transform "s|^|perch-${VERSION}/|" .
-   mkdir -p /tmp/rpmbuild/SOURCES /tmp/rpmbuild/SPECS
-   cp /tmp/perch-${VERSION}.tar.gz /tmp/rpmbuild/SOURCES/
-   cp packaging/rpm/perch.spec /tmp/rpmbuild/SPECS/
-   rpmbuild --define "_topdir /tmp/rpmbuild" -bs /tmp/rpmbuild/SPECS/perch.spec
-   cp /tmp/rpmbuild/SRPMS/*.src.rpm "$OUTPUTDIR"/
-   ```
-3. **Targets enabled**: Fedora latest, Fedora latest-1, EPEL 10 (for
-   Rocky / Alma on CentOS Stream 10).
-4. **Webhook**: wire GitHub releases to trigger a COPR rebuild via the
-   tagged API; see <https://docs.pagure.org/copr.copr/user_documentation.html#webhooks>.
+**One-shot submission:** `./packaging/submit/copr.sh`
+
+Creates the COPR project on first run; re-runs submit a new build
+from the current `pyproject.toml` version (which must match an
+existing upstream tag).
+
+Prerequisites:
+- `copr-cli` installed (`dnf install copr-cli` on Fedora;
+  `pip install --user copr-cli` elsewhere).
+- API token in `~/.config/copr` — get it at
+  <https://copr.fedorainfracloud.org/api/>.
+
+**Project**: `<user>/perch` on <https://copr.fedorainfracloud.org>.
+
+**Targets enabled**: Fedora latest, openSUSE Tumbleweed (default
+chroots in the submit script; override with `COPR_CHROOTS`).
+
+The submit script uses COPR's tarball-URL build source pointing at
+`https://github.com/milnet01/perch/archive/v${VERSION}/perch-${VERSION}.tar.gz`
+— no custom script needed.
 
 ## Local smoke build
 

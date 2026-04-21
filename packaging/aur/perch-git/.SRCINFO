@@ -1,0 +1,29 @@
+pkgbase = perch-git
+	pkgdesc = Persistent, compositor-aware window geometry manager (git HEAD)
+	pkgver = 0.0.0.r0.g0000000
+	pkgrel = 1
+	url = https://github.com/milnet01/perch
+	arch = any
+	license = GPL-3.0-or-later
+	makedepends = git
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-hatchling>=1.24
+	makedepends = python-wheel
+	makedepends = appstream-glib
+	makedepends = desktop-file-utils
+	depends = python>=3.12
+	depends = pyside6>=6.8
+	depends = python-qasync>=0.28
+	depends = python-sdbus>=0.14.2
+	depends = python-xlib>=0.33
+	depends = python-tomlkit>=0.13
+	optdepends = xdg-desktop-portal: GlobalShortcuts + Background portal
+	optdepends = xdg-desktop-portal-kde: preferred portal impl on Plasma 6
+	optdepends = python-i3ipc: Sway backend (optional)
+	provides = perch
+	conflicts = perch
+	source = perch::git+https://github.com/milnet01/perch.git
+	sha256sums = SKIP
+
+pkgname = perch-git

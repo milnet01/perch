@@ -9,6 +9,10 @@ the listing's copy, categorisation, and links. The store itself renders
 from whatever the maintainer uploads via the store's web UI; keeping
 the text in-repo gives us a single canonical source.
 
+**Submission walkthrough:** `packaging/submit/kde-store.md` (the KDE
+Store has no CLI — it's a web-only flow, so that file is a runbook,
+not a shell script).
+
 ## Listing copy (paste into the store form)
 
 **Title:** Perch

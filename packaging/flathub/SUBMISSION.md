@@ -1,6 +1,35 @@
 # Flathub submission — notes and checklist
 
-Perch cannot actually be submitted to Flathub until it has a tagged release artefact (Flathub's review process needs something to build). This document records what's already done, what remains, and the exact steps for the final submission at M8/M9.
+## TL;DR — one-shot submission
+
+```bash
+./packaging/submit/flathub.sh            # stage only — review the diff
+./packaging/submit/flathub.sh --push     # push fork + open PR on Flathub
+```
+
+Prerequisites:
+- `gh` authed (already done).
+- `flatpak-builder` installed (`zypper install flatpak-builder` on
+  Tumbleweed, `dnf install flatpak-builder` on Fedora, etc.).
+- `org.kde.Platform//6.8` + `org.kde.Sdk//6.8` flatpak runtimes (the
+  script installs them if missing).
+
+The script clones `flatpak-builder-tools`, regenerates
+`python3-*.yml` dep includes from the pyproject.toml pins, forks
+`flathub/flathub`, stages the manifest + generated includes on a
+branch named after the app id, and runs a local build smoke test.
+By default it stops there so you can review the diff; `--push`
+completes the submission by pushing the fork branch and opening the
+PR via `gh`.
+
+The rest of this doc explains what's under the hood — read if the
+script fails, you need to modify the deps list, or you're bringing
+up a new Flathub channel (e.g. Beta).
+
+---
+
+This document records what's already done, what remains, and the
+exact steps for the Flathub submission (both automated and manual).
 
 ## Current state (through M8)
 
@@ -75,9 +104,12 @@ Flathub documents the full flow at <https://docs.flathub.org/docs/for-app-author
    - Budget 2–6 weeks for the first review round.
 7. **Merge**: on approval, Flathub merges the manifest into `flathub/flathub`, which triggers their build infrastructure to create the actual per-app repo `flathub/io.github.milnet01.Perch` and first build.
 
-## Why we're not opening a speculative PR now
+## History — why we held the PR until v1.0.0
 
-Flathub explicitly asks submitters to have a buildable release. Opening a PR with `v1.0.0` as an unresolvable tag wastes reviewer time and trains a "Perch's submitter is sloppy" association that the project doesn't want. The correct move is to get the manifest and include files ready **in this repo**, then submit only once M8 ships.
+Flathub explicitly asks submitters to have a buildable release. M8
+authored the manifest and the `packaging/submit/flathub.sh` runbook
+in-repo so the PR could be opened the same day `v1.0.0` tagged,
+with nothing speculative landing in `flathub/flathub`.
 
 ## Ownership of the eventual `flathub/io.github.milnet01.Perch` repo
 
