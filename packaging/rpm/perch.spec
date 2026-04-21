@@ -14,7 +14,7 @@
 # ============================================================================
 
 Name:           perch
-Version:        0.0.0
+Version:        1.0.0
 Release:        0
 Summary:        Persistent, compositor-aware window geometry manager
 License:        GPL-3.0-or-later

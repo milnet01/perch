@@ -337,18 +337,18 @@ sandbox marker.
 
 ## Release mechanics
 
-1. Update `CHANGELOG.md` and `metainfo.xml` `<release>` entry.
-2. Bump `pyproject.toml` `version`, `metadata.desktop` `Version=`, the KWin script's version field, and the KWin backend's expected-script-version constant in sync.
+1. Update `CHANGELOG.md` and `data/io.github.milnet01.Perch.metainfo.xml` `<release>` entry.
+2. `/bump <new-version>` rewrites the five version-bearing files wired in `.claude/bump.json`: `pyproject.toml` `version`, `src/perch/__init__.py` `__version__`, `packaging/rpm/perch.spec` `Version:`, `packaging/aur/PKGBUILD` `pkgver=`, and the Flatpak manifest's `tag:` line. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §Version pinning).
 3. Tag: `v1.2.3`.
 4. CI builds:
-   - PyPI source + wheel artefact (kept for users who want it manually; not published to PyPI in v1).
+   - PyPI source + wheel artefact (kept for users who want it manually; not published to PyPI).
    - Flatpak manifest PR to Flathub repo.
    - OBS `_service` picks up the tag.
    - COPR build triggered manually.
    - AUR updated manually (or via a `aurpublish` script in `contrib/`).
 5. KDE Store: updated from the Flatpak artefact.
 
-This is the checklist the `/release` skill will drive; see CLAUDE.md for skill wiring.
+The `/release` skill drives this checklist; see CLAUDE.md for skill wiring.
 
 ## Signed binaries / reproducible builds
 

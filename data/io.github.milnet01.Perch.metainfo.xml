@@ -88,32 +88,28 @@
     <color type="primary" scheme_preference="dark">#3a2f1e</color>
   </branding>
 
-  <!--
-    Screenshots are added alongside release tags (not `main`) so Flathub's
-    mirror can cache by URL; see docs/10-packaging.md. The first tagged
-    release (v0.1.0) will update these URLs in the release commit.
-  -->
   <screenshots>
     <screenshot type="default">
       <caption>The tray menu showing active profile and snap presets</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/main/docs/screenshots/tray-menu.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.0.0/docs/screenshots/tray-menu.png</image>
     </screenshot>
     <screenshot>
       <caption>The rules editor matching windows by class and title</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/main/docs/screenshots/rules-editor.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.0.0/docs/screenshots/rules-editor.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
-    <release version="0.1.0-dev" date="2026-04-20" type="development">
-      <url type="details">https://github.com/milnet01/perch/blob/main/CHANGELOG.md#unreleased</url>
+    <release version="1.0.0" date="2026-04-21" type="stable">
+      <url type="details">https://github.com/milnet01/perch/blob/v1.0.0/CHANGELOG.md#100--2026-04-21</url>
       <description>
-        <p>Pre-v0.1.0 development snapshot. Design docs complete; M1–M3 (partial) implementation landed.</p>
+        <p>First stable release. Perch remembers where each window belongs and restores geometry (position, size, monitor, virtual desktop) when a window reopens.</p>
         <ul>
-          <li>Skeleton + config subsystem (M1)</li>
-          <li>MockBackend + compliance suite + rules engine + profiles + layouts + event reducer (M2.a–M2.e)</li>
-          <li>KWin IPC long-poll spike (M2.5) — validated on Plasma 6.6.4</li>
-          <li>Tray icon + menu + SNI-host probe + config dialog scaffold with General / Rules / Exclusions edit flows (M3.a, M3.b, M3.d)</li>
+          <li>Full backends for X11 and KWin / Plasma Wayland; community stubs for Mutter, Sway, and Hyprland.</li>
+          <li>Rules engine with match patterns, named layouts, per-monitor profiles, and exclusions.</li>
+          <li>Tray icon + PySide6 config dialog with dark-theme support, keyboard navigation, and accessibility labels.</li>
+          <li>Global hotkeys via the xdg-desktop-portal GlobalShortcuts interface, with KGlobalAccel and XGrabKey fallbacks.</li>
+          <li>Packaging for Flathub, openSUSE OBS, Fedora COPR, AUR, and the KDE Store.</li>
         </ul>
       </description>
     </release>

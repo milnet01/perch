@@ -10,15 +10,15 @@ Home: https://github.com/milnet01/perch — license: **GPL-3.0-or-later**.
 
 ## Current phase
 
-Perch is in **Phase 1: design documentation**. No implementation code has landed. Everything lives in `docs/` and is being written before any `src/`.
+Perch is at **v1.0.0**. Phases 0–4 are complete; see `docs/11-roadmap.md` for the per-milestone history and `CHANGELOG.md` for release notes.
 
-Phase sequence (see `docs/11-roadmap.md` once it exists):
+Phase sequence:
 
-0. Repo bootstrap — **done** (LICENSE, README, CONTRIBUTING, CoC, `.github/`, `pyproject.toml`).
-1. Design docs — **in progress**.
-2. Review + online research to validate design assumptions.
-3. Revise docs based on findings.
-4. Implement in milestones M1…M9.
+0. Repo bootstrap — **done**.
+1. Design docs — **done**.
+2. Review + online research to validate design assumptions — **done**.
+3. Revise docs based on findings — **done**.
+4. Implementation (M1…M9) — **done**.
 
 ## Docs-first rule (hard rule)
 
@@ -36,10 +36,10 @@ Docs and code must stay in sync, always. This is a stronger rule than "docs-firs
 
 The invariant: **reading `docs/` at any commit on `main` tells the reader what the code does at that commit.** Drifting from that invariant is treated as breaking the build.
 
-## Tech stack (decided, not yet implemented)
+## Tech stack
 
 - **Language:** Python 3.12+
-- **UI toolkit:** PySide6 (Qt ≥ 6.7) — tray icon via `QSystemTrayIcon`, config dialog in Qt Widgets, integrates naturally on KDE.
+- **UI toolkit:** PySide6 (Qt ≥ 6.8) — tray icon via `QSystemTrayIcon`, config dialog in Qt Widgets, integrates naturally on KDE.
 - **Async glue:** `qasync` — one event loop drives both Qt and asyncio.
 - **D-Bus:** `sdbus-python` (async, C-backed via libsystemd). `dbus-next` was the initial pick but is effectively dormant upstream since 2022; swapped during Phase 2 research (see `docs/11-roadmap.md` findings log).
 - **X11:** `python-xlib` directly, with a small in-tree EWMH wrapper. `python-ewmh` was the initial pick but is unmaintained since 2017 and not packaged on Fedora/openSUSE.
@@ -47,7 +47,7 @@ The invariant: **reading `docs/` at any commit on `main` tells the reader what t
 
 ## Backend-plugin architecture
 
-The core (tray, UI, state, rules engine, hotkey dispatcher) is backend-agnostic and talks to a `WindowBackend` interface (to be defined in `docs/03-backend-interface.md`). Planned backends:
+The core (tray, UI, state, rules engine, hotkey dispatcher) is backend-agnostic and talks to the `WindowBackend` interface defined in `docs/03-backend-interface.md`. Backends:
 
 | Backend | Transport | Priority |
 |---|---|---|
@@ -59,22 +59,28 @@ The core (tray, UI, state, rules engine, hotkey dispatcher) is backend-agnostic 
 
 When adding compositor-specific behavior, the rule is: if it fits the `WindowBackend` interface, put it in a backend; if it doesn't, that's a sign the interface needs to change — discuss in a doc PR first.
 
-## Repo layout (current)
+## Repo layout
 
 ```
 perch/
   CLAUDE.md             ← this file
-  LICENSE               ← GPL-3.0-or-later (added in Phase 0 via `gh repo create`)
+  LICENSE               ← GPL-3.0-or-later
   README.md
   CONTRIBUTING.md
   CODE_OF_CONDUCT.md
+  CHANGELOG.md
   pyproject.toml
   .gitignore
-  .github/              ← issue templates, PR template, config
-  docs/                 ← design docs (to be populated in Phase 1)
+  .github/              ← issue templates, PR template, CI
+  src/perch/            ← Python package (core, ui, backends)
+  tests/                ← pytest suite (unit + backend compliance + live X11/KWin)
+  docs/                 ← design docs (00 … 11)
+  data/                 ← AppStream metainfo, desktop entry, icons
+  packaging/            ← Flatpak / RPM / AUR / KDE Store recipes
+  translations/         ← Qt Linguist .ts sources
+  scripts/              ← dev helpers (i18n, screenshot rendering)
+  experiments/          ← archived spikes (M2.5 KWin IPC)
 ```
-
-No `src/`, no `tests/` yet — they land in M1.
 
 ## Parent context
 

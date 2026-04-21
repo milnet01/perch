@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "perch"
-version = "0.0.0"
+version = "1.0.0"
 description = "Persistent, compositor-aware window geometry manager with a system-tray UI."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "milnet01" }]
 keywords = ["window-manager", "kde", "kwin", "wayland", "x11", "tray", "geometry", "layout"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: POSIX :: Linux",

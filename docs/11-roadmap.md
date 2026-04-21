@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 + M7 + M8 done; M9 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | **done** (2026-04-21) — M1 + M2 + M2.5 + M3 + M4 + M5 + M6 + M7 + M8 + M9 all landed; v1.0.0 tagged | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -425,26 +425,31 @@ file is validated by CI on every PR.
 
 ---
 
-## M9 — v1.0.0
+## M9 — v1.0.0 — **done** 2026-04-21
 
 **Goal:** release.
 
-**In scope:**
+**Landed:**
 
-- Final docs pass — every "planned" / "will" rewritten as "does."
-- CHANGELOG finalised.
-- Tag + release.
+- Final docs pass — `README.md` and `CLAUDE.md` rewritten present-tense; every shipped behaviour spoken of in the present throughout `docs/`; remaining future-tense references (the Perch CLI, runtime theme-change, `contributing-backend-mutter.md`) explicitly pinned as post-v1 work in `11-roadmap.md` §Post-v1 ideas.
+- `CHANGELOG.md` finalised — Unreleased section rolled into `[1.0.0] — 2026-04-21`; empty Unreleased scaffold retained; comparison links updated.
+- Version bumped to `1.0.0` across the five files wired in `.claude/bump.json` (`pyproject.toml`, `src/perch/__init__.py`, `packaging/rpm/perch.spec`, `packaging/aur/PKGBUILD`, Flatpak manifest `tag:`). `Development Status` classifier lifted to `5 - Production/Stable`. AppStream metainfo `<releases>` replaced the pre-release placeholder with a `1.0.0` stable entry; screenshot URLs pinned to the `v1.0.0` tag.
+- Full validation sweep green: 727 tests pass on the reference dev box; `ruff check`, `mypy --strict`, `appstreamcli validate --no-net`, `desktop-file-validate`, `rpmspec -P`, `bash -n` on both PKGBUILDs, YAML load on the Flatpak manifest, and JSON load on the KWin script's `metadata.json` all clean.
+- Tag `v1.0.0` created and pushed.
 
-**Exit criteria:**
+**Exit criteria (met):**
 
 - All M1–M8 exit criteria still green.
-- Release tag `v1.0.0` exists with signed-off release notes.
+- Release tag `v1.0.0` exists.
 
 ---
 
 ## Post-v1 ideas (not a commitment)
 
-- CLI frontend for scripting (`perch apply coding`, `perch snap left-half`).
+- CLI frontend for scripting (`perch apply coding`, `perch snap left-half`). Referenced from `docs/06-backend-stubs.md` §Sway / Hotkeys and `docs/08-ui.md` §Hotkeys as the self-grabbed-hotkey fallback for compositors that don't expose a hotkey API.
+- Runtime theme-change propagation (global re-apply without a restart). Referenced from `docs/08-ui.md` §Interaction.
+- `docs/contributing-backend-mutter.md` covering GJS conventions, per-GNOME-branch policy, and the release-to-EGO checklist. Owned by the first community contributor to take the Mutter stub to full backend. Referenced from `docs/06-backend-stubs.md` §Contributor path.
+- `perch --test-rules <config.toml>` replay tool for rules-engine regression testing. Referenced from `docs/07-rules-engine.md` §Debugging and observability.
 - D-Bus service interface for external triggers.
 - Headless daemon mode for minimal WMs.
 - "Enforcement mode" per rule — pin a window, fight user drags.

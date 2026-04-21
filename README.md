@@ -2,19 +2,19 @@
 
 > Persistent, compositor-aware window geometry manager with a system-tray UI for Linux desktops.
 
-**Status:** design / pre-implementation. Perch is currently in documentation-first design mode — see [`docs/`](docs/) for the architecture, backend specs, and roadmap.
+**Status:** v1.0.0 — see [`CHANGELOG.md`](CHANGELOG.md) and [`docs/11-roadmap.md`](docs/11-roadmap.md) for the per-milestone history.
 
-## What Perch will do
+## What Perch does
 
-- Run in the system tray; launch automatically at login.
-- Remember position, size, monitor, and virtual desktop of every managed window.
-- Restore windows to their remembered spot when they reopen.
-- Provide a live-editable list of open windows (x, y, width, height).
+- Runs in the system tray; launches automatically at login.
+- Remembers position, size, monitor, and virtual desktop of every managed window.
+- Restores windows to their remembered spot when they reopen.
+- Provides a live-editable list of open windows (x, y, width, height).
 - One-click snap presets: center, left half, right half, top-left, top-right, bottom-left, bottom-right, plus quarter snaps and "maximize on this monitor".
 - Named layouts ("coding", "media", "writing") switchable from the tray.
 - Rules engine: *"always open Firefox on monitor 2, maximized"*.
 - Per-monitor-layout profiles — separate positions for docked vs. laptop-only.
-- Global hotkeys for snap presets.
+- Global hotkeys for snap presets (via `xdg-desktop-portal` GlobalShortcuts, with KGlobalAccel / `XGrabKey` fallbacks).
 - Exclusion list for windows that shouldn't be managed (splash screens, transient dialogs).
 - Export / import configs so layouts survive a reinstall.
 
@@ -24,29 +24,38 @@ Perch uses a backend-plugin architecture so it can target any mainstream Linux d
 
 | Backend | Status | How it works |
 |---|---|---|
-| X11 (any EWMH window manager) | planned for v1 | `python-xlib` + an in-tree EWMH helper |
-| KWin / Plasma Wayland | planned for v1 | KWin D-Bus + a bundled KWin JavaScript script |
-| Mutter / GNOME Wayland | stub + docs | GNOME Shell extension (contributor-welcome) |
-| Sway / wlroots | stub + docs | `swaymsg` |
-| Hyprland | stub + docs | `hyprctl` |
+| X11 (any EWMH window manager) | full | `python-xlib` + an in-tree EWMH helper |
+| KWin / Plasma Wayland | full | KWin D-Bus + a bundled KWin JavaScript script |
+| Mutter / GNOME Wayland | stub | GNOME Shell extension (contributor-welcome) |
+| Sway / wlroots | stub | `swaymsg` |
+| Hyprland | stub | `hyprctl` |
 
 Writing a new backend means implementing the `WindowBackend` interface described in [`docs/03-backend-interface.md`](docs/03-backend-interface.md) — no core changes required.
 
-## Installation (planned)
+## Installation
 
-Perch will be distributed through:
+Perch is distributed through:
 
 - **Flathub** (Flatpak) — primary cross-distro channel
 - **openSUSE OBS** — RPM
-- **AUR** — Arch / Manjaro
+- **AUR** — Arch / Manjaro (`perch` stable, `perch-git` HEAD)
 - **Fedora COPR** — RPM
-- **KDE Store** (store.kde.org) — as a KWin-aware utility
+- **KDE Store** (store.kde.org) — links at the Flatpak
 
-Nothing is published yet — these land in milestone M8.
+Packaging recipes live under [`packaging/`](packaging/). See [`docs/10-packaging.md`](docs/10-packaging.md) for the per-channel installation commands.
 
-## Building from source (planned)
+## Building from source
 
-Perch targets Python 3.11+ with PySide6. Until the first implementation milestone lands, there is nothing to build.
+Perch targets **Python 3.12+** with PySide6 ≥ 6.8.
+
+```bash
+git clone https://github.com/milnet01/perch.git
+cd perch
+pip install --user --break-system-packages -e ".[dev]"
+perch --version
+```
+
+See [`docs/contributing-dev-setup.md`](docs/contributing-dev-setup.md) for the full dev workflow (system packages, test commands, pre-commit expectations).
 
 ## License
 

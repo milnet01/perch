@@ -98,5 +98,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/milnet01/perch.git
-        tag: v1.0.0              # placeholder — replaced with the real tag at submission
-        # commit: <sha>           # pin after tagging so reproducible builds work
+        tag: v1.0.0
+        # commit: <sha>           # pin to the tag's commit SHA after tagging so reproducible builds work

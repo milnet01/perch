@@ -35,7 +35,7 @@ Rationale: Perch is a long-running design-led project with contributors coming a
 1. Pick an issue labeled `good-first-issue` or `help-wanted`, or open one describing what you want to change.
 2. Read the relevant file(s) in `docs/`. If the change you want isn't covered, open a doc-only PR first so the design can be discussed.
 3. Fork, branch (`feat/short-name`, `fix/short-name`, `docs/short-name`), and implement.
-4. Run the linter and tests (commands will be added in milestone M1).
+4. Run the linter and tests: `ruff check src tests && mypy --strict src && pytest`.
 5. Open a PR using the template.
 
 ## Contributing a backend

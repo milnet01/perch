@@ -10,6 +10,22 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [1.0.0] — 2026-04-21
+
+First stable release. Perch is a persistent, compositor-aware window geometry manager with full X11 and KWin (Plasma Wayland) backends, stub backends for Mutter / Sway / Hyprland, a PySide6 tray + config dialog, a rules engine, named layouts, per-monitor profiles, portal-first global hotkeys, and packaging recipes for Flathub / OBS / COPR / AUR / KDE Store.
+
+### Added
+
 - Phase 0 bootstrap: LICENSE (GPL-3.0-or-later), README, CONTRIBUTING, CODE_OF_CONDUCT, `.github/` templates, `pyproject.toml` scaffold.
 - Phase 1 design docs: `docs/00-overview.md` through `docs/11-roadmap.md` — twelve docs covering architecture, backend interface, state format, per-backend designs (X11, KWin, stubs), rules engine, UI, layouts/profiles, packaging, and the phased roadmap.
 - Phase 2 validation: stack swaps (`dbus-next` → `sdbus-python`, `python-ewmh` → `python-xlib`), GNOME floor raised to 48, pre-paint placement declared best-effort.
@@ -45,6 +61,7 @@ Sections under each release are populated on a best-effort basis — empty secti
 - **M7.c — Error-surfacing audit:** `src/perch/ui/status.py` introduces `wire_backend_status(backend, controller, tray)` bridging the three `WindowBackend` status signals into the tray surface — `backend_connected` clears `backend_degraded`, `backend_disconnected` sets it (tray icon flips to warning variant + tooltip changes to "Perch — backend disconnected"), and `backend_error` surfaces a `QSystemTrayIcon.showMessage` balloon notification. `src/perch/app.py` wires the bridge between tray construction and `backend.start()` so a synchronous `backend_connected` from `start()` still updates the tray. Remaining untranslated user-visible strings wrapped in `QCoreApplication.translate(...)` / `self.tr(...)`: the `_maybe_show_appindicator_hint` dialog's title / body / informative text and the four `MatchEditor` `QLineEdit` placeholders. 8 new tests in `tests/ui/test_status_bridge.py` including the end-to-end `TrayIcon` tooltip round-trip.
 - **M7.b — Dialog keyboard navigation audit:** `src/perch/ui/dialog.py` — `_DeleteKeyTableView` + `_DeleteKeyListWidget` subclasses let Delete / Backspace remove the selected row on the Rules table and Exclusions list (QShortcut + `WidgetWithChildrenShortcut` doesn't fire against `QTableView` — its built-in cell-editing delete handler swallows the key before the shortcut resolver sees it). Explicit `setTabOrder(sidebar → stack → buttons)` pins the Tab chain and the sidebar gets initial focus. Accessible-name / description strings on the sidebar ("Sections"), rules table ("Rules table"), and exclusions list ("Exclusion patterns") so orca + Qt's accessibility bridge announce them clearly. 7 new tests in `tests/ui/test_dialog_keyboard.py`; docs/08 §Accessibility rewritten present-tense.
 - **M8.g — Release plumbing + docs close-out:** `.claude/bump.json` wired to `pyproject.toml`, `src/perch/__init__.py`, `packaging/rpm/perch.spec`, `packaging/aur/PKGBUILD`, and the Flatpak manifest's `tag:` line (the KWin `BUNDLED_SCRIPT_VERSION` is deliberately left independent per docs/05 §Version pinning). `docs/10-packaging.md` rewritten present-tense — every channel now points at the authored artefacts under `packaging/`. `docs/05-backend-kwin.md` §Hotkeys rewritten: portal path is preferred, KGlobalAccel is the explicit fallback. `KWinBackend.capabilities.notes` updated to match the new policy.
+- **M9 — v1.0.0 release:** final docs pass — `README.md` and `CLAUDE.md` rewritten for a shipped project (status lines, Python floor, backend table, repo layout, installation instructions); `CONTRIBUTING.md` lint/test command made concrete; `docs/10-packaging.md` §Release mechanics points at `.claude/bump.json`; `docs/11-roadmap.md` phase map and M9 section marked done; Post-v1 ideas annotated with the docs that reference each deferred item. Version bumped to `1.0.0` across the five `.claude/bump.json` files; AppStream metainfo `<releases>` block replaced with a stable `1.0.0` entry and screenshot URLs pinned to the `v1.0.0` tag; `Development Status` classifier lifted to `5 - Production/Stable`. Full validation sweep: 727 tests pass, `ruff` + `mypy --strict` + `appstreamcli validate --no-net` + `desktop-file-validate` + `rpmspec -P` + `bash -n` PKGBUILDs + YAML/JSON parse all clean.
 - **M8.f — KDE Store listing + CI validation job:** `packaging/kde-store/LISTING.md` with the store copy, tags, screenshot captions, and the GHNS install command pointing at the Flatpak — no parallel tarball upload, since maintaining a second binary channel duplicates what Flathub already handles. `.github/workflows/ci.yml` gains a `packaging` job running `appstreamcli validate` on the metainfo, `desktop-file-validate` on the desktop entry, `yamllint` on the Flatpak manifest, `rpmspec -P` on the RPM spec, `bash -n` on both PKGBUILDs, and well-formedness on the KWin script's `metadata.json` — every submission-blocking artefact is checked on every PR. Runs independent of the test matrix so packaging regressions surface without blocking on the Python grid.
 - **M8.e — XDG Desktop Portal GlobalShortcuts hotkey path:** `PortalGlobalShortcutsProvider` in `src/perch/backend/kwin/hotkeys.py` — full `CreateSession` → `BindShortcuts` → `Activated` signal flow with per-Request `Response` correlation, portable-to-XDG accel translation (`Ctrl+Shift+Q` → `CTRL+SHIFT+Q`) inlined in the backend layer to keep the UI module out of the backend import graph. `choose_provider()` now probes portal availability (via a CreateSession dry-run) when `/.flatpak-info` is present or a portal factory is injected, falling back to KGlobalAccel cleanly on probe failure. `PERCH_HOTKEY_PROVIDER=mock|portal|kglobalaccel` env override short-circuits the probe for tests and unusual installs. Portal unbind is a local-map eviction because the spec doesn't expose `UnbindShortcuts` — session-close at `stop()` releases everything at once. 12 new tests in `tests/backend/kwin/test_hotkeys.py` using an in-memory fake portal.
 - **M8.d — Autostart (XDG .desktop + Background portal):** `src/perch/autostart.py` wires both paths behind a single `sync(enabled)` façade. Non-Flatpak: atomic temp-and-rename write to `$XDG_CONFIG_HOME/autostart/io.github.milnet01.Perch.desktop` with `X-GNOME-Autostart-enabled=true`; honours freedesktop `Hidden=true` on the existence probe. Flatpak: async `org.freedesktop.portal.Background.RequestBackground` with `autostart=true` and `commandline=["perch"]`, routed as a background task when a qasync loop is running so the config dialog's OK button doesn't block on the portal's permission prompt. `is_flatpak()` probes `/.flatpak-info` as the canonical sandbox marker. `sync_from_config` is called at startup and from the config dialog's `saved` signal — the `Start Perch at login` checkbox now takes effect immediately without a restart. Portal failures are logged at WARNING and swallowed so a portal outage never blocks a config save. 16 new tests in `tests/test_autostart.py`.
@@ -74,4 +91,5 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Security
 
-[Unreleased]: https://github.com/milnet01/perch/tree/main
+[Unreleased]: https://github.com/milnet01/perch/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/milnet01/perch/releases/tag/v1.0.0
