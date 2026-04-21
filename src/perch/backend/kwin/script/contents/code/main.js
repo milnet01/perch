@@ -211,10 +211,20 @@ function doSetFrameGeometry(op) {
             w.output = s;
         }
     }
-    w.frameGeometry = Qt.rect(op.x | 0, op.y | 0, op.w | 0, op.h | 0);
+    // KWin's JS sandbox does not export ``Qt.rect``; using it throws
+    // "Qt is not defined" and the whole command is rejected. Assigning
+    // a plain object with ``x/y/width/height`` works on Plasma 6 —
+    // KWin converts it to a ``QRect`` via the QML-property coercion.
+    w.frameGeometry = {
+        x: op.x | 0,
+        y: op.y | 0,
+        width: op.w | 0,
+        height: op.h | 0,
+    };
     if (op.preplace) {
         // Best-effort: stack predictably during first-frame placement, then
-        // clear once the window has had one repaint to settle.
+        // clear once the window has had one repaint to settle. ``QTimer``
+        // is exposed by KWin's scripting host even without a ``Qt`` global.
         w.keepAbove = true;
         const release = new QTimer();
         release.interval = 120;
@@ -396,4 +406,9 @@ if (workspace.currentDesktopChanged) {
 })();
 
 poll();
-callDBus(SVC, OBJ, IF, "ScriptReady", JSON.stringify({ version: "1.0.0" }));
+// Version string sent to Python on startup. Must match ``metadata.json``'s
+// ``KPlugin.Version`` and ``perch.backend.kwin.BUNDLED_SCRIPT_VERSION``.
+// Kept as a literal here because KWin's JS sandbox has no JSON-file reader;
+// install-time parity is verified by ``tests/backend/kwin/test_bundled_script.py``.
+const SCRIPT_VERSION = "1.1.0";
+callDBus(SVC, OBJ, IF, "ScriptReady", JSON.stringify({ version: SCRIPT_VERSION }));

@@ -90,10 +90,50 @@ def test_main_js_handles_every_inbound_op() -> None:
         "queryWindows",
         "queryOutputs",
         "queryWindow",
+        "queryActiveWindow",
         "queryCurrentDesktop",
         "queryDesktopCount",
     ):
         assert f'"{op}"' in main_js, f"script dispatcher is missing op: {op}"
+
+
+def test_main_js_does_not_use_Qt_namespace() -> None:
+    """KWin's JS sandbox does not expose ``Qt.rect`` / ``Qt.size`` / ``Qt.point``.
+
+    Using them fails at runtime with ``Qt is not defined`` — we caught this
+    during v1.0.0 smoke testing when ``set_geometry`` never actually moved a
+    window on live KWin. Regression guard: grep for any ``Qt.<thing>(...)``
+    call in the script.
+    """
+    import re
+
+    main_js = (BUNDLED_SCRIPT_DIR / "contents" / "code" / "main.js").read_text()
+    bad = re.findall(r"\bQt\.[A-Za-z_]+\s*\(", main_js)
+    assert not bad, (
+        f"main.js uses Qt.* calls that aren't available in KWin's JS "
+        f"sandbox: {bad!r}. Use plain {{x, y, width, height}} objects "
+        f"for QRect assignment; QTimer is the only Qt global that is "
+        f"reliably exposed."
+    )
+
+
+def test_main_js_script_version_matches_python_constant() -> None:
+    """The ``ScriptReady`` signal carries ``SCRIPT_VERSION`` — it must match
+    :data:`BUNDLED_SCRIPT_VERSION`, else the Python side logs the wrong
+    version and the user chases a phantom "I bumped it but the log says
+    old" mystery (caught by smoke-testing v1.1.0).
+    """
+    import re
+
+    main_js = (BUNDLED_SCRIPT_DIR / "contents" / "code" / "main.js").read_text()
+    match = re.search(r'SCRIPT_VERSION\s*=\s*"([^"]+)"', main_js)
+    assert match is not None, (
+        "main.js must define SCRIPT_VERSION as a const string"
+    )
+    assert match.group(1) == BUNDLED_SCRIPT_VERSION, (
+        f"main.js SCRIPT_VERSION={match.group(1)!r} differs from "
+        f"BUNDLED_SCRIPT_VERSION={BUNDLED_SCRIPT_VERSION!r}"
+    )
 
 
 def test_main_js_parses_with_node_when_available() -> None:
