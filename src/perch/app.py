@@ -46,6 +46,7 @@ from .ui.intents import (
     TogglePauseRestore,
 )
 from .ui.sni_probe import is_gnome_wayland, sni_host_available
+from .ui.status import wire_backend_status
 from .ui.tray import TrayController, TrayIcon, TrayState
 
 log = logging.getLogger(__name__)
@@ -60,17 +61,26 @@ def _maybe_show_appindicator_hint(parent: QCoreApplication | None) -> None:
     dialog because there's no standard install path to point them at.
     """
     del parent
+    ctx = "perch.app"
     box = QMessageBox()
-    box.setWindowTitle("Perch — tray icon unavailable")
+    box.setWindowTitle(
+        QCoreApplication.translate(ctx, "Perch — tray icon unavailable")
+    )
     box.setIcon(QMessageBox.Icon.Information)
     box.setText(
-        "GNOME Wayland doesn't show tray icons by default. Please install "
-        "the <b>AppIndicator and KStatusNotifierItem Support</b> GNOME "
-        "extension to see Perch in your top bar."
+        QCoreApplication.translate(
+            ctx,
+            "GNOME Wayland doesn't show tray icons by default. Please install "
+            "the <b>AppIndicator and KStatusNotifierItem Support</b> GNOME "
+            "extension to see Perch in your top bar.",
+        )
     )
     box.setInformativeText(
-        "Perch will continue running in the background; the config dialog "
-        "is still reachable from <code>perch --settings</code>."
+        QCoreApplication.translate(
+            ctx,
+            "Perch will continue running in the background; the config dialog "
+            "is still reachable from <code>perch --settings</code>.",
+        )
     )
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     box.exec()
@@ -209,6 +219,9 @@ async def main() -> int:
     # Backend + reducer. MockBackend keeps M3 self-contained; swapping to
     # a real backend only requires editing this block.
     backend = MockBackend()
+    # Wire status signals before start() so a synchronous
+    # backend_connected from start() still updates the tray.
+    wire_backend_status(backend, controller, tray)
     await backend.start()
     state_store = StateStore(paths.state_dir() / "state.json")
     state_store.load()

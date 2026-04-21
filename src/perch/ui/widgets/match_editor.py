@@ -56,16 +56,20 @@ class MatchEditor(QWidget):
         super().__init__(parent)
 
         self.app_id_edit = QLineEdit(self)
-        self.app_id_edit.setPlaceholderText("firefox, org.kde.Konsole*, …")
+        self.app_id_edit.setPlaceholderText(
+            self.tr("firefox, org.kde.Konsole*, …")
+        )
 
         self.wm_class_edit = QLineEdit(self)
-        self.wm_class_edit.setPlaceholderText("Firefox, Plasma*, …")
+        self.wm_class_edit.setPlaceholderText(self.tr("Firefox, Plasma*, …"))
 
         self.title_edit = QLineEdit(self)
-        self.title_edit.setPlaceholderText("Python regex (searched, not anchored)")
+        self.title_edit.setPlaceholderText(
+            self.tr("Python regex (searched, not anchored)")
+        )
 
         self.pid_edit = QLineEdit(self)
-        self.pid_edit.setPlaceholderText("Integer PID (optional)")
+        self.pid_edit.setPlaceholderText(self.tr("Integer PID (optional)"))
 
         self.type_checkboxes: dict[WindowType, QCheckBox] = {}
         types_grid = QGridLayout()
