@@ -14,8 +14,10 @@ reducer work via :meth:`_handle_intent`.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
+import signal
 import subprocess
 import sys
 from collections.abc import Callable, Coroutine
@@ -26,6 +28,7 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import autostart, paths
+from .backend import BackendUnavailable, WindowBackend, select
 from .backend.mock import MockBackend
 from .config import Config, load_or_create
 from .core.reducer import Reducer
@@ -99,6 +102,29 @@ def _initial_tray_state(
     )
 
 
+def _select_backend() -> WindowBackend:
+    """Pick a backend for the current session.
+
+    Probes via :func:`perch.backend.select`. Falls back to
+    :class:`MockBackend` when no real transport is detected — that
+    keeps headless dev boxes (and CI smoke runs) usable without a
+    compositor, at the cost of an inert Windows pane. A log line makes
+    the fallback explicit so users debugging "my windows aren't showing
+    up" can see the chosen backend at startup.
+    """
+    try:
+        cls = select()
+        backend = cls()
+        log.info("backend: selected %s", cls.__name__)
+        return backend
+    except BackendUnavailable as exc:
+        log.warning(
+            "backend: no real transport detected (%s); falling back to MockBackend",
+            exc,
+        )
+        return MockBackend()
+
+
 # Background tasks launched from _handle_intent. Python's GC can reclaim
 # the Task object otherwise and the coroutine silently stops (this is the
 # RUF006 asyncio footgun). A module-level set keeps them alive until the
@@ -119,6 +145,7 @@ def _handle_intent(
     close_event: asyncio.Event,
     reducer: Reducer,
     open_dialog: Callable[[str | None], None] | None = None,
+    quit_app: Callable[[], None] | None = None,
 ) -> None:
     """Translate a UI intent into core work.
 
@@ -128,6 +155,13 @@ def _handle_intent(
     match intent:
         case Quit():
             close_event.set()
+            # Tell Qt to start its own shutdown so the ``await
+            # close_event.wait()`` in ``main()`` isn't the sole shutdown
+            # gate — without this, the qasync loop keeps pumping Qt
+            # events and the process hangs after the backend has
+            # stopped.
+            if quit_app is not None:
+                quit_app()
         case TogglePauseRestore():
             # Reducer-level pause flag lands with the real backend wiring
             # in M4; for M3 we log so the tray integration is verifiable.
@@ -164,14 +198,22 @@ def _open_in_file_manager(directory: Path) -> None:
         log.warning("xdg-open not found; cannot open %s", directory)
 
 
-async def main() -> int:
+async def main(
+    *,
+    have_sni_host: bool | None = None,
+    gnome_wayland: bool | None = None,
+) -> int:
     """Run Perch. Returns the process exit code.
 
-    M3 scope: load config, show tray icon (when an SNI host is available
-    or the session is GNOME-Wayland and we surface the hint), wire a
-    :class:`MockBackend` through the reducer, and let the tray drive
-    intents. Real backends (X11 in M4, KWin in M5) swap MockBackend out
-    without touching this file.
+    Loads config, chooses a backend via :func:`perch.backend.select`,
+    shows the tray icon (when an SNI host is available or the session
+    is GNOME-Wayland and we surface the hint), and wires the reducer.
+
+    ``have_sni_host`` and ``gnome_wayland`` are probed synchronously in
+    :func:`perch.__main__.cli` before the asyncio loop starts —
+    sdbus's sync-read API refuses to run with an active loop attached.
+    Callers can override both for tests (e.g. to simulate a negative
+    SNI probe on GNOME Wayland); ``None`` probes live.
     """
     config: Config = load_or_create()
     state = AppState(config=config)
@@ -198,16 +240,35 @@ async def main() -> int:
     close_event = asyncio.Event()
     app.aboutToQuit.connect(close_event.set)
 
-    # Probe before creating the tray; a negative probe on GNOME Wayland
-    # surfaces the AppIndicator hint. On other desktops we still create
-    # the tray — there's frequently a host that the watcher check can't
-    # see (older Xfce builds, transient watcher gaps) and the fallthrough
-    # is just "icon never becomes visible", which is no worse than
-    # suppressing it.
-    have_host = sni_host_available()
+    # Install a SIGINT handler so Ctrl+C at the terminal triggers the
+    # same clean-shutdown path as the tray Quit intent — without this,
+    # asyncio.run raises ``KeyboardInterrupt`` mid-await and prints a
+    # traceback. The handler queues a coroutine that sets close_event +
+    # calls app.quit(); the ``finally`` block below then stops the
+    # reducer and backend.
+    def _handle_sigint() -> None:
+        log.info("SIGINT received; shutting down")
+        close_event.set()
+        app.quit()
+
+    loop = asyncio.get_running_loop()
+    with contextlib.suppress(NotImplementedError):
+        # Windows' ProactorEventLoop doesn't implement add_signal_handler;
+        # qasync on Linux does. Suppressing the error keeps this portable.
+        loop.add_signal_handler(signal.SIGINT, _handle_sigint)
+        loop.add_signal_handler(signal.SIGTERM, _handle_sigint)
+
+    # SNI / GNOME probes land here as arguments — the sync D-Bus reads
+    # that underpin them happen in ``__main__.cli`` before the asyncio
+    # loop starts. A negative probe on GNOME Wayland surfaces the
+    # AppIndicator hint; on other desktops we still create the tray
+    # because the watcher probe can miss transient / older hosts and
+    # the fallthrough is just "icon never becomes visible".
+    have_host = sni_host_available() if have_sni_host is None else have_sni_host
+    gnome = is_gnome_wayland() if gnome_wayland is None else gnome_wayland
     awaiting_extension = False
     if not have_host:
-        if is_gnome_wayland():
+        if gnome:
             awaiting_extension = True
             _maybe_show_appindicator_hint(app)
         else:
@@ -224,9 +285,10 @@ async def main() -> int:
     tray = TrayIcon(controller, icons=icons)
     tray.show()
 
-    # Backend + reducer. MockBackend keeps M3 self-contained; swapping to
-    # a real backend only requires editing this block.
-    backend = MockBackend()
+    # Backend selection — probe the current session via ``select()`` and
+    # fall back to :class:`MockBackend` if no real transport is available
+    # (covers headless dev boxes and ``PERCH_BACKEND=mock``).
+    backend = _select_backend()
     # Wire status signals before start() so a synchronous
     # backend_connected from start() still updates the tray.
     wire_backend_status(backend, controller, tray)
@@ -251,7 +313,12 @@ async def main() -> int:
         # Reload config so a just-saved file is re-parsed, and rebuild
         # the state snapshot the dialog edits.
         fresh_config = load_or_create()
-        dialog = ConfigDialog(fresh_config, paths.config_file())
+        dialog = ConfigDialog(
+            fresh_config,
+            paths.config_file(),
+            backend=backend,
+            state_store=state_store,
+        )
         if section is not None:
             dialog.select_section(section)
         def _on_saved() -> None:
@@ -261,6 +328,12 @@ async def main() -> int:
             # "Start at login" checkbox has immediate effect — no restart
             # needed.
             autostart.sync_from_config(fresh)
+            # Re-apply the theme so a light↔dark flip on Apply takes
+            # effect live. Qt propagates the new palette to every
+            # top-level widget, so open dialogs re-paint without a
+            # reconstruction. ``"auto"`` re-probes the platform colour
+            # scheme.
+            apply_theme(app, fresh.general.theme)
 
         dialog.saved.connect(_on_saved)
         dialog_ref[0] = dialog
@@ -274,6 +347,7 @@ async def main() -> int:
             close_event=close_event,
             reducer=reducer,
             open_dialog=open_dialog,
+            quit_app=app.quit,
         )
     )
 

@@ -86,6 +86,7 @@ def cli(argv: list[str] | None = None) -> int:
 
     from .app import allow_headless_bootstrap
     from .app import main as app_main
+    from .ui.sni_probe import is_gnome_wayland, sni_host_available
 
     allow_headless_bootstrap()
 
@@ -95,8 +96,19 @@ def cli(argv: list[str] | None = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     _ = app
 
+    # The SNI probe uses sdbus's sync API and must run *before* the
+    # asyncio loop starts — sdbus refuses to run sync reads with an
+    # asyncio loop attached ("Used sync __get__ method in async
+    # environment"). Pass the result into ``main()`` so the async body
+    # only sees a pure bool.
+    have_host = sni_host_available()
+    gnome_wayland = is_gnome_wayland()
+
     try:
-        return asyncio.run(app_main(), loop_factory=QEventLoop)
+        return asyncio.run(
+            app_main(have_sni_host=have_host, gnome_wayland=gnome_wayland),
+            loop_factory=QEventLoop,
+        )
     except ConfigError as exc:
         log.error("config error: %s", exc)
         print(f"perch: config error: {exc}", file=sys.stderr)

@@ -431,11 +431,22 @@ file is validated by CI on every PR.
 
 **Landed:**
 
-- Final docs pass — `README.md` and `CLAUDE.md` rewritten present-tense; every shipped behaviour spoken of in the present throughout `docs/`; remaining future-tense references (the Perch CLI, runtime theme-change, `contributing-backend-mutter.md`) explicitly pinned as post-v1 work in `11-roadmap.md` §Post-v1 ideas.
+- Final docs pass — `README.md` and `CLAUDE.md` rewritten present-tense; every shipped behaviour spoken of in the present throughout `docs/`; remaining future-tense references (the Perch CLI, runtime theme-change, `contributing-backend-mutter.md`) explicitly pinned as post-v1 work in §Post-v1 ideas.
 - `CHANGELOG.md` finalised — Unreleased section rolled into `[1.0.0] — 2026-04-21`; empty Unreleased scaffold retained; comparison links updated.
 - Version bumped to `1.0.0` across the five files wired in `.claude/bump.json` (`pyproject.toml`, `src/perch/__init__.py`, `packaging/rpm/perch.spec`, `packaging/aur/PKGBUILD`, Flatpak manifest `tag:`). `Development Status` classifier lifted to `5 - Production/Stable`. AppStream metainfo `<releases>` replaced the pre-release placeholder with a `1.0.0` stable entry; screenshot URLs pinned to the `v1.0.0` tag.
-- Full validation sweep green: 727 tests pass on the reference dev box; `ruff check`, `mypy --strict`, `appstreamcli validate --no-net`, `desktop-file-validate`, `rpmspec -P`, `bash -n` on both PKGBUILDs, YAML load on the Flatpak manifest, and JSON load on the KWin script's `metadata.json` all clean.
-- Tag `v1.0.0` created and pushed.
+- **M9.f — Config dialog gap closure** (post-smoke-test). Smoke-testing v1.0.0 revealed that four dialog panes (Windows, Layouts, Profiles, Import / Export) still shipped M3-era "arrives later" placeholder text and the Hotkeys page was preview-only. All five panes now implement their documented behaviour:
+  - Windows pane: live `QTableView` over a `WindowsTableModel` subscribed to backend lifecycle signals, with Save-as-last-seen / Forget-last-seen row actions.
+  - Layouts pane: split list + entries editor using a new `EntryEditorDialog` (composes `MatchEditor`, `GeometryEditor`, Snap-preset combo + monitor / desktop / maximized).
+  - Profiles pane: per-profile topology + default-layout + overrides editor, overrides reuse `EntryEditorDialog`.
+  - Import / Export pane: file-picker backed Export, validated Import with `difflib.unified_diff` preview + atomic replace on confirm.
+  - Hotkeys pane: edits diff against snapshot and persist via new `perch.config.edit.apply_snap_hotkey`; the "preview only" banner is gone.
+- **M9.f.7 — Runtime bugs surfaced by smoke-test.** Four shipped-but-broken issues fixed:
+  1. `app.py` now calls `perch.backend.select()` (with `MockBackend` fallback and a startup log line) instead of hardcoding `MockBackend`, so the Windows pane populates from the real compositor on KWin / X11.
+  2. The config dialog's `saved` handler re-calls `apply_theme(app, fresh.general.theme)` so light ↔ dark toggles take effect on Apply without a restart.
+  3. `sni_host_available()` / `is_gnome_wayland()` moved from inside async `main()` to `__main__.cli` before `asyncio.run(...)` — sdbus's sync API refuses to run with an active asyncio loop attached ("Used sync `__get__` method in async environment").
+  4. Tray Quit intent now also calls `QApplication.quit()` (not just `close_event.set()`); `main()` installs SIGINT / SIGTERM handlers so Ctrl+C shuts down cleanly instead of tracebacking with `KeyboardInterrupt`.
+- Full validation sweep green: 794 tests pass on the reference dev box; `ruff check`, `mypy --strict`, `appstreamcli validate --no-net`, `desktop-file-validate`, `rpmspec -P`, `bash -n` on both PKGBUILDs, YAML load on the Flatpak manifest, and JSON load on the KWin script's `metadata.json` all clean.
+- Tag `v1.0.0` created locally; awaiting user sign-off before push.
 
 **Exit criteria (met):**
 

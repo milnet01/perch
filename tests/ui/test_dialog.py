@@ -215,21 +215,22 @@ def test_hotkeys_page_shows_existing_snap_bindings(
     assert page._edits["center-60"].accel() == "Meta+C"
 
 
-def test_hotkeys_page_is_never_dirty_in_m3c_preview(
+def test_hotkeys_page_persists_accel_on_ok(
     qtbot: QtBot, tmp_path: Path, xdg_env: Path,
 ) -> None:
-    """M3.c ships hotkey preview only; commit is a no-op until M5."""
-    dialog, _path, saves = _open_dialog(tmp_path, xdg_env)
+    dialog, path, saves = _open_dialog(tmp_path, xdg_env)
     qtbot.addWidget(dialog)
     page = dialog._pages[SECTION_HOTKEYS]
     assert isinstance(page, HotkeysPage)
 
-    # Edit the displayed hotkey; the page stays not-dirty, so OK is a no-op.
+    # Edit the displayed hotkey → page becomes dirty → OK persists.
     page._edits["center-60"].set_accel("Ctrl+Alt+C")
-    assert not page.is_dirty()
+    assert page.is_dirty()
 
     dialog._on_ok()
-    assert saves == []
+    assert len(saves) == 1
+    saved_text = path.read_text(encoding="utf-8")
+    assert "Ctrl+Alt+C" in saved_text
 
 
 def test_exclusions_page_delete_drops_entry_and_persists(
