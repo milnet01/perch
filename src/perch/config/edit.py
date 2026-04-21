@@ -431,9 +431,18 @@ def add_profile(
     topology: str,
     default_layout: str | None = None,
 ) -> None:
-    """Append a new ``[[profiles]]`` table to the document."""
+    """Append a new ``[[profiles]]`` table to the document.
+
+    Rejects empty ``name`` and empty ``topology``; the loader's schema
+    validation enforces both on read, so writing an empty value would
+    silently corrupt the config until the next restart.
+    """
     if not name.strip():
         raise ConfigEditError("add_profile: profile name must not be empty")
+    if not topology.strip():
+        raise ConfigEditError(
+            f"add_profile: topology must not be empty for profile {name!r}"
+        )
     aot = _profiles_aot(document, create=True)
     for existing in aot:
         if existing.get("name") == name:
@@ -481,11 +490,16 @@ def delete_profile(document: TOMLDocument, index: int) -> None:
 def set_profile_field(
     document: TOMLDocument, index: int, key: str, value: Any
 ) -> None:
-    """Rewrite a scalar profile field (``topology`` / ``default_layout``).
+    """Rewrite a scalar profile field (``name`` / ``topology`` /
+    ``default_layout``).
 
     Passing ``value=None`` on ``default_layout`` removes the key so the
     serialised TOML stays lean (matches the parser's
     "default_layout is optional" expectation).
+
+    ``name`` and ``topology`` reject empty strings — the loader's schema
+    validation enforces both on read and a silently-written empty value
+    would invalidate the config on the next start.
     """
     if key not in ("topology", "default_layout", "name"):
         raise ConfigEditError(f"set_profile_field: unknown key {key!r}")
@@ -499,6 +513,10 @@ def set_profile_field(
         if key in entry:
             del entry[key]
         return
+    if key in ("name", "topology") and isinstance(value, str) and not value.strip():
+        raise ConfigEditError(
+            f"set_profile_field: {key!r} must not be empty"
+        )
     entry[key] = value
 
 

@@ -232,6 +232,16 @@ async def main(
     install_translators(app)
     apply_theme(app, config.general.theme)
 
+    # Perch is a tray app — closing the Preferences dialog must not
+    # terminate the process. Qt's default ``quitOnLastWindowClosed``
+    # treats a ``QSystemTrayIcon`` as "not a window" and fires
+    # ``aboutToQuit`` the moment the user clicks ✕ on the dialog,
+    # which races the async teardown in ``main()``'s finally block
+    # ("Event loop stopped before Future completed"). Opting out here
+    # makes the tray icon + asyncio-loop the authoritative lifetime
+    # owners; the dialog close button only hides the dialog.
+    app.setQuitOnLastWindowClosed(False)
+
     # Reconcile autostart with the current ``start_at_login`` value.
     # Runs before we start the backend so any side-effects (portal
     # permission dialog on Flatpak) don't interleave with tray bring-up.

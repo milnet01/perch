@@ -1735,6 +1735,23 @@ class ProfilesPage(QWidget):
             set_profile_overrides,
         )
 
+        # Pre-validate before touching the document: the loader's schema
+        # rejects empty ``name`` / ``topology``, so writing one would
+        # break the next startup. Raise here and the dialog's commit
+        # gate leaves disk untouched with a readable error message.
+        for profile in self._profiles:
+            if not profile.name.strip():
+                raise ConfigEditError(
+                    "A profile is missing a name. Fill in the Name field "
+                    "or delete the row before saving."
+                )
+            if not profile.topology.strip():
+                raise ConfigEditError(
+                    f"Profile {profile.name!r} is missing a topology. "
+                    "Topology has the form 'name:WxH@X,Y;…' — fill it "
+                    "in or delete the profile before saving."
+                )
+
         doc = self._state.document
 
         # 1. Deletions on the original array (high indices first so the
