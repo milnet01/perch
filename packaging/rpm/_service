@@ -1,0 +1,26 @@
+<services>
+  <!--
+    OBS source service: fetches the upstream tarball for the version
+    declared in perch.spec and keeps the build tree in sync with
+    tagged releases.
+
+    The `obs_scm` service clones the git repo at the named revision,
+    and `tar_scm` packs the checked-out tree into the tarball the spec
+    expects (perch-<version>.tar.gz). `set_version` rewrites `Version:`
+    in the spec to match the git tag so OBS rebuilds fire on new tags
+    without a manual spec edit.
+  -->
+  <service name="obs_scm" mode="manual">
+    <param name="url">https://github.com/milnet01/perch.git</param>
+    <param name="scm">git</param>
+    <param name="versionformat">@PARENT_TAG@</param>
+    <param name="revision">main</param>
+    <param name="changesgenerate">enable</param>
+  </service>
+  <service name="tar" mode="buildtime"/>
+  <service name="recompress" mode="buildtime">
+    <param name="file">*.tar</param>
+    <param name="compression">gz</param>
+  </service>
+  <service name="set_version" mode="buildtime"/>
+</services>

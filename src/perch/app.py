@@ -25,7 +25,7 @@ from typing import Any
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from . import paths
+from . import autostart, paths
 from .backend.mock import MockBackend
 from .config import Config, load_or_create
 from .core.reducer import Reducer
@@ -190,6 +190,11 @@ async def main() -> int:
     install_translators(app)
     apply_theme(app, config.general.theme)
 
+    # Reconcile autostart with the current ``start_at_login`` value.
+    # Runs before we start the backend so any side-effects (portal
+    # permission dialog on Flatpak) don't interleave with tray bring-up.
+    autostart.sync_from_config(config)
+
     close_event = asyncio.Event()
     app.aboutToQuit.connect(close_event.set)
 
@@ -249,9 +254,15 @@ async def main() -> int:
         dialog = ConfigDialog(fresh_config, paths.config_file())
         if section is not None:
             dialog.select_section(section)
-        dialog.saved.connect(
-            lambda: controller.set_state(_initial_tray_state(load_or_create()))
-        )
+        def _on_saved() -> None:
+            fresh = load_or_create()
+            controller.set_state(_initial_tray_state(fresh))
+            # Toggle autostart in sync with the just-saved config so the
+            # "Start at login" checkbox has immediate effect — no restart
+            # needed.
+            autostart.sync_from_config(fresh)
+
+        dialog.saved.connect(_on_saved)
         dialog_ref[0] = dialog
         dialog.show()
         dialog.raise_()

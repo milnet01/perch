@@ -1,0 +1,101 @@
+# Maintainer: milnet01 <https://github.com/milnet01>
+#
+# Arch User Repository PKGBUILD for Perch — git-HEAD channel.
+# Builds from main; pkgver is computed from `git describe` so pacman
+# correctly orders installs against the stable `perch` PKGBUILD.
+#
+# `perch` (stable) and `perch-git` conflict; users install one or the
+# other. The stable PKGBUILD is the default recommendation; perch-git
+# exists for testers and for contributors tracking new features before
+# a tagged release.
+
+pkgname=perch-git
+_pkgname=perch
+pkgver=0.0.0.r0.g0000000
+pkgrel=1
+pkgdesc='Persistent, compositor-aware window geometry manager (git HEAD)'
+arch=('any')
+url='https://github.com/milnet01/perch'
+license=('GPL-3.0-or-later')
+depends=(
+    'python>=3.12'
+    'pyside6>=6.8'
+    'python-qasync>=0.28'
+    'python-sdbus>=0.14.2'
+    'python-xlib>=0.33'
+    'python-tomlkit>=0.13'
+)
+optdepends=(
+    'xdg-desktop-portal: GlobalShortcuts + Background portal'
+    'xdg-desktop-portal-kde: preferred portal impl on Plasma 6'
+    'python-i3ipc: Sway backend (optional)'
+)
+makedepends=(
+    'git'
+    'python-build'
+    'python-installer'
+    'python-hatchling>=1.24'
+    'python-wheel'
+    'appstream-glib'
+    'desktop-file-utils'
+)
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+source=("$_pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$_pkgname"
+    # Format: <latest-tag>.r<commits-since>.g<short-sha>
+    # Falls back to 0.0.0.r<commit-count>.g<sha> on a repo with no tags
+    # yet (which is the situation pre-v0.1.0).
+    if git describe --long --tags >/dev/null 2>&1; then
+        git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+    else
+        printf '0.0.0.r%s.g%s' \
+            "$(git rev-list --count HEAD)" \
+            "$(git rev-parse --short HEAD)"
+    fi
+}
+
+build() {
+    cd "$_pkgname"
+    python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "$_pkgname"
+    appstream-util validate-relax --nonet data/io.github.milnet01.Perch.metainfo.xml
+    desktop-file-validate data/io.github.milnet01.Perch.desktop
+}
+
+package() {
+    cd "$_pkgname"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+
+    install -Dm644 data/io.github.milnet01.Perch.desktop \
+        "$pkgdir/usr/share/applications/io.github.milnet01.Perch.desktop"
+    install -Dm644 data/io.github.milnet01.Perch.metainfo.xml \
+        "$pkgdir/usr/share/metainfo/io.github.milnet01.Perch.metainfo.xml"
+    install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg \
+        "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg"
+    install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-symbolic.svg \
+        "$pkgdir/usr/share/icons/hicolor/symbolic/status/perch-tray-symbolic.svg"
+    install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-warning-symbolic.svg \
+        "$pkgdir/usr/share/icons/hicolor/symbolic/status/perch-tray-warning-symbolic.svg"
+    install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-error-symbolic.svg \
+        "$pkgdir/usr/share/icons/hicolor/symbolic/status/perch-tray-error-symbolic.svg"
+
+    install -Dm644 src/perch/backend/kwin/script/metadata.json \
+        "$pkgdir/usr/share/perch/kwin/metadata.json"
+    install -Dm644 src/perch/backend/kwin/script/contents/code/main.js \
+        "$pkgdir/usr/share/perch/kwin/contents/code/main.js"
+
+    if compgen -G "translations/*.qm" > /dev/null; then
+        install -d "$pkgdir/usr/share/perch/translations"
+        install -Dm644 translations/*.qm \
+            -t "$pkgdir/usr/share/perch/translations"
+    fi
+
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

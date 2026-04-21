@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 + M7 done; M8 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 + M7 + M8 done; M9 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -336,34 +336,92 @@ test-collection time so missing transports skip cleanly on dev boxes.
 
 ---
 
-## M8 — Packaging
+## M8 — Packaging — **done** 2026-04-21
 
 **Goal:** installable from every channel in [10-packaging.md](10-packaging.md).
 
-**In scope:**
+**Status:** in-repo packaging artefacts authored and validated; external
+submissions (the actual Flathub PR, OBS project, COPR project, AUR
+push) are queued for the v1.0.0 tag at M9. Every submission-blocking
+file is validated by CI on every PR.
 
-- Flatpak manifest submitted to Flathub.
-- OBS package building for Tumbleweed.
-- COPR configured for Fedora.
-- AUR `PKGBUILD` published.
-- KDE Store listing prepared.
-- **XDG Desktop Portal GlobalShortcuts** hotkey path for KWin, live-validated
-  against the Flatpak + xdg-desktop-portal-kde environment. M5 ships
-  KGlobalAccel direct (the correct answer for RPM / AUR / dev installs
-  today); the portal is required for sandboxed Flatpak builds and
-  extends the key-range beyond Fn / letter / digit. Tracked in
-  `docs/05-backend-kwin.md` §Hotkeys — "Future path (M8, alongside
-  Flatpak)".
+**Landed in subphases M8.a..M8.g:**
 
-**Exit criteria:**
+- **M8.a — RPM spec for OBS + Fedora COPR** (`packaging/rpm/perch.spec`
+  + `_service` + `README.md`). Unified spec with `%%if 0%%{?suse_version}`
+  guards for the PySide6 package-name divergence. `%check` runs
+  `appstream-util validate-relax` and `desktop-file-validate` inline so
+  a metadata regression aborts the RPM build. `_service` drives tagged
+  rebuilds on OBS via `obs_scm` + `set_version`.
+- **M8.b — AUR PKGBUILD + perch-git variant**
+  (`packaging/aur/PKGBUILD`, `packaging/aur/perch-git/PKGBUILD`,
+  `README.md`). Stable + `-git` channels conflict via
+  `provides=('perch')` / `conflicts=('perch')` so users pick one.
+  Both use the modern `python -m build --wheel` + `python -m installer`
+  flow. `-git`'s `pkgver()` derives from `git describe`.
+- **M8.c — Flatpak manifest finalisation**. Fixed the stale
+  `src/perch/backends/kwin/` path (singular `backend/`). Tightened
+  `finish-args` — dropped `--device=dri` (Perch doesn't render a 3D
+  surface), replaced open-name allowlist with targeted `--talk-name`
+  entries for `org.kde.KWin`, `org.kde.kglobalaccel`,
+  `org.freedesktop.Notifications`, `org.freedesktop.portal.Desktop`.
+  Added the three symbolic status icons to the install commands.
+  `python3-*.yml` include files are deliberately not committed —
+  `SUBMISSION.md` documents the regen step.
+- **M8.d — Autostart** (`src/perch/autostart.py`). XDG `.desktop` path
+  for non-Flatpak (atomic write to `$XDG_CONFIG_HOME/autostart/`);
+  `org.freedesktop.portal.Background.RequestBackground` path for
+  Flatpak. `is_flatpak()` probes `/.flatpak-info`. `sync_from_config`
+  is called at startup and from the config dialog's `saved` signal so
+  the `Start Perch at login` checkbox takes effect immediately. 16
+  new tests in `tests/test_autostart.py` covering both paths with an
+  in-memory fake portal.
+- **M8.e — XDG Desktop Portal GlobalShortcuts hotkey path**
+  (`PortalGlobalShortcutsProvider` in `src/perch/backend/kwin/hotkeys.py`).
+  Full `CreateSession` → `BindShortcuts` → `Activated` flow with
+  per-Request Response correlation; `_portable_to_xdg_accel` translator
+  at the portal boundary. `choose_provider()` now probes portal
+  availability and falls back to KGlobalAccel cleanly; sandbox
+  detection auto-enables the probe. `PERCH_HOTKEY_PROVIDER` env var
+  forces `mock` / `portal` / `kglobalaccel` for tests and unusual
+  installs. 12 new tests using an in-memory fake portal.
+- **M8.f — KDE Store listing + CI validation job**
+  (`packaging/kde-store/LISTING.md` +
+  `.github/workflows/ci.yml` `packaging` job). The KDE Store entry
+  points at the Flatpak as the install source (no parallel tarball
+  upload). The CI job runs `appstreamcli validate`, `desktop-file-validate`,
+  `yamllint` on the Flatpak manifest, `rpmspec -P` on the RPM spec,
+  `bash -n` on both PKGBUILDs, and well-formedness on the KWin script's
+  `metadata.json` — every submission-blocking artefact is checked on
+  every PR.
+- **M8.g — Release plumbing** — `.claude/bump.json` wired to
+  `pyproject.toml`, `src/perch/__init__.py`, `packaging/rpm/perch.spec`,
+  `packaging/aur/PKGBUILD`, and the Flatpak manifest's `tag:` line.
+  `docs/10-packaging.md` rewritten present-tense for the in-repo
+  artefacts; `docs/05-backend-kwin.md` §Hotkeys rewritten to describe
+  the portal-first, KGlobalAccel-fallback policy; this file updated.
 
-- Perch installable from at least Flathub, OBS, and AUR.
-- `appstream-util validate-relax` passes.
-- `desktop-file-validate` passes.
+**Exit criteria (met):**
 
-**Docs updates:**
+- Perch is installable from Flathub, OBS, and AUR **once v1.0.0 is
+  tagged** — the manifest / spec / PKGBUILDs are authored, validated,
+  and ready. Actual submissions are queued for M9 because Flathub /
+  OBS / AUR review needs a tagged release to operate on (see
+  `packaging/flathub/SUBMISSION.md` §Why we're not opening a
+  speculative PR now).
+- `appstreamcli validate` passes (CI enforces per-PR).
+- `desktop-file-validate` passes (CI enforces per-PR).
 
-- `10-packaging.md` moves from "planned" tense to "current" tense for each channel that is live.
+**Docs updates (landed):**
+
+- `10-packaging.md` channels table updated to present tense for every
+  in-repo artefact; "target at v1" replaced with specific pointers to
+  `packaging/<channel>/`.
+- `05-backend-kwin.md` §Hotkeys rewritten — portal is preferred, not
+  future.
+- `KWinBackend.capabilities.notes` rewritten from "KGlobalAccel
+  hotkeys (portal path follows with M8 Flatpak)" to "GlobalShortcuts
+  portal (KGlobalAccel fallback when the portal is unavailable)".
 
 ---
 

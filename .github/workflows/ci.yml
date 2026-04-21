@@ -62,3 +62,62 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: pytest -ra
+
+  packaging:
+    # Packaging-artefact validation: the metainfo + desktop entry + the
+    # Flatpak manifest + the RPM spec all have to stay well-formed so a
+    # Flathub/OBS/COPR/AUR submission doesn't fail at the last step.
+    # Runs independent of the test matrix so validation failures surface
+    # without blocking on the Python test grid.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            appstream \
+            desktop-file-utils \
+            rpm \
+            yamllint
+
+      - name: appstream-util validate (metainfo)
+        run: |
+          # `appstreamcli validate` is the modern replacement for
+          # `appstream-util validate-relax`; Ubuntu 24.04's appstream
+          # package ships it. --no-net keeps the check offline; the
+          # --pedantic upgrade is deliberately NOT enabled because the
+          # screenshot URLs are still on `main` pre-release and would
+          # fail the strict mirror check.
+          appstreamcli validate --no-net \
+              data/io.github.milnet01.Perch.metainfo.xml
+
+      - name: desktop-file-validate
+        run: desktop-file-validate data/io.github.milnet01.Perch.desktop
+
+      - name: yamllint (Flatpak manifest)
+        run: |
+          # Lax config — Flathub's auto-generated python3-*.yml includes
+          # don't adhere to strict yamllint rules, but the manifest we
+          # author does.
+          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" \
+              packaging/flathub/io.github.milnet01.Perch.yml
+
+      - name: rpmspec parse (OBS/COPR spec)
+        run: |
+          # `rpmspec -P` expands macros and prints the parsed spec to
+          # stdout; exit code is non-zero on syntax errors. We redirect
+          # stdout because the expansion is verbose.
+          rpmspec -P packaging/rpm/perch.spec > /dev/null
+
+      - name: PKGBUILD shell syntax (bash -n)
+        run: |
+          # AUR PKGBUILDs are bash scripts with well-known globals;
+          # `bash -n` catches syntax errors without executing anything.
+          bash -n packaging/aur/PKGBUILD
+          bash -n packaging/aur/perch-git/PKGBUILD
+
+      - name: KWin script metadata.json well-formedness
+        run: |
+          python3 -c 'import json, sys; json.load(open("src/perch/backend/kwin/script/metadata.json"))'

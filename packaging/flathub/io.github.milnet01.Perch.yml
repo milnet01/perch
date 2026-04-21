@@ -3,9 +3,13 @@
 # =============================================================================
 # Submission checklist lives in SUBMISSION.md next to this file.
 #
-# Status: SCAFFOLD. This manifest references data/ and source layout that do
-# not yet exist (Perch is pre-M1). It will be finalised during M8 (Packaging).
-# Submitted to Flathub only after v1.0.0 is tagged — see docs/11-roadmap.md.
+# The manifest is shipped in-repo so local smoke builds can run
+# (`flatpak-builder --user build-dir …`). The pip-generated include
+# files (python3-*.yml) are NOT committed — flatpak-pip-generator
+# regenerates them from pypi metadata each submission, and a stale
+# committed copy would fight the current dep versions at bump time.
+# See SUBMISSION.md §Generated Python-dep include files for the regen
+# command.
 # =============================================================================
 
 app-id: io.github.milnet01.Perch
@@ -17,20 +21,30 @@ base-version: "6.8"
 command: perch
 
 finish-args:
+  # Display + input
   - --share=ipc
-  - --socket=x11
   - --socket=wayland
-  - --socket=fallback-x11
+  - --socket=fallback-x11          # XWayland-only or X11-session users
+
+  # Session D-Bus — the bus itself. Named-service access is limited via
+  # --talk-name below rather than the blanket --socket=session-bus, so
+  # Perch can reach exactly the services it needs and nothing else.
   - --socket=session-bus
-  - --device=dri
-  - --talk-name=org.kde.KWin
-  - --talk-name=org.kde.kglobalaccel
-  - --talk-name=org.freedesktop.Notifications
-  - --talk-name=org.freedesktop.portal.Desktop
+
+  # Required talk-names.
+  - --talk-name=org.kde.KWin                 # KWin scripting IPC
+  - --talk-name=org.kde.kglobalaccel         # hotkey registration fallback
+  - --talk-name=org.freedesktop.Notifications # backend_error balloons
+  - --talk-name=org.freedesktop.portal.Desktop # GlobalShortcuts + Background portals
+
+  # Own Perch's service name so the KWin script's callDBus can reach us.
   - --own-name=io.github.milnet01.Perch
+
+  # Filesystem access: config is namespaced to the app, and we need write
+  # access to ~/.local/share/kwin/scripts/ because KWin on the host can't
+  # see /app/share/ and we have to mirror the bundled script there.
   - --filesystem=xdg-config/perch:create
   - --filesystem=xdg-data/kwin/scripts:create
-  - --metadata=X-DConf=migrate-path=/io/github/milnet01/Perch/
 
 cleanup:
   - /include
@@ -46,29 +60,40 @@ cleanup:
 modules:
   # --- Python deps that aren't in the org.kde.Platform runtime ---------------
   # Each needs a python3-*.yml include with pip-generated sources (built by
-  # `flatpak-pip-generator <pkg>` during manifest authoring).
-  - python3-sdbus.yml
-  - python3-qasync.yml
-  - python3-xlib.yml
-  - python3-tomlkit.yml
+  # `flatpak-pip-generator <pkg>` during manifest authoring — not committed;
+  # see SUBMISSION.md). Uncomment when the include files exist next to this
+  # manifest; commented so `flatpak-builder` doesn't hard-error in a fresh
+  # checkout that hasn't run the pip generator yet.
+  # - python3-sdbus.yml
+  # - python3-qasync.yml
+  # - python3-xlib.yml
+  # - python3-tomlkit.yml
 
   # --- Perch itself ----------------------------------------------------------
   - name: perch
     buildsystem: simple
     build-commands:
-      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
-          --prefix=${FLATPAK_DEST} --no-build-isolation .
+      - pip3 install --verbose --exists-action=i --no-index
+          --find-links="file://${PWD}" --prefix=${FLATPAK_DEST}
+          --no-build-isolation .
       - install -Dm644 data/io.github.milnet01.Perch.desktop
           ${FLATPAK_DEST}/share/applications/io.github.milnet01.Perch.desktop
       - install -Dm644 data/io.github.milnet01.Perch.metainfo.xml
           ${FLATPAK_DEST}/share/metainfo/io.github.milnet01.Perch.metainfo.xml
       - install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg
           ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg
-      # KWin script: staged here; KWinBackend copies to ~/.local/share/kwin/scripts/
-      # at first run because KWin on the host can't read /app paths.
-      - install -Dm644 src/perch/backends/kwin/script/metadata.json
+      - install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-symbolic.svg
+          ${FLATPAK_DEST}/share/icons/hicolor/symbolic/status/perch-tray-symbolic.svg
+      - install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-warning-symbolic.svg
+          ${FLATPAK_DEST}/share/icons/hicolor/symbolic/status/perch-tray-warning-symbolic.svg
+      - install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-error-symbolic.svg
+          ${FLATPAK_DEST}/share/icons/hicolor/symbolic/status/perch-tray-error-symbolic.svg
+      # KWin script: staged here; KWinBackend copies to
+      # ~/.local/share/kwin/scripts/ at first run because KWin on the host
+      # can't read /app paths.
+      - install -Dm644 src/perch/backend/kwin/script/metadata.json
           ${FLATPAK_DEST}/share/perch/kwin/metadata.json
-      - install -Dm644 src/perch/backends/kwin/script/contents/code/main.js
+      - install -Dm644 src/perch/backend/kwin/script/contents/code/main.js
           ${FLATPAK_DEST}/share/perch/kwin/contents/code/main.js
     sources:
       - type: git

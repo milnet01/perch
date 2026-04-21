@@ -203,10 +203,37 @@ The legacy `org.kde.KWin.Management.screens` D-Bus interface exists but is less 
 
 ### Hotkeys
 
-**v1 path: direct KGlobalAccel** (`org.kde.kglobalaccel` on the session
-bus). Present on every current Plasma install. Perch's hotkeys show up
-in *System Settings → Shortcuts* under the "Perch" component, letting
-the user rebind them.
+Two providers share the :class:`HotkeyProvider` protocol in
+`src/perch/backend/kwin/hotkeys.py`; `choose_provider()` picks one at
+startup.
+
+**Preferred path: `org.freedesktop.portal.GlobalShortcuts`.** Used when
+the portal is reachable and either we're inside a Flatpak sandbox
+(`/.flatpak-info` is present) or the caller explicitly injects a portal
+factory. Flow:
+
+1. `CreateSession(options)` returns a Request path; Perch subscribes to
+   `org.freedesktop.portal.Request.Response` on that path and reads the
+   resulting `session_handle`.
+2. `BindShortcuts(session_handle, shortcuts, parent_window, options)`
+   registers each `(id, {preferred_trigger, description})` tuple.
+   Triggers are translated into XDG form (`CTRL+SHIFT+Q`) by
+   `_portable_to_xdg_accel` at the boundary.
+3. `GlobalShortcuts.Activated(session_handle, id, timestamp, opts)`
+   fires on every press; Perch dispatches by id to the registered
+   callback.
+
+The portal path covers the full xkbcommon keysym range (no Fn / letter
+/ digit restriction) and works sandboxed. Unbind is modelled as a
+local-map eviction because the portal doesn't expose `UnbindShortcuts`
+— the portal's session-close is the authoritative cleanup; closing the
+session at `stop()` releases every binding at once.
+
+**Fallback: direct KGlobalAccel** (`org.kde.kglobalaccel` on the
+session bus). Used when the portal probe fails — non-Flatpak
+installs on Plasma without xdg-desktop-portal-kde ≥ 6, or lean sessions
+where only KGlobalAccel is available. Hotkeys show up in *System
+Settings → Shortcuts* under the "Perch" component.
 
 - Register via `KGlobalAccel.setShortcutKeys(action_id, keys, loading)`
   (`setShortcut` is deprecated since KF 5.90). `action_id` is a 4-tuple
@@ -214,25 +241,20 @@ the user rebind them.
   action_friendly]`; Perch uses
   `[perch, <callback_id>, Perch, <description>]`.
 - `keys` is a list of ints in Qt's packed "modifiers | key" encoding.
-  Perch's KGlobalAccel path supports letters, digits, and F1..F35; named
-  special keys (Return, Escape, …) await the portal path below.
+  KGlobalAccel's encoder supports letters, digits, and F1..F35; named
+  special keys (Return, Escape, …) are portal-only — users who hit that
+  on a KGlobalAccel-only install rebind via System Settings.
 - Signal: `globalShortcutPressed(component, action_id, timestamp)` —
-  Perch filters on `component == "perch"` and routes `action_id` to the
-  registered callback.
+  filters on `component == "perch"` and routes `action_id` to the
+  callback.
 - Conflicts: if the key is already grabbed, `setShortcutKeys` returns a
-  different keysym in its reply. Perch detects that mismatch and raises
+  different keysym. Perch detects the mismatch and raises
   `HotkeyBusyError`, which the backend translates into a `backend_error`
-  signal with a user-readable message.
+  signal.
 
-**Future path (M8, alongside Flatpak): `org.freedesktop.portal.
-GlobalShortcuts`.** The portal is the correct answer for sandboxed
-installs: Flatpak builds work without extra permissions, and the portal
-falls through to KGlobalAccel on KDE so desktop behaviour is
-unchanged. It also covers the full Qt keysym range without the
-v1-path's Fn / letter / digit restriction. Scheduled for M8 because the
-portal's Request-pattern handshake deserves to be validated against a
-live Flatpak + xdg-desktop-portal-kde environment, which is M8's
-territory. See `11-roadmap.md` §M8 for the tracking note.
+**Env override for tests and unusual installs**:
+`PERCH_HOTKEY_PROVIDER=mock|portal|kglobalaccel` short-circuits the
+probe.
 
 `can_register_hotkeys = True` on this backend.
 

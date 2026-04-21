@@ -2,6 +2,21 @@
 
 Where Perch ships and how each channel is built.
 
+Authoritative packaging artefacts live under `packaging/`:
+
+| Path | Channel |
+|---|---|
+| `packaging/flathub/io.github.milnet01.Perch.yml` + `SUBMISSION.md` | Flathub |
+| `packaging/rpm/perch.spec` + `_service` + `README.md` | openSUSE OBS, Fedora COPR |
+| `packaging/aur/PKGBUILD`, `packaging/aur/perch-git/PKGBUILD`, `README.md` | AUR |
+| `packaging/kde-store/LISTING.md` | KDE Store |
+
+`.github/workflows/ci.yml` has a `packaging` job that runs
+`appstreamcli validate` on the metainfo, `desktop-file-validate` on the
+desktop entry, `yamllint` on the Flatpak manifest, `rpmspec -P` on the
+RPM spec, and `bash -n` on every PKGBUILD — so submission-blocking
+regressions surface on every PR.
+
 This doc was updated during Phase 2 research. Notable changes:
 
 - Flatpak **cannot** load a KWin script from `/app/share/...` — KWin runs on the host and cannot see Flatpak's internal paths. Corrected strategy: copy the script to `$XDG_DATA_HOME/kwin/scripts/` on first run.
@@ -23,13 +38,13 @@ The GitHub namespace (`milnet01`) is chosen as the project owner's stable identi
 
 ## Channels
 
-| Channel | Who uses it | Status at v1 |
+| Channel | Who uses it | Status |
 |---|---|---|
-| **Flathub (Flatpak)** | Anyone — primary cross-distro channel | target |
-| **openSUSE OBS** | openSUSE Tumbleweed & Leap users | target |
-| **Fedora COPR** | Fedora / RHEL clones | target |
-| **AUR** | Arch / Manjaro / EndeavourOS | target (user-maintained is acceptable) |
-| **KDE Store** | Plasma users browsing Discover / Get New Stuff | target |
+| **Flathub (Flatpak)** | Anyone — primary cross-distro channel | manifest authored at `packaging/flathub/`, submitted to Flathub at v1.0.0 |
+| **openSUSE OBS** | openSUSE Tumbleweed & Leap users | spec + `_service` authored at `packaging/rpm/`, project `home:milnet01/perch` goes live at v1.0.0 |
+| **Fedora COPR** | Fedora / RHEL clones | same spec as OBS; COPR project goes live at v1.0.0 |
+| **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs at `packaging/aur/`, pushed to AUR at v1.0.0 (user-maintained is acceptable) |
+| **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`, entry created when Flathub goes live |
 | **PyPI** | Python devs who want to `pipx install perch` | not v1 |
 
 ## Flatpak (primary)
@@ -73,8 +88,8 @@ modules:
       # The KWin script is shipped here, but is copied to ~/.local/share/kwin/scripts/
       # at first run by KWinBackend (see docs/05-backend-kwin.md) — KWin runs on the host
       # and cannot read /app/share/.
-      - install -Dm644 perch/backend/kwin/script/metadata.json  /app/share/perch/kwin/metadata.json
-      - install -Dm644 perch/backend/kwin/script/contents/code/main.js /app/share/perch/kwin/contents/code/main.js
+      - install -Dm644 src/perch/backend/kwin/script/metadata.json  /app/share/perch/kwin/metadata.json
+      - install -Dm644 src/perch/backend/kwin/script/contents/code/main.js /app/share/perch/kwin/contents/code/main.js
     sources:
       - type: dir
         path: .
@@ -158,9 +173,9 @@ install -Dm644 data/io.github.milnet01.Perch.desktop    %{buildroot}%{_datadir}/
 install -Dm644 data/io.github.milnet01.Perch.metainfo.xml %{buildroot}%{_metainfodir}/
 install -Dm644 data/icons/hicolor/scalable/apps/*.svg     %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 
-install -Dm644 perch/backend/kwin/script/metadata.json \
+install -Dm644 src/perch/backend/kwin/script/metadata.json \
     %{buildroot}%{_datadir}/perch/kwin/metadata.json
-install -Dm644 perch/backend/kwin/script/contents/code/main.js \
+install -Dm644 src/perch/backend/kwin/script/contents/code/main.js \
     %{buildroot}%{_datadir}/perch/kwin/contents/code/main.js
 
 %check
@@ -226,8 +241,8 @@ package() {
   install -Dm644 data/io.github.milnet01.Perch.metainfo.xml "$pkgdir/usr/share/metainfo/io.github.milnet01.Perch.metainfo.xml"
   install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg \
                  "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg"
-  install -Dm644 perch/backend/kwin/script/metadata.json "$pkgdir/usr/share/perch/kwin/metadata.json"
-  install -Dm644 perch/backend/kwin/script/contents/code/main.js "$pkgdir/usr/share/perch/kwin/contents/code/main.js"
+  install -Dm644 src/perch/backend/kwin/script/metadata.json "$pkgdir/usr/share/perch/kwin/metadata.json"
+  install -Dm644 src/perch/backend/kwin/script/contents/code/main.js "$pkgdir/usr/share/perch/kwin/contents/code/main.js"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 ```
@@ -296,10 +311,23 @@ pytest-xvfb>=3
 
 ## Autostart
 
-Two paths:
+`src/perch/autostart.py` implements both paths behind a single
+`sync(enabled)` façade, invoked on startup and from the config
+dialog's `saved` signal so the `Start Perch at login` checkbox takes
+effect immediately without a restart:
 
-- **Non-Flatpak**: `/usr/share/autostart/io.github.milnet01.Perch.desktop` with `X-GNOME-Autostart-enabled=false`. The "Start at login" checkbox in Perch's dialog copies (or removes) a user-local version at `~/.config/autostart/`.
-- **Flatpak**: uses `org.freedesktop.portal.Background` to request autostart. The checkbox toggles that portal call.
+- **Non-Flatpak**: writes or removes
+  `$XDG_CONFIG_HOME/autostart/io.github.milnet01.Perch.desktop` with
+  `X-GNOME-Autostart-enabled=true`. Atomic temp-and-rename so a
+  half-written file never reaches the session manager.
+- **Flatpak**: calls `org.freedesktop.portal.Background.RequestBackground`
+  with `autostart=true` and `commandline=["perch"]`. The portal shows
+  a permission prompt on first use and silently flips the flag
+  thereafter. Exceptions from the portal are logged at WARNING and
+  swallowed — a portal outage must not block a config save.
+
+Which path we pick is driven by `/.flatpak-info` — the canonical
+sandbox marker.
 
 ## Versioning
 

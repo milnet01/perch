@@ -1,0 +1,35 @@
+{
+  "$comment": "Recipe for the /bump skill. Every file whose version must follow the Perch release version goes here. The KWin bundled-script version (src/perch/backend/kwin/__init__.py BUNDLED_SCRIPT_VERSION) is NOT listed — it's independently versioned, per docs/05-backend-kwin.md §Version pinning.",
+  "files": [
+    {
+      "path": "pyproject.toml",
+      "pattern": "^version = \"(?P<version>[^\"]+)\"$",
+      "format": "version = \"{version}\""
+    },
+    {
+      "path": "src/perch/__init__.py",
+      "pattern": "^__version__ = \"(?P<version>[^\"]+)\"$",
+      "format": "__version__ = \"{version}\""
+    },
+    {
+      "path": "packaging/rpm/perch.spec",
+      "pattern": "^Version:\\s+(?P<version>\\S+)$",
+      "format": "Version:        {version}"
+    },
+    {
+      "path": "packaging/aur/PKGBUILD",
+      "pattern": "^pkgver=(?P<version>\\S+)$",
+      "format": "pkgver={version}"
+    },
+    {
+      "path": "packaging/flathub/io.github.milnet01.Perch.yml",
+      "pattern": "^\\s*tag: v(?P<version>\\S+)",
+      "format": "        tag: v{version}"
+    }
+  ],
+  "post_bump": {
+    "$comment": "Steps /release runs after /bump. The CHANGELOG release-header rewrite and the metainfo <release> entry are outside bump.json because they're content changes, not a single regex sub. They're handled by the changelog-writer subagent per the /release skill.",
+    "commit_message_template": "release: v{version}",
+    "tag_template": "v{version}"
+  }
+}

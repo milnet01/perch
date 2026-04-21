@@ -115,9 +115,9 @@ _CAPABILITIES = Capabilities(
     can_preplace_windows=True,
     notes=(
         "KWin scripting on Plasma >= 6 via bundled script + "
-        "KGlobalAccel hotkeys (portal path follows with M8 Flatpak). "
-        "Pre-paint placement is best-effort; occasional first-frame "
-        "flicker is possible but usually imperceptible."
+        "GlobalShortcuts portal (KGlobalAccel fallback when the portal "
+        "is unavailable). Pre-paint placement is best-effort; occasional "
+        "first-frame flicker is possible but usually imperceptible."
     ),
 )
 

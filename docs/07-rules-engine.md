@@ -139,7 +139,7 @@ Budgets in the harness are deliberately 10-20× the measured times so CI runner 
 
 - Every rule evaluation logs at `DEBUG` with `(window_identity, chosen_rule, decision)`.
 - The dialog's "Rules trace" panel shows the last N evaluations live.
-- `perch --test-rules <path-to-config.toml>` (post-M4) will be a CLI mode that replays a saved event stream against a config for regression testing.
+- `perch --test-rules <path-to-config.toml>` (post-v1; tracked in `11-roadmap.md` §Post-v1 ideas) replays a saved event stream against a config for regression testing.
 
 ## Validation
 

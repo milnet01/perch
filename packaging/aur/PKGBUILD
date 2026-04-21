@@ -1,0 +1,87 @@
+# Maintainer: milnet01 <https://github.com/milnet01>
+#
+# Arch User Repository PKGBUILD for Perch — stable release channel.
+# The git-HEAD variant lives at perch-git/PKGBUILD alongside this file.
+# Both PKGBUILDs are mirrored to the AUR from this tree at release time;
+# the AUR repos are write-mirrors of packaging/aur/.
+
+pkgname=perch
+pkgver=0.0.0
+pkgrel=1
+pkgdesc='Persistent, compositor-aware window geometry manager (tray app, X11 + KWin/Plasma Wayland)'
+arch=('any')
+url='https://github.com/milnet01/perch'
+license=('GPL-3.0-or-later')
+depends=(
+    'python>=3.12'
+    'pyside6>=6.8'
+    'python-qasync>=0.28'
+    'python-sdbus>=0.14.2'
+    'python-xlib>=0.33'
+    'python-tomlkit>=0.13'
+)
+optdepends=(
+    'xdg-desktop-portal: GlobalShortcuts + Background portal (Flatpak and modern Plasma)'
+    'xdg-desktop-portal-kde: preferred portal impl on Plasma 6'
+    'python-i3ipc: Sway backend (optional; Perch degrades gracefully without it)'
+)
+makedepends=(
+    'python-build'
+    'python-installer'
+    'python-hatchling>=1.24'
+    'python-wheel'
+    'appstream-glib'
+    'desktop-file-utils'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+# sha256sums is SKIP while pkgver is a placeholder; the release flow
+# (see packaging/aur/README.md) rewrites this to the real digest when it
+# bumps pkgver. SKIP is intentional for the pre-v1.0.0 scaffold — it is
+# not a long-term posture.
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    appstream-util validate-relax --nonet data/io.github.milnet01.Perch.metainfo.xml
+    desktop-file-validate data/io.github.milnet01.Perch.desktop
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+
+    install -Dm644 data/io.github.milnet01.Perch.desktop \
+        "$pkgdir/usr/share/applications/io.github.milnet01.Perch.desktop"
+    install -Dm644 data/io.github.milnet01.Perch.metainfo.xml \
+        "$pkgdir/usr/share/metainfo/io.github.milnet01.Perch.metainfo.xml"
+    install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg \
+        "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg"
+    install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-symbolic.svg \
+        "$pkgdir/usr/share/icons/hicolor/symbolic/status/perch-tray-symbolic.svg"
+    install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-warning-symbolic.svg \
+        "$pkgdir/usr/share/icons/hicolor/symbolic/status/perch-tray-warning-symbolic.svg"
+    install -Dm644 data/icons/hicolor/symbolic/status/perch-tray-error-symbolic.svg \
+        "$pkgdir/usr/share/icons/hicolor/symbolic/status/perch-tray-error-symbolic.svg"
+
+    # KWin script (see docs/05-backend-kwin.md §Script installation strategy).
+    install -Dm644 src/perch/backend/kwin/script/metadata.json \
+        "$pkgdir/usr/share/perch/kwin/metadata.json"
+    install -Dm644 src/perch/backend/kwin/script/contents/code/main.js \
+        "$pkgdir/usr/share/perch/kwin/contents/code/main.js"
+
+    # Compiled translation catalogues (built by the i18n-update script;
+    # contributors run it before tagging). Missing .qm is not fatal — the
+    # app falls back to source strings.
+    if compgen -G "translations/*.qm" > /dev/null; then
+        install -d "$pkgdir/usr/share/perch/translations"
+        install -Dm644 translations/*.qm \
+            -t "$pkgdir/usr/share/perch/translations"
+    fi
+
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
