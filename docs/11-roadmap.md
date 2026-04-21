@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 done; M7 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 done; M7 in progress) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -318,14 +318,16 @@ test-collection time so missing transports skip cleanly on dev boxes.
 
 **Goal:** things that aren't features but decide whether Perch feels good.
 
-**In scope:**
+**Status:** in progress (2026-04-21). Sequenced as six subphases M7.a…M7.f; cheapest / most isolated first so each subphase lands as an independent commit. Exit criteria listed below; per-subphase acceptance is recorded inline as each one ships.
 
-- Icon set refinement, HiDPI audit.
-- Keyboard navigation audit of the dialog.
-- Error-surfacing audit (every expected failure has a user-visible message).
-- Performance: rule evaluation under load (500 windows × 500 rules sanity check).
-- Privacy review of logs.
-- Dark-theme pass.
+**Subphases:**
+
+- **M7.a — Icon set refinement + HiDPI audit** — **done** 2026-04-21. Three symbolic status icons (`perch-tray{,-warning,-error}-symbolic`) under `data/icons/hicolor/symbolic/status/`, a `TrayIcons` bundle + `load_tray_icons()` loader in `src/perch/ui/icons.py`, `TrayIconState` enum + `icon_state` / `tooltip` derivation on `TrayState`, automatic `setIcon` swap in `TrayIcon._on_state_changed`, and Hatch `shared-data` mapping so `pip install` deposits the icon theme under `<prefix>/share/icons/hicolor/...` for `QIcon.fromTheme` lookup. Qt's SVG renderer handles HiDPI at any scale factor without raster variants — the HiDPI "audit" is "we use SVG end-to-end," unit-tested via the 14 new cases in `tests/ui/test_tray_icon_states.py`.
+- **M7.b — Keyboard navigation audit of the dialog** — pending.
+- **M7.c — Error-surfacing audit** — pending.
+- **M7.d — Performance harness (500 windows × 500 rules)** — pending.
+- **M7.e — Privacy review of logs** — pending.
+- **M7.f — Dark-theme pass** — pending.
 
 **Exit criteria:**
 

@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import paths
@@ -34,6 +33,7 @@ from .core.state import AppState
 from .core.state_store import StateStore
 from .i18n import install_translators
 from .ui.dialog import ConfigDialog
+from .ui.icons import load_tray_icons
 from .ui.intents import (
     ActivateLayout,
     Intent,
@@ -49,23 +49,6 @@ from .ui.sni_probe import is_gnome_wayland, sni_host_available
 from .ui.tray import TrayController, TrayIcon, TrayState
 
 log = logging.getLogger(__name__)
-
-
-def _load_tray_icon() -> QIcon:
-    """Load the shipped Perch icon if the data file is on disk.
-
-    Falls back to an empty ``QIcon`` (Qt draws a default placeholder). The
-    icon-theme-based path lands in M7's polish pass alongside the symbolic
-    variants — for M3 we ship the scalable SVG next to the package.
-    """
-    candidates = [
-        Path(__file__).resolve().parents[2]
-        / "data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg",
-    ]
-    for path in candidates:
-        if path.is_file():
-            return QIcon(str(path))
-    return QIcon()
 
 
 def _maybe_show_appindicator_hint(parent: QCoreApplication | None) -> None:
@@ -93,12 +76,15 @@ def _maybe_show_appindicator_hint(parent: QCoreApplication | None) -> None:
     box.exec()
 
 
-def _initial_tray_state(config: Config) -> TrayState:
+def _initial_tray_state(
+    config: Config, *, awaiting_extension: bool = False
+) -> TrayState:
     return TrayState(
         active_profile=None,
         active_layout=None,
         available_layouts=tuple(config.layouts.keys()),
         user_snaps=tuple(config.snaps.values()),
+        awaiting_extension=awaiting_extension,
     )
 
 
@@ -194,9 +180,6 @@ async def main() -> int:
     close_event = asyncio.Event()
     app.aboutToQuit.connect(close_event.set)
 
-    tray_state = _initial_tray_state(config)
-    controller = TrayController(tray_state)
-
     # Probe before creating the tray; a negative probe on GNOME Wayland
     # surfaces the AppIndicator hint. On other desktops we still create
     # the tray — there's frequently a host that the watcher check can't
@@ -204,16 +187,23 @@ async def main() -> int:
     # is just "icon never becomes visible", which is no worse than
     # suppressing it.
     have_host = sni_host_available()
+    awaiting_extension = False
     if not have_host:
         if is_gnome_wayland():
+            awaiting_extension = True
             _maybe_show_appindicator_hint(app)
         else:
             log.warning(
                 "no StatusNotifierHost detected; tray icon may be invisible"
             )
 
-    icon = _load_tray_icon()
-    tray = TrayIcon(controller, icon=icon)
+    tray_state = _initial_tray_state(
+        config, awaiting_extension=awaiting_extension
+    )
+    controller = TrayController(tray_state)
+
+    icons = load_tray_icons()
+    tray = TrayIcon(controller, icons=icons)
     tray.show()
 
     # Backend + reducer. MockBackend keeps M3 self-contained; swapping to

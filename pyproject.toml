@@ -62,6 +62,17 @@ path = "src/perch/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/perch"]
 
+# Install the icon theme + desktop entry + AppStream metainfo under the
+# wheel's "data" directory so `pip install perch` lands them at
+# <prefix>/share/... where QIcon.fromTheme(), xdg-open and appstreamcli
+# expect them. Distro packages (RPM/DEB/Flatpak) still install these
+# paths directly from data/ per packaging/; the shared-data mapping is
+# the authoritative layout and keeps pip installs functional.
+[tool.hatch.build.targets.wheel.shared-data]
+"data/icons" = "share/icons"
+"data/io.github.milnet01.Perch.desktop" = "share/applications/io.github.milnet01.Perch.desktop"
+"data/io.github.milnet01.Perch.metainfo.xml" = "share/metainfo/io.github.milnet01.Perch.metainfo.xml"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "src/perch",

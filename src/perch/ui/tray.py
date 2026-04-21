@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import QT_TR_NOOP, QCoreApplication, QObject, Signal
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
 from perch.core.snaps import SnapPreset
 
+from .icons import TrayIcons
 from .intents import (
     ActivateLayout,
     Intent,
@@ -53,6 +55,21 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+class TrayIconState(Enum):
+    """Which variant the tray should currently display.
+
+    Mapped from :class:`TrayState` by :meth:`TrayState.icon_state`.
+    ``normal`` is the default; ``warning`` covers the degraded-backend
+    and awaiting-extension cases per :file:`docs/08-ui.md` §Icon states;
+    ``error`` is reserved for "no compatible compositor detected" when
+    the backend selector returns :class:`BackendUnavailable`.
+    """
+
+    NORMAL = "normal"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 @dataclass(frozen=True, slots=True)
 class TrayState:
     """Read-only snapshot of the state the tray menu needs."""
@@ -64,6 +81,8 @@ class TrayState:
     windows: tuple[WindowInfo, ...] = ()
     pause_restore: bool = False
     backend_degraded: bool = False
+    awaiting_extension: bool = False
+    compositor_missing: bool = False
 
     @property
     def header(self) -> str:
@@ -74,6 +93,33 @@ class TrayState:
             "perch.ui.tray", "no layout"
         )
         return f"Perch — {prof} / {layout}"
+
+    @property
+    def icon_state(self) -> TrayIconState:
+        """Derive the tray-icon variant. ``error`` wins over ``warning``."""
+        if self.compositor_missing:
+            return TrayIconState.ERROR
+        if self.backend_degraded or self.awaiting_extension:
+            return TrayIconState.WARNING
+        return TrayIconState.NORMAL
+
+    @property
+    def tooltip(self) -> str:
+        """User-facing tooltip text, matching :file:`docs/08-ui.md`."""
+        if self.compositor_missing:
+            return QCoreApplication.translate(
+                "perch.ui.tray", "Perch — no compatible compositor detected"
+            )
+        if self.backend_degraded:
+            return QCoreApplication.translate(
+                "perch.ui.tray", "Perch — backend disconnected"
+            )
+        if self.awaiting_extension:
+            return QCoreApplication.translate(
+                "perch.ui.tray",
+                "Perch — install the GNOME Shell extension to enable window management",
+            )
+        return self.header
 
 
 # Built-in snap presets — ``(preset_id, source_language_label)``. Labels
@@ -262,18 +308,22 @@ class TrayIcon(QSystemTrayIcon):
     def __init__(
         self,
         controller: TrayController,
-        icon: QIcon | None = None,
+        icons: TrayIcons | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        if icon is not None:
-            self.setIcon(icon)
+        self._icons = icons
         self._controller = controller
         self._menu_actions: list[QAction] = []  # keep refs alive for Qt
+        self._update_icon()
         self._rebuild_menu()
-        controller.state_changed.connect(self._rebuild_menu)
+        controller.state_changed.connect(self._on_state_changed)
         self.activated.connect(self._on_activated)
         self._update_tooltip()
+
+    def _on_state_changed(self) -> None:
+        self._update_icon()
+        self._rebuild_menu()
 
     def _rebuild_menu(self) -> None:
         # parent=None because QSystemTrayIcon is a QObject, not a QWidget,
@@ -285,12 +335,27 @@ class TrayIcon(QSystemTrayIcon):
         self._menu = menu
         self._update_tooltip()
 
-    def _update_tooltip(self) -> None:
-        state = self._controller.state
-        if state.backend_degraded:
-            self.setToolTip("Perch — backend disconnected")
+    def _update_icon(self) -> None:
+        """Swap ``setIcon`` to match the current :class:`TrayIconState`.
+
+        No-op when constructed without a :class:`TrayIcons` bundle — tests
+        that don't care about icon art pass ``icons=None`` and Qt draws a
+        placeholder.
+        """
+        if self._icons is None:
+            return
+        state = self._controller.state.icon_state
+        icon: QIcon
+        if state is TrayIconState.ERROR:
+            icon = self._icons.error
+        elif state is TrayIconState.WARNING:
+            icon = self._icons.warning
         else:
-            self.setToolTip(state.header)
+            icon = self._icons.normal
+        self.setIcon(icon)
+
+    def _update_tooltip(self) -> None:
+        self.setToolTip(self._controller.state.tooltip)
 
     def _on_activated(
         self, reason: QSystemTrayIcon.ActivationReason
