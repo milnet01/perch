@@ -46,6 +46,7 @@ from perch.backend.types import (
     WindowInfo,
     WindowState,
 )
+from perch.logging_privacy import redact_payload, summarize_keys
 
 from . import PLUGIN_ID, SERVICE_NAME
 from .hotkeys import (
@@ -277,7 +278,11 @@ class KWinBackend(WindowBackend):
             try:
                 info = decode_window_info(entry)
             except (KeyError, ValueError, TypeError) as exc:
-                log.debug("list_windows: skipping malformed entry %r: %s", entry, exc)
+                log.debug(
+                    "list_windows: skipping malformed entry (%s): %s",
+                    summarize_keys(entry),
+                    exc,
+                )
                 continue
             infos.append(info)
             self._windows[info.id] = info
@@ -515,7 +520,11 @@ class KWinBackend(WindowBackend):
         try:
             info = decode_window_info(payload)
         except (KeyError, ValueError, TypeError) as exc:
-            log.warning("WindowAdded: malformed payload %r: %s", payload, exc)
+            log.warning(
+                "WindowAdded: malformed payload %r: %s",
+                redact_payload(payload),
+                exc,
+            )
             return
         self._windows[info.id] = info
         self.window_opened.emit(info)
@@ -532,7 +541,11 @@ class KWinBackend(WindowBackend):
         try:
             info = decode_window_info(payload)
         except (KeyError, ValueError, TypeError) as exc:
-            log.debug("WindowGeometryChanged: malformed payload %r: %s", payload, exc)
+            log.debug(
+                "WindowGeometryChanged: malformed payload %r: %s",
+                redact_payload(payload),
+                exc,
+            )
             return
         previous = self._windows.get(info.id)
         self._windows[info.id] = info
@@ -548,7 +561,11 @@ class KWinBackend(WindowBackend):
         try:
             info = decode_window_info(payload)
         except (KeyError, ValueError, TypeError) as exc:
-            log.debug("WindowPropertiesChanged: malformed payload %r: %s", payload, exc)
+            log.debug(
+                "WindowPropertiesChanged: malformed payload %r: %s",
+                redact_payload(payload),
+                exc,
+            )
             return
         self._windows[info.id] = info
         self.window_changed.emit(info)

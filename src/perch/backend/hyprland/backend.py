@@ -51,6 +51,7 @@ from perch.backend.types import (
     WindowState,
     WindowType,
 )
+from perch.logging_privacy import summarize_keys
 
 log = logging.getLogger("perch.backend.hyprland")
 
@@ -240,7 +241,11 @@ class HyprlandBackend(WindowBackend):
             try:
                 info = _decode_client(entry)
             except (KeyError, TypeError, ValueError) as exc:
-                log.debug("list_windows: skipping malformed client %r: %s", entry, exc)
+                log.debug(
+                    "list_windows: skipping malformed client (%s): %s",
+                    summarize_keys(entry),
+                    exc,
+                )
                 continue
             infos.append(info)
         self._windows = {i.id: i for i in infos}
@@ -267,7 +272,11 @@ class HyprlandBackend(WindowBackend):
             try:
                 outs.append(_decode_monitor(entry))
             except (KeyError, TypeError, ValueError) as exc:
-                log.debug("list_outputs: skipping malformed monitor %r: %s", entry, exc)
+                log.debug(
+                    "list_outputs: skipping malformed monitor (%s): %s",
+                    summarize_keys(entry),
+                    exc,
+                )
                 continue
         self._outputs = {o.name: o for o in outs}
         return outs
@@ -457,7 +466,15 @@ class HyprlandBackend(WindowBackend):
                 try:
                     self._dispatch_event_line(line.decode(errors="replace").rstrip("\n"))
                 except Exception as exc:  # defensive: never crash the reader loop
-                    log.debug("event dispatch failed for %r: %s", line, exc)
+                    # Redact the raw event line: Hyprland's ``socket2``
+                    # includes the active window title verbatim, which
+                    # would otherwise land in the log.
+                    event_name = (
+                        line.decode(errors="replace").split(">>", 1)[0].rstrip("\n")
+                        if b">>" in line
+                        else "<malformed>"
+                    )
+                    log.debug("event dispatch failed for %r: %s", event_name, exc)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # pragma: no cover — live-only path
@@ -485,7 +502,10 @@ class HyprlandBackend(WindowBackend):
         elif name in ("workspace", "createworkspace", "destroyworkspace"):
             self._spawn_bg(self._refresh_workspaces())
         else:
-            log.debug("unhandled Hyprland event %r (data=%r)", name, data)
+            # Log the event name only; ``data`` may contain the window
+            # title (``windowtitle`` and ``activewindowv2`` emit it).
+            del data
+            log.debug("unhandled Hyprland event %r", name)
 
     def _spawn_bg(self, coro: Coroutine[Any, Any, None]) -> None:
         """Spawn a background task and track it so the runtime won't GC it."""
