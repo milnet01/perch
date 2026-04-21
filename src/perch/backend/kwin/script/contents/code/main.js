@@ -221,17 +221,15 @@ function doSetFrameGeometry(op) {
         width: op.w | 0,
         height: op.h | 0,
     };
-    if (op.preplace) {
-        // Best-effort: stack predictably during first-frame placement, then
-        // clear once the window has had one repaint to settle. ``QTimer``
-        // is exposed by KWin's scripting host even without a ``Qt`` global.
-        w.keepAbove = true;
-        const release = new QTimer();
-        release.interval = 120;
-        release.singleShot = true;
-        release.triggered.connect(function () { w.keepAbove = false; });
-        release.start();
-    }
+    // ``op.preplace`` used to trigger a keepAbove dance to suppress
+    // first-frame flicker during RestoreLastSeen, but the required
+    // ``QTimer.triggered.connect(...)`` is not actually available in
+    // KWin's JS sandbox ("Cannot call method 'connect' of undefined")
+    // — which meant every call with preplace=true left the window
+    // stuck on top. The payload flag is still accepted from the
+    // Python side for backwards-compatibility with pinned test
+    // fixtures but is a no-op here; see
+    // ``can_preplace_windows = False`` in the backend capabilities.
     return { ok: true };
 }
 
@@ -410,5 +408,5 @@ poll();
 // ``KPlugin.Version`` and ``perch.backend.kwin.BUNDLED_SCRIPT_VERSION``.
 // Kept as a literal here because KWin's JS sandbox has no JSON-file reader;
 // install-time parity is verified by ``tests/backend/kwin/test_bundled_script.py``.
-const SCRIPT_VERSION = "1.1.1";
+const SCRIPT_VERSION = "1.1.2";
 callDBus(SVC, OBJ, IF, "ScriptReady", JSON.stringify({ version: SCRIPT_VERSION }));

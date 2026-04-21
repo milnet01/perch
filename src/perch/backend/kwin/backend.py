@@ -113,12 +113,14 @@ _CAPABILITIES = Capabilities(
     can_observe_geometry=True,
     can_observe_outputs=True,
     can_register_hotkeys=True,
-    can_preplace_windows=True,
+    can_preplace_windows=False,
     notes=(
         "KWin scripting on Plasma >= 6 via bundled script + "
         "GlobalShortcuts portal (KGlobalAccel fallback when the portal "
-        "is unavailable). Pre-paint placement is best-effort; occasional "
-        "first-frame flicker is possible but usually imperceptible."
+        "is unavailable). Pre-paint placement is not implemented — "
+        "KWin's JS sandbox doesn't expose the signal-connect API that "
+        "the keepAbove dance requires, so first-frame flicker is "
+        "accepted rather than half-fixed."
     ),
 )
 
@@ -415,7 +417,7 @@ class KWinBackend(WindowBackend):
         if desktop is not None:
             ops.append(op_set_desktop(wid, desktop))
         ops.append(
-            op_set_frame_geometry(wid, geom, output=monitor, preplace=True)
+            op_set_frame_geometry(wid, geom, output=monitor)
         )
 
         payload = op_batch(ops) if len(ops) > 1 else ops[0]

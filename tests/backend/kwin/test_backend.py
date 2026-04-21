@@ -430,7 +430,10 @@ async def test_set_geometry_sends_single_op_when_monitor_and_desktop_none(
     assert sent["op"] == "setFrameGeometry"
     assert sent["id"] == "w-1"
     assert sent["x"] == 10 and sent["w"] == 300
-    assert sent["preplace"] is True
+    # M9.f.15: preplace is no longer sent from set_geometry — the JS
+    # half can't honour it (no signal-connect in the sandbox) and
+    # leaving it on stuck windows at ``keepAbove = true`` forever.
+    assert "preplace" not in sent
     assert "output" not in sent
 
 
@@ -776,7 +779,10 @@ def test_capabilities_match_doc() -> None:
     b = KWinBackend()
     caps = b.capabilities
     assert caps.can_set_position is True
-    assert caps.can_preplace_windows is True
+    # can_preplace_windows is False since M9.f.15: KWin's JS sandbox
+    # doesn't expose the signal-connect API that the keepAbove dance
+    # needed, so Perch doesn't claim to pre-place.
+    assert caps.can_preplace_windows is False
     assert caps.can_register_hotkeys is True
     assert "Plasma" in caps.notes
     assert "KGlobalAccel" in caps.notes
