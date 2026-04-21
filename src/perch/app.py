@@ -163,9 +163,7 @@ def _handle_intent(
             _ = quit_app  # retained so existing callers keep working
             close_event.set()
         case TogglePauseRestore():
-            # Reducer-level pause flag lands with the real backend wiring
-            # in M4; for M3 we log so the tray integration is verifiable.
-            log.info("pause-restore toggled (stub — reducer flag in M4)")
+            reducer.toggle_pause_restore()
         case ReapplyRules():
             _spawn(reducer.recompute_topology())
         case ActivateLayout(name):

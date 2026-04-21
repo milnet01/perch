@@ -10,6 +10,9 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **Intent dispatch audit** at `tools/intent_dispatch_audit.py`: AST-walks `src/perch/ui/intents.py` to enumerate every variant of the `Intent` union type, then AST-walks `_handle_intent` in `src/perch/app.py` to verify each variant has a real handler. "Real" = any statement that isn't a docstring, `_ = unused` placeholder, or `log.*` call; `close_event.set()` / `.clear()` counts as real side effect. Exit code is the finding count. Wired into `.github/workflows/ci.yml` as a gate step after mypy.
+- `Reducer.toggle_pause_restore()` — flips the new `paused: bool` flag on the reducer. `handle_window_opened` now skips `RestoreLastSeen` decisions when paused; rule / layout actions still apply (those are explicit user intent). The tray's `TogglePauseRestore` intent calls this instead of just logging.
+
 ### Changed
 
 ### Deprecated
@@ -17,6 +20,8 @@ Sections under each release are populated on a best-effort basis — empty secti
 ### Removed
 
 ### Fixed
+
+- **TogglePauseRestore tray intent** no longer only logs — it calls `reducer.toggle_pause_restore()` which flips a real pause flag honoured by the reducer's decision pipeline. Caught by the new intent-dispatch audit (M9.f.13).
 
 ### Security
 

@@ -97,6 +97,14 @@ class Reducer:
         self._outputs: dict[OutputName, OutputInfo] = {}
         self._topology_key: str = ""
 
+        # When True, the reducer skips RestoreLastSeen decisions on
+        # window_opened — the user's "Pause restore" toggle, exposed
+        # via the tray's middle-click + menu item. Other decision
+        # kinds (rule matches, layout-entry placement) still apply:
+        # the user explicitly wrote those, pausing them would be
+        # surprising. See docs/08-ui.md §Tray menu.
+        self.paused: bool = False
+
         # The reducer caches the most recent :class:`WindowInfo` per window so
         # ``geometry_changed`` (which carries only wid/geom/monitor/desktop)
         # can still compute an identity for the state.json write.
@@ -280,6 +288,19 @@ class Reducer:
                 window, trigger=TriggerEvent.USER_TRIGGER
             )
 
+    # ── Pause restore ──────────────────────────────────────────────────────
+    def toggle_pause_restore(self) -> bool:
+        """Flip the pause flag and return the new value.
+
+        When paused, ``handle_window_opened`` still evaluates rules and
+        layouts but drops any ``RestoreLastSeen`` decision. The tray
+        menu wires middle-click + the "Pause restore" menu item to
+        this method.
+        """
+        self.paused = not self.paused
+        log.info("pause-restore %s", "enabled" if self.paused else "disabled")
+        return self.paused
+
     # ── Effective layout (base layout + profile overrides) ────────────────
     def _recompute_effective_layout(self) -> None:
         if self.active_layout is None:
@@ -303,6 +324,15 @@ class Reducer:
         if isinstance(decision, Ignore):
             return
         if isinstance(decision, RestoreLastSeen):
+            if self.paused:
+                # "Pause restore" is a user-triggered escape hatch —
+                # see docs/08-ui.md §Tray menu. Rule / layout actions
+                # still fire (they're explicit user intent); only the
+                # last-seen auto-restore is suppressed.
+                log.debug(
+                    "restore suppressed (paused): %s", identity
+                )
+                return
             await self._restore_last_seen(window, identity)
             return
         if isinstance(decision, ApplyActionDecision):

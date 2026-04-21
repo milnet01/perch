@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import tomlkit
 
@@ -27,7 +27,7 @@ def _open_dialog(
     path.write_text(toml, encoding="utf-8")
     config = load_or_create(path)
 
-    def fake_save(p: Path, document: object) -> None:
+    def fake_save(p: Path, document: Any) -> None:
         p.write_text(tomlkit.dumps(document), encoding="utf-8")
 
     return ConfigDialog(
