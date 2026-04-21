@@ -125,12 +125,13 @@ patterns:
       file_glob: '*.py'
       severity: info
       description: assert removed with -O — use explicit validation for non-test code
-      # `is None`/`is not None`/`isinstance(...)` asserts are the idiomatic mypy
-      # type-narrowing pattern; they are invariants, not validation, so -O
-      # stripping them is a bug in the caller's deployment, not a code smell.
-      # Path-like excludes (`/tests/`) are kept for completeness but are inert
-      # in upstream audit.py (exclude_pattern matches line content, not path).
-      exclude_pattern: is\s+(not\s+)?None|isinstance\(|test_|_test\.py|conftest\.py|/tests/
+      # `is None`/`is not None`/`isinstance(...)`/`issubclass(...)` asserts are
+      # the idiomatic mypy type-narrowing pattern; they are invariants, not
+      # validation, so -O stripping them is a bug in the caller's deployment,
+      # not a code smell. Path-like excludes (`/tests/`) are kept for
+      # completeness but are inert in upstream audit.py (exclude_pattern
+      # matches line content, not path).
+      exclude_pattern: is\s+(not\s+)?None|isinstance\(|issubclass\(|test_|_test\.py|conftest\.py|/tests/
     - name: bare_except
       pattern: 'except\s*:'
       file_glob: '*.py'

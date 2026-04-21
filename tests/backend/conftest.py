@@ -1,12 +1,24 @@
 """Backend-compliance fixtures.
 
-The compliance tests parameterise over every backend class Perch ships. For
-M2 that is only :class:`MockBackend`; X11 (M4), KWin (M5), and the stubs (M6)
-will join by extending the :data:`BACKEND_CLASSES` table.
+The compliance tests parameterise over every backend class Perch ships. The
+set is filtered at collection time by :meth:`WindowBackend.is_available`
+— backends whose transport isn't detectable on the current host are
+skipped rather than failing ``start()``. This keeps the suite green on
+dev boxes that don't have every compositor installed, while still
+exercising each backend end-to-end in CI hosts that do.
 
-Every compliance test gets a fresh, already-connected backend seeded with
-two outputs (``DP-1``, ``HDMI-1``) and four desktops so that capability
-assertions have something to work against.
+The full matrix:
+
+* ``mock`` — always available; the compliance anchor.
+* ``kwin`` — only on KDE / Plasma Wayland sessions.
+* ``x11`` — only when ``$DISPLAY`` is set (live X11 or XWayland).
+* ``sway`` / ``hyprland`` / ``mutter`` — M6 stubs; gated on their
+  respective environment variables.
+
+The compliance tests that need a *seeded* mock (pre-arranged windows /
+outputs / desktops) inspect ``backend`` via ``isinstance(backend,
+MockBackend)`` and skip themselves against real backends — those tests
+are testing the mock's driver API, not the contract.
 """
 
 from __future__ import annotations
@@ -17,14 +29,50 @@ from typing import cast
 import pytest
 
 from perch.backend import (
+    BackendUnavailable,
     Geometry,
     OutputInfo,
     WindowBackend,
 )
 from perch.backend.mock import MockBackend
 
+
+def _all_backends() -> dict[str, type[WindowBackend]]:
+    """Materialise the full backend matrix, lazily importing each class.
+
+    We import lazily so that the test-collection phase doesn't require
+    every backend's runtime deps to be installed — e.g. a dev box
+    without ``i3ipc`` should still be able to run ``pytest`` against the
+    mock.
+    """
+    classes: dict[str, type[WindowBackend]] = {"mock": cast(type[WindowBackend], MockBackend)}
+
+    def _try_import(name: str, module_path: str, class_name: str) -> None:
+        try:
+            from importlib import import_module
+
+            module = import_module(module_path)
+            classes[name] = cast(type[WindowBackend], getattr(module, class_name))
+        except Exception:  # pragma: no cover — missing optional dep
+            # Missing transport deps shouldn't stop the suite from running;
+            # the backend simply won't be parameterised.
+            return
+
+    _try_import("kwin",     "perch.backend.kwin",     "KWinBackend")
+    _try_import("x11",      "perch.backend.x11",      "X11Backend")
+    _try_import("sway",     "perch.backend.sway",     "SwayBackend")
+    _try_import("hyprland", "perch.backend.hyprland", "HyprlandBackend")
+    _try_import("mutter",   "perch.backend.mutter",   "MutterBackend")
+    return classes
+
+
+_ALL_BACKENDS = _all_backends()
+
+#: Backends that will be exercised by the compliance suite on this host.
+#: Mock is always in; real backends are included only if their probe
+#: reports ``True`` (``$DISPLAY`` / ``$SWAYSOCK`` / … present).
 BACKEND_CLASSES: dict[str, type[WindowBackend]] = {
-    "mock": cast(type[WindowBackend], MockBackend),
+    name: cls for name, cls in _ALL_BACKENDS.items() if cls.is_available()
 }
 
 
@@ -46,7 +94,12 @@ def backend_cls(backend_name: str) -> type[WindowBackend]:
 @pytest.fixture
 async def backend(backend_cls: type[WindowBackend]) -> AsyncIterator[WindowBackend]:
     b = backend_cls()
-    await b.start()
+    try:
+        await b.start()
+    except BackendUnavailable as exc:
+        # The ``is_available`` probe was optimistic; the real transport
+        # turned out to be missing after all. Skip rather than fail.
+        pytest.skip(f"backend {backend_cls.__name__} unavailable: {exc}")
     _seed(b)
     try:
         yield b
@@ -55,10 +108,12 @@ async def backend(backend_cls: type[WindowBackend]) -> AsyncIterator[WindowBacke
 
 
 def _seed(backend: WindowBackend) -> None:
-    """Seed two outputs and four desktops. Mock-only for now.
+    """Seed two outputs and four desktops. Mock-only.
 
-    When real backends join, each will supply its own seeding (or refuse to
-    be seeded if the backend is read-only — the tests skip those cases).
+    Real backends have whatever outputs + windows their compositor
+    presents; the compliance tests that would otherwise depend on seeded
+    state skip themselves via ``isinstance(backend, MockBackend)``
+    checks.
     """
     if isinstance(backend, MockBackend):
         backend._add_output(

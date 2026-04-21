@@ -99,6 +99,23 @@ class WindowBackend(QObject):
     def capabilities(self) -> Capabilities:
         """What this backend can do. Stable for the life of one connection."""
 
+    @classmethod
+    def is_available(cls) -> bool:
+        """Cheap probe — can this backend attempt to ``start()`` on this host?
+
+        Default: ``True`` (the backend is always usable, e.g. ``MockBackend``).
+        Real backends override to read environment variables ($SWAYSOCK,
+        $HYPRLAND_INSTANCE_SIGNATURE, $XDG_CURRENT_DESKTOP, …) or check for a
+        CLI binary on ``PATH``. The probe **must not do I/O** — it's called
+        from :func:`perch.backend.select` and the compliance-suite parametriser,
+        both of which run during module/test collection.
+
+        Returning ``True`` does not guarantee ``start()`` will succeed; it
+        only means there's a reasonable chance. ``start()`` is still expected
+        to raise :class:`BackendUnavailable` on a missing transport.
+        """
+        return True
+
     # ── Queries ─────────────────────────────────────────────────────────────
     @abstractmethod
     async def list_windows(self) -> list[WindowInfo]: ...

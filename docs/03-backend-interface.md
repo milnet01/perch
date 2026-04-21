@@ -244,18 +244,23 @@ Identity (see [02-state-format.md](02-state-format.md)) is computed by the *core
 
 ## Backend selection
 
-`perch.backend.select()`:
+`perch.backend.select()` walks a fixed probe order and returns the first
+backend whose `is_available()` class-method reports `True`:
 
-1. Reads `$XDG_SESSION_TYPE`.
-2. If `wayland`:
-   a. Probes `$KDE_FULL_SESSION` → KWin backend.
-   b. Probes `$XDG_CURRENT_DESKTOP` for `GNOME` → Mutter backend.
-   c. Probes `$SWAYSOCK` → Sway backend.
-   d. Probes `$HYPRLAND_INSTANCE_SIGNATURE` → Hyprland backend.
-3. If `x11` or unmatched Wayland: X11 backend (works on XWayland too for legacy apps, but geometry is per-Xwayland, not the Wayland compositor).
-4. Otherwise: `BackendUnavailable`, fall back to UI-only mode.
+1. **KWin** — `$XDG_SESSION_TYPE` is `wayland` *and* `$XDG_CURRENT_DESKTOP` contains `KDE`.
+2. **Mutter** — `$XDG_CURRENT_DESKTOP` contains `GNOME` and `$XDG_SESSION_TYPE` is `wayland` (or unset).
+3. **Sway** — `$SWAYSOCK` is set and non-empty.
+4. **Hyprland** — `$HYPRLAND_INSTANCE_SIGNATURE` is set and `hyprctl` is on `PATH`.
+5. **X11** — `$DISPLAY` is set. This is the fallback for any X11 / XWayland session that didn't match a Wayland-native backend above.
 
-The selection can be overridden via `PERCH_BACKEND=<name>` for testing.
+If no probe matches, `select()` raises `BackendUnavailable`. Callers handle that by surfacing a "no supported compositor detected" message to the user — no UI-only degraded mode in v1.
+
+The selection can be overridden:
+
+- Programmatically: `perch.backend.select(override="kwin")`.
+- Via environment: `PERCH_BACKEND=mock`, `PERCH_BACKEND=kwin`, etc.
+
+`is_available()` is a cheap env-only probe. It must not do I/O — the compliance-suite parametriser and `select()` both call it during test collection / process start-up, and a D-Bus round-trip there would be both slow and surprising.
 
 ## Mock backend (for tests)
 

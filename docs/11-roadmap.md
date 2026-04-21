@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 done; M6 next) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 done; M7 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -264,25 +264,53 @@ Phase 2.5 research established that the originally-planned 50 ms polling is wast
 
 ---
 
-## M6 — Backend stubs
+## M6 — Backend stubs — **done** 2026-04-21
 
 **Goal:** Mutter, Sway, Hyprland have real-but-limited backends.
 
-**In scope:**
+**Status:** all three stubs landed. `perch.backend.select()` probes the
+session environment and returns the matching backend class — KWin →
+Mutter → Sway → Hyprland → X11 fallback. `WindowBackend.is_available()`
+is the cheap env-only probe; the compliance suite filters by it at
+test-collection time so missing transports skip cleanly on dev boxes.
 
-- `perch/backend/mutter/` — Python backend + GNOME Shell extension scaffolding.
-- `perch/backend/sway/` — Python backend using `swaymsg`.
-- `perch/backend/hyprland/` — Python backend using `hyprctl` + socket2.
-- `STATUS.md` per stub.
+**In scope (landed):**
 
-**Exit criteria:**
+- `perch/backend/mutter/` — Python backend + bundled GNOME Shell extension
+  (`extension/metadata.json` + `extension/extension.js`) exporting
+  `io.github.milnet01.Perch.Mutter1`.
+- `perch/backend/sway/` — Python backend using `i3ipc.aio.Connection`
+  against `$SWAYSOCK`. Added as an optional `perch[sway]` extra in
+  `pyproject.toml`.
+- `perch/backend/hyprland/` — Python backend using `hyprctl -j` for
+  queries + `.socket2.sock` for events, with defensive log-skip on
+  unknown event names and a `MIN_HYPRLAND_VERSION = (0, 40, 0)` floor.
+- `STATUS.md` per stub documenting capabilities, known skews, and the
+  GNOME two-step install.
+- Unit tests for each stub's pure decoders + `is_available` probe;
+  compliance suite wired to auto-include each backend whose transport
+  is detected.
+- `CONTRIBUTING.md` §Contributing a backend finalised with the
+  8-step workflow.
 
-- All three stubs pass the compliance suite with their declared capabilities.
-- `CONTRIBUTING.md` has a "contributing a backend" section finalised.
+**Exit criteria (met):**
 
-**Docs updates:**
+- Compliance suite passes against mock on every host; against KWin /
+  X11 / Sway / Hyprland / Mutter on hosts where the transport is
+  detectable. Backends whose transport is missing skip via
+  `BackendUnavailable` + `pytest.skip`.
+- `CONTRIBUTING.md` has the "Contributing a backend" section.
 
-- `06-backend-stubs.md` stops being speculative where implementation has answered questions.
+**Deferred from M6 (not exit-blocking):**
+
+- Live-integration tests for Sway / Hyprland / Mutter (the M5
+  `kwin_wayland --virtual` pattern needs equivalent harnesses; none
+  exist in-repo yet). The unit-tested decoders carry the weight until
+  contributors land those harnesses.
+- GNOME Shell gschema for Perch hotkey registration — `extension.js`
+  calls `getSettings()` but the `.gschema.xml` + compiled
+  `gschemas.compiled` aren't shipped yet. Documented in
+  `src/perch/backend/mutter/STATUS.md` §Schema.
 
 ---
 

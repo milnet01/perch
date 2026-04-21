@@ -18,6 +18,16 @@ This doc was substantially revised during Phase 2 research (see `11-roadmap.md`)
 - GNOME extensions require **per-release source branches**; the stub status reflects that maintenance cost.
 - Hyprland IPC is marked best-effort: socket2 event format has broken backwards across minor releases.
 
+**Implementation status (M6, landed 2026-04-21):** all three stubs exist
+under `src/perch/backend/{mutter,sway,hyprland}/`. Each ships with a
+`STATUS.md` covering capabilities, what works, what doesn't, and known
+skews. `perch.backend.select()` probes the session environment and picks
+the right backend; the compliance suite filters by
+`WindowBackend.is_available()`. Live-integration tests for the three
+stubs are deferred — the unit-tested decoders + the M5
+`kwin_wayland --virtual` harness pattern carry the weight until
+contributors land equivalents.
+
 ## Mutter / GNOME Shell
 
 ### Transport

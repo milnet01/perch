@@ -141,6 +141,19 @@ class X11Backend(WindowBackend):
         # NumLock mask, resolved once at start().
         self._numlock_mask: int = 0
 
+    @classmethod
+    def is_available(cls) -> bool:
+        """Probe: is an X display reachable from this process?
+
+        The X11 backend is the fallback for any session that still exposes
+        ``$DISPLAY`` — native X11 sessions, XWayland, and most remote X11
+        setups. Wayland-native backends are preferred by
+        :func:`perch.backend.select` and probe first.
+        """
+        import os
+
+        return bool(os.environ.get("DISPLAY"))
+
     # ── Lifecycle ───────────────────────────────────────────────────────────
     async def start(self) -> None:
         if self._connected:

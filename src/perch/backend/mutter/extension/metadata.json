@@ -1,0 +1,10 @@
+{
+  "uuid": "perch@milnet01.github.io",
+  "name": "Perch",
+  "description": "Bridge between Perch (tray window-geometry manager) and GNOME Shell. Exposes io.github.milnet01.Perch.Mutter1 on the session bus so the Python side can enumerate windows, move them across monitors and workspaces, and listen for geometry changes.",
+  "url": "https://github.com/milnet01/perch",
+  "shell-version": ["48", "49", "50"],
+  "version": 1,
+  "session-modes": ["user"],
+  "settings-schema": "org.gnome.shell.extensions.perch"
+}

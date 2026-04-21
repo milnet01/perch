@@ -162,6 +162,24 @@ class KWinBackend(WindowBackend):
         # asyncio runtime doesn't GC them mid-flight.
         self._bg_tasks: set[asyncio.Task[None]] = set()
 
+    @classmethod
+    def is_available(cls) -> bool:
+        """Cheap env probe: are we in a KDE/Plasma Wayland session?
+
+        Mirrors the :func:`_probe_session_env` heuristic without raising —
+        we want :func:`perch.backend.select` to be able to ask "should I
+        pick KWin?" without side-effects on the D-Bus session.
+        """
+        session_type = os.environ.get("XDG_SESSION_TYPE", "")
+        current_desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
+        if session_type and session_type != "wayland":
+            return False
+        if current_desktop and "KDE" not in current_desktop:
+            return False
+        # With no env at all we can't be sure; report unavailable so select()
+        # falls through rather than attempting a bus round-trip speculatively.
+        return "KDE" in current_desktop
+
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
     async def start(self) -> None:

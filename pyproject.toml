@@ -41,6 +41,12 @@ dev = [
     "pytest-asyncio>=1.3,<2",
     "pytest-xvfb>=3",
 ]
+# Optional backend extras (M6 stubs). These gate the Python-side transport
+# bindings that are only meaningful when the matching compositor is the
+# session's window manager.
+sway = [
+    "i3ipc>=2.2.1,<3",
+]
 
 [project.urls]
 Homepage = "https://github.com/milnet01/perch"
@@ -87,7 +93,7 @@ warn_unreachable = true
 files = ["src/perch", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["qasync", "Xlib.*", "sdbus.*"]
+module = ["qasync", "Xlib.*", "sdbus.*", "i3ipc", "i3ipc.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

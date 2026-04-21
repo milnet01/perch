@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from perch.backend import (
+    BackendUnavailable,
     BackendUnsupported,
     Geometry,
     OutputInfo,
@@ -48,7 +49,10 @@ async def test_start_stop_lifecycle(backend_cls: type[WindowBackend]) -> None:
     b.backend_connected.connect(lambda: connected.append(True))
     b.backend_disconnected.connect(lambda reason: disconnected.append(reason))
 
-    await b.start()
+    try:
+        await b.start()
+    except BackendUnavailable as exc:
+        pytest.skip(f"{backend_cls.__name__}: transport missing on this host: {exc}")
     assert connected == [True]
 
     await b.stop()
@@ -86,11 +90,18 @@ async def test_list_outputs_returns_frozen_dataclasses(
 
 
 # ── 4. Announced capabilities match actual behaviour ───────────────────────
+# These tests seed a known window via ``MockBackend._spawn_window`` and then
+# exercise the command. Real backends can't be seeded synthetically — the
+# windows that exist are whatever the live compositor shows — so the
+# capability-matches-behaviour check skips against them and relies on the
+# per-backend live-integration suites (M5 ``kwin_wayland --virtual`` harness,
+# future Sway/Hyprland/Mutter harnesses) for coverage.
 async def test_set_position_matches_capability(backend: WindowBackend) -> None:
+    if not isinstance(backend, MockBackend):
+        pytest.skip("needs MockBackend's _spawn_window driver")
     if not backend.capabilities.can_set_position:
         pytest.skip("backend does not claim can_set_position")
-    if isinstance(backend, MockBackend):
-        backend._spawn_window(_sample_window())
+    backend._spawn_window(_sample_window())
 
     await backend.set_geometry("w1", Geometry(200, 300, 800, 600))
     w = await backend.get_window("w1")
@@ -98,10 +109,11 @@ async def test_set_position_matches_capability(backend: WindowBackend) -> None:
 
 
 async def test_set_state_matches_capability(backend: WindowBackend) -> None:
+    if not isinstance(backend, MockBackend):
+        pytest.skip("needs MockBackend's _spawn_window driver")
     if not backend.capabilities.can_set_state:
         pytest.skip("backend does not claim can_set_state")
-    if isinstance(backend, MockBackend):
-        backend._spawn_window(_sample_window())
+    backend._spawn_window(_sample_window())
 
     await backend.set_state("w1", WindowState.MINIMIZED)
     w = await backend.get_window("w1")
@@ -109,10 +121,11 @@ async def test_set_state_matches_capability(backend: WindowBackend) -> None:
 
 
 async def test_set_monitor_matches_capability(backend: WindowBackend) -> None:
+    if not isinstance(backend, MockBackend):
+        pytest.skip("needs MockBackend's _spawn_window driver")
     if not backend.capabilities.can_set_monitor:
         pytest.skip("backend does not claim can_set_monitor")
-    if isinstance(backend, MockBackend):
-        backend._spawn_window(_sample_window())
+    backend._spawn_window(_sample_window())
 
     await backend.set_geometry(
         "w1", Geometry(0, 0, 800, 600), monitor="HDMI-1"
@@ -168,10 +181,11 @@ async def test_unknown_window_raises(backend: WindowBackend) -> None:
 
 
 async def test_unknown_output_raises(backend: WindowBackend) -> None:
+    if not isinstance(backend, MockBackend):
+        pytest.skip("needs MockBackend's _spawn_window driver")
     if not backend.capabilities.can_set_monitor:
         pytest.skip("no can_set_monitor → no UnknownOutput path")
-    if isinstance(backend, MockBackend):
-        backend._spawn_window(_sample_window())
+    backend._spawn_window(_sample_window())
     with pytest.raises(UnknownOutput):
         await backend.set_geometry(
             "w1", Geometry(0, 0, 100, 100), monitor="NONEXISTENT-99"
