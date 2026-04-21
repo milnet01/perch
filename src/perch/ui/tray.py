@@ -135,6 +135,10 @@ BUILTIN_SNAP_MENU_ITEMS: tuple[tuple[str, str], ...] = (
     ("top-right", cast(str, QT_TR_NOOP("Top-right quarter"))),
     ("bottom-left", cast(str, QT_TR_NOOP("Bottom-left quarter"))),
     ("bottom-right", cast(str, QT_TR_NOOP("Bottom-right quarter"))),
+    # "Centre" keeps the current window size and repositions to the
+    # centre of the work area; "Centre (60%)" is the legacy 60%-sized
+    # rectangle. Both ride on the same preset pipeline.
+    ("center-in-place", cast(str, QT_TR_NOOP("Centre (keep size)"))),
     ("center-60", cast(str, QT_TR_NOOP("Centre (60%)"))),
 )
 

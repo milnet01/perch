@@ -62,6 +62,7 @@ from .protocol import (
     decode_window_info,
     op_batch,
     op_close_window,
+    op_query_active_window,
     op_query_current_desktop,
     op_query_desktop_count,
     op_query_outputs,
@@ -308,6 +309,30 @@ class KWinBackend(WindowBackend):
         payload = result.get("window")
         if not isinstance(payload, dict):
             raise BackendError(f"get_window malformed response: {result!r}")
+        info = decode_window_info(payload)
+        self._windows[info.id] = info
+        return info
+
+    async def get_active_window(self) -> WindowInfo | None:
+        """Query KWin for the currently-focused normal window.
+
+        Returns ``None`` when the JS side reports ``workspace.activeWindow``
+        as null or a non-``normalWindow`` (e.g. focus on the desktop, a
+        menu, a tooltip).
+        """
+        self._require_connected()
+        assert self._service is not None
+        result = await self._service.execute(
+            op_query_active_window(), timeout=COMMAND_TIMEOUT_S
+        )
+        unwrap_ok(result)
+        payload = result.get("window")
+        if payload is None:
+            return None
+        if not isinstance(payload, dict):
+            raise BackendError(
+                f"get_active_window malformed response: {result!r}"
+            )
         info = decode_window_info(payload)
         self._windows[info.id] = info
         return info

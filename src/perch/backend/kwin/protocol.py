@@ -88,6 +88,18 @@ def op_query_window(wid: WindowId) -> dict[str, Any]:
     return {"op": "queryWindow", "id": wid}
 
 
+def op_query_active_window() -> dict[str, Any]:
+    """Request the currently-focused *normal* window (or null).
+
+    KWin's ``workspace.activeWindow`` is null when focus is on the
+    desktop or a non-user window. The JS handler filters on
+    ``normalWindow`` so tray menus / tooltips never come back as the
+    "active" window — Perch's :meth:`WindowBackend.get_active_window`
+    reflects that filtering by returning ``None`` in those cases.
+    """
+    return {"op": "queryActiveWindow"}
+
+
 def op_query_current_desktop() -> dict[str, Any]:
     return {"op": "queryCurrentDesktop"}
 

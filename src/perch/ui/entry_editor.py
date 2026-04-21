@@ -33,7 +33,9 @@ from PySide6.QtWidgets import (
 
 from perch.core.actions import (
     BUILTIN_PRESETS,
+    AbsoluteGeometry,
     ApplyAction,
+    CenterKeepSize,
     PercentGeometry,
     PresetGeometry,
 )
@@ -313,7 +315,9 @@ def summarise_apply(action: ApplyAction) -> str:
             parts.append(
                 f"pct:{action.geometry.w_pct * 100:.0f}%x{action.geometry.h_pct * 100:.0f}%"
             )
-        else:
+        elif isinstance(action.geometry, CenterKeepSize):
+            parts.append("center-in-place")
+        elif isinstance(action.geometry, AbsoluteGeometry):
             parts.append(
                 f"abs:{action.geometry.w}x{action.geometry.h}"
                 f"@{action.geometry.x},{action.geometry.y}"

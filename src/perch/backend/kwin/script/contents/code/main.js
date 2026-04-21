@@ -188,6 +188,7 @@ function runOne(op) {
             case "queryCurrentDesktop":     return doQueryCurrentDesktop();
             case "queryDesktopCount":       return doQueryDesktopCount();
             case "queryWindow":             return doQueryWindow(op);
+            case "queryActiveWindow":       return doQueryActiveWindow();
             case "setDesktop":              return doSetDesktop(op);
             default:                        return { ok: false, error: "unknown op: " + op.op };
         }
@@ -315,6 +316,18 @@ function doQueryDesktopCount() {
 function doQueryWindow(op) {
     const w = findWindow(op.id);
     if (!w) return { ok: false, error: "unknown_window", id: op.id };
+    return { ok: true, window: describeWindow(w) };
+}
+
+function doQueryActiveWindow() {
+    // workspace.activeWindow is null when focus is on the desktop or
+    // no normal window is focused. Perch's SnapFocused intent wants a
+    // user-manageable window so we filter on normalWindow too — tray
+    // menus / docks / tooltips never qualify.
+    const w = workspace.activeWindow;
+    if (!w || !w.normalWindow) {
+        return { ok: true, window: null };
+    }
     return { ok: true, window: describeWindow(w) };
 }
 

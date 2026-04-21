@@ -48,13 +48,33 @@ class PresetGeometry:
     name: str
 
 
-GeometryExpr = AbsoluteGeometry | PercentGeometry | PresetGeometry
+@dataclass(frozen=True, slots=True)
+class CenterKeepSize:
+    """Centering that preserves the window's current width and height.
 
-# Built-in geometry presets. Expressed as :class:`PercentGeometry` against the
-# target monitor's work area so they scale cleanly to any resolution.
-BUILTIN_PRESETS: dict[str, PercentGeometry] = {
+    Unlike :class:`PercentGeometry` — which ignores the window's
+    current dimensions — this expression centres the window inside
+    the target monitor's work area without resizing it. The resolver
+    reads ``window.geometry`` for ``w`` and ``h`` at apply time.
+    """
+
+
+GeometryExpr = AbsoluteGeometry | PercentGeometry | PresetGeometry | CenterKeepSize
+
+# Built-in geometry presets. Most expand to :class:`PercentGeometry` against
+# the target monitor's work area so they scale cleanly to any resolution.
+# ``center-in-place`` expands to :class:`CenterKeepSize` which preserves the
+# window's current dimensions.
+#
+# Aliases without the ``-quarter`` suffix (``top-left`` → ``top-left-quarter``)
+# exist because the tray menu uses the short forms and rejecting them in the
+# resolver would silently break the "Snap focused window" submenu. Duplicate
+# entries (same value, different key) are fine — the resolver looks up by name.
+BUILTIN_PRESETS: dict[str, GeometryExpr] = {
     "maximize": PercentGeometry(0.0, 0.0, 1.0, 1.0),
     "center": PercentGeometry(0.25, 0.25, 0.5, 0.5),
+    "center-60": PercentGeometry(0.2, 0.2, 0.6, 0.6),
+    "center-in-place": CenterKeepSize(),
     "left-half": PercentGeometry(0.0, 0.0, 0.5, 1.0),
     "right-half": PercentGeometry(0.5, 0.0, 0.5, 1.0),
     "top-half": PercentGeometry(0.0, 0.0, 1.0, 0.5),
@@ -63,6 +83,11 @@ BUILTIN_PRESETS: dict[str, PercentGeometry] = {
     "top-right-quarter": PercentGeometry(0.5, 0.0, 0.5, 0.5),
     "bottom-left-quarter": PercentGeometry(0.0, 0.5, 0.5, 0.5),
     "bottom-right-quarter": PercentGeometry(0.5, 0.5, 0.5, 0.5),
+    # Short aliases — the tray menu uses these.
+    "top-left": PercentGeometry(0.0, 0.0, 0.5, 0.5),
+    "top-right": PercentGeometry(0.5, 0.0, 0.5, 0.5),
+    "bottom-left": PercentGeometry(0.0, 0.5, 0.5, 0.5),
+    "bottom-right": PercentGeometry(0.5, 0.5, 0.5, 0.5),
 }
 
 

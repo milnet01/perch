@@ -26,6 +26,7 @@ from .actions import (
     BUILTIN_PRESETS,
     AbsoluteGeometry,
     ApplyAction,
+    CenterKeepSize,
     GeometryExpr,
     MonitorSpec,
     PercentGeometry,
@@ -98,7 +99,7 @@ def resolve_action(
         if target_monitor is None:
             target_monitor = window.monitor
         output = _find_output(target_monitor, outputs)
-        geometry = _resolve_geometry(expr, output.work_area)
+        geometry = _resolve_geometry(expr, output.work_area, window)
 
     desktop = _resolve_desktop(action.desktop, window)
 
@@ -198,7 +199,7 @@ def _resolve_preset_reference(
 
 
 def _resolve_geometry(
-    expr: GeometryExpr, work_area: Geometry
+    expr: GeometryExpr, work_area: Geometry, window: WindowInfo
 ) -> Geometry:
     if isinstance(expr, AbsoluteGeometry):
         # Clamp into the work area — a rule cannot push a window off-screen.
@@ -210,6 +211,18 @@ def _resolve_geometry(
             y=work_area.y + _round(expr.y_pct * work_area.h),
             w=max(1, _round(expr.w_pct * work_area.w)),
             h=max(1, _round(expr.h_pct * work_area.h)),
+        )
+    if isinstance(expr, CenterKeepSize):
+        # Centre the window inside the work area without resizing it.
+        # Clamp only shrinks — if the current window is bigger than
+        # the work area the resolver returns a still-inside rect.
+        w = min(window.geometry.w, work_area.w)
+        h = min(window.geometry.h, work_area.h)
+        return Geometry(
+            x=work_area.x + _round((work_area.w - w) / 2),
+            y=work_area.y + _round((work_area.h - h) / 2),
+            w=w,
+            h=h,
         )
     # PresetGeometry — already expanded by the caller.
     raise ResolveError(

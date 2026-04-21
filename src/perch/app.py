@@ -154,14 +154,14 @@ def _handle_intent(
     """
     match intent:
         case Quit():
+            # Only trip the close_event; ``main()`` drains its async
+            # cleanup in its finally block and then calls app.quit()
+            # itself as the last step. Calling app.quit() here stops
+            # the qasync loop (which uses Qt's event loop as its
+            # engine) before the finally can run, producing the
+            # "Event loop stopped before Future completed" traceback.
+            _ = quit_app  # retained so existing callers keep working
             close_event.set()
-            # Tell Qt to start its own shutdown so the ``await
-            # close_event.wait()`` in ``main()`` isn't the sole shutdown
-            # gate — without this, the qasync loop keeps pumping Qt
-            # events and the process hangs after the backend has
-            # stopped.
-            if quit_app is not None:
-                quit_app()
         case TogglePauseRestore():
             # Reducer-level pause flag lands with the real backend wiring
             # in M4; for M3 we log so the tray integration is verifiable.
@@ -171,7 +171,7 @@ def _handle_intent(
         case ActivateLayout(name):
             _spawn(reducer.activate_layout(name))
         case SnapFocused(preset):
-            log.info("snap focused: %s (routed in M4)", preset)
+            _spawn(_snap_active_window(reducer, preset))
         case OpenConfigDialog(section):
             if open_dialog is not None:
                 open_dialog(section)
@@ -181,6 +181,69 @@ def _handle_intent(
             _open_in_file_manager(paths.config_dir())
         case ShowAbout():
             log.info("about dialog (stub — lands in a follow-up milestone)")
+
+
+async def _snap_active_window(reducer: Reducer, preset: str) -> None:
+    """Query the active window and apply ``preset`` to it.
+
+    Uses the reducer's already-live references (backend + config) so
+    we pick up the user's current ``[snaps]`` table. Failure modes
+    are logged at WARNING and swallowed — the tray menu can't surface
+    a modal, so a silent no-op is the least-surprising behaviour.
+    """
+    from perch.backend.base import BackendError, BackendUnsupported
+    from perch.core.actions import ApplyAction, PresetGeometry
+    from perch.core.resolver import ResolveError, resolve_action
+
+    backend = reducer.backend
+    try:
+        info = await backend.get_active_window()
+    except BackendUnsupported:
+        log.warning(
+            "snap focused: backend %s does not report focus — use the "
+            "Windows pane's Apply preset button instead",
+            type(backend).__name__,
+        )
+        return
+    except BackendError as exc:
+        log.warning("snap focused: get_active_window failed: %s", exc)
+        return
+    if info is None:
+        log.info(
+            "snap focused: no focused normal window; ignoring (tried %r)",
+            preset,
+        )
+        return
+
+    try:
+        outputs = await backend.list_outputs()
+    except BackendError as exc:
+        log.warning("snap focused: list_outputs failed: %s", exc)
+        return
+
+    action = ApplyAction(geometry=PresetGeometry(preset))
+    try:
+        placement = resolve_action(
+            action, info, outputs, reducer.config.snaps
+        )
+    except ResolveError as exc:
+        log.warning(
+            "snap focused: cannot resolve preset %r: %s", preset, exc
+        )
+        return
+    if placement.geometry is None or placement.monitor is None:
+        log.warning(
+            "snap focused: preset %r resolved to an empty placement", preset
+        )
+        return
+    try:
+        await backend.set_geometry(
+            info.id, placement.geometry, placement.monitor
+        )
+    except BackendError as exc:
+        log.warning(
+            "snap focused: backend rejected set_geometry: %s", exc
+        )
 
 
 def _open_in_file_manager(directory: Path) -> None:
@@ -250,16 +313,15 @@ async def main(
     close_event = asyncio.Event()
     app.aboutToQuit.connect(close_event.set)
 
-    # Install a SIGINT handler so Ctrl+C at the terminal triggers the
-    # same clean-shutdown path as the tray Quit intent — without this,
-    # asyncio.run raises ``KeyboardInterrupt`` mid-await and prints a
-    # traceback. The handler queues a coroutine that sets close_event +
-    # calls app.quit(); the ``finally`` block below then stops the
-    # reducer and backend.
+    # Install SIGINT / SIGTERM handlers so Ctrl+C at the terminal
+    # triggers the same clean-shutdown path as the tray Quit intent —
+    # without this, asyncio.run raises ``KeyboardInterrupt`` mid-await
+    # and prints a traceback. Handlers only trip ``close_event``;
+    # calling ``app.quit()`` here would stop the qasync loop before
+    # ``main()``'s finally block can run its async teardown.
     def _handle_sigint() -> None:
-        log.info("SIGINT received; shutting down")
+        log.info("signal received; shutting down")
         close_event.set()
-        app.quit()
 
     loop = asyncio.get_running_loop()
     with contextlib.suppress(NotImplementedError):
@@ -367,6 +429,13 @@ async def main(
         await reducer.stop()
         await backend.stop()
 
+    # Async cleanup is done — now tell Qt to wind down. ``app.quit()``
+    # stops the qasync loop, which ``asyncio.run`` then closes cleanly.
+    # This is the only place that calls ``app.quit()``; putting it in
+    # the Quit-intent handler or the SIGINT handler would stop the
+    # loop mid-finally (qasync: "Event loop stopped before Future
+    # completed").
+    app.quit()
     return 0
 
 

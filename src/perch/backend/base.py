@@ -124,6 +124,21 @@ class WindowBackend(QObject):
     async def get_window(self, wid: WindowId) -> WindowInfo:
         """Return the current snapshot. Raises :class:`UnknownWindow`."""
 
+    async def get_active_window(self) -> WindowInfo | None:
+        """Return the currently-focused user-manageable window, or ``None``.
+
+        ``None`` means "no user-manageable window is focused" — e.g.
+        focus on the desktop background, a menu, a tooltip, or no
+        window at all. Backends that can't report focus at all should
+        override to raise :class:`BackendUnsupported` (Sway, Hyprland
+        without a running IPC, etc.); the default implementation
+        raises :class:`BackendUnsupported` so compliance tests must
+        opt in explicitly.
+        """
+        raise BackendUnsupported(
+            "get_active_window: this backend does not report focus"
+        )
+
     @abstractmethod
     async def list_outputs(self) -> list[OutputInfo]: ...
 
