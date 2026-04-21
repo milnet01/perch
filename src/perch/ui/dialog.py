@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -187,6 +188,51 @@ class GeneralPage(QWidget):
         self._changed = False
 
 
+_DELETE_KEYS = frozenset({int(Qt.Key.Key_Delete), int(Qt.Key.Key_Backspace)})
+
+
+class _DeleteKeyTableView(QTableView):
+    """``QTableView`` that invokes a callback on Delete / Backspace.
+
+    The plain ``QTableView.keyPressEvent`` swallows Delete (it tries to
+    clear the current cell via the item-delegate edit pipeline), so a
+    module-scoped ``QShortcut`` with ``WidgetWithChildrenShortcut``
+    context doesn't fire reliably. Overriding ``keyPressEvent`` reaches
+    the event before the built-in handler and keeps the keyboard idiom
+    consistent with :class:`_DeleteKeyListWidget`.
+    """
+
+    def __init__(
+        self, on_delete: Callable[[], None], parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self._on_delete = on_delete
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if int(event.key()) in _DELETE_KEYS:
+            self._on_delete()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class _DeleteKeyListWidget(QListWidget):
+    """``QListWidget`` counterpart for :class:`_DeleteKeyTableView`."""
+
+    def __init__(
+        self, on_delete: Callable[[], None], parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self._on_delete = on_delete
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if int(event.key()) in _DELETE_KEYS:
+            self._on_delete()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class RulesPage(QWidget):
     """Rules table — drag-reorder + delete. Per-cell editing lands in M3.c."""
 
@@ -198,7 +244,14 @@ class RulesPage(QWidget):
 
         self.model = RulesModel(state.config.rules, self)
 
-        self.view = QTableView(self)
+        self.view = _DeleteKeyTableView(self._on_delete_clicked, self)
+        self.view.setAccessibleName(self.tr("Rules table"))
+        self.view.setAccessibleDescription(
+            self.tr(
+                "Rules in evaluation order. Use Delete or Backspace to remove "
+                "the selected rule."
+            )
+        )
         self.view.setModel(self.model)
         self.view.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         # InternalMove must not overwrite target rows — per docs/08-ui.md
@@ -310,7 +363,14 @@ class ExclusionsPage(QWidget):
         # reorder by shuffling indices; delete removes one.
         self._order: list[int] = list(range(len(self._original)))
 
-        self.list = QListWidget(self)
+        self.list = _DeleteKeyListWidget(self._on_delete_clicked, self)
+        self.list.setAccessibleName(self.tr("Exclusion patterns"))
+        self.list.setAccessibleDescription(
+            self.tr(
+                "Windows matching any pattern are ignored by Perch. Use "
+                "Delete or Backspace to remove the selected pattern."
+            )
+        )
         self.list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.list.setSelectionMode(
@@ -525,6 +585,7 @@ class ConfigDialog(QDialog):
 
         self._sidebar = QListWidget(self)
         self._sidebar.setFixedWidth(160)
+        self._sidebar.setAccessibleName(self.tr("Sections"))
         self._stack = QStackedWidget(self)
         self._pages: dict[str, _Page] = {}
 
@@ -556,6 +617,16 @@ class ConfigDialog(QDialog):
         root = QVBoxLayout(self)
         root.addLayout(body, 1)
         root.addWidget(buttons)
+
+        # Explicit tab-order so the sidebar (section picker) always
+        # receives focus first, followed by the active page, then the
+        # OK/Apply/Cancel row. Qt auto-derives tab-order from widget
+        # construction order in most cases but the sidebar-before-stack
+        # layout is load-bearing for keyboard navigation and is worth
+        # pinning explicitly — see :file:`docs/08-ui.md` §Accessibility.
+        self.setTabOrder(self._sidebar, self._stack)
+        self.setTabOrder(self._stack, buttons)
+        self._sidebar.setFocus()
 
     # ── Page factory ────────────────────────────────────────────────────
     def _build_page(self, section: str) -> _Page:

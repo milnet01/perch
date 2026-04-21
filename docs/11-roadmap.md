@@ -323,7 +323,7 @@ test-collection time so missing transports skip cleanly on dev boxes.
 **Subphases:**
 
 - **M7.a — Icon set refinement + HiDPI audit** — **done** 2026-04-21. Three symbolic status icons (`perch-tray{,-warning,-error}-symbolic`) under `data/icons/hicolor/symbolic/status/`, a `TrayIcons` bundle + `load_tray_icons()` loader in `src/perch/ui/icons.py`, `TrayIconState` enum + `icon_state` / `tooltip` derivation on `TrayState`, automatic `setIcon` swap in `TrayIcon._on_state_changed`, and Hatch `shared-data` mapping so `pip install` deposits the icon theme under `<prefix>/share/icons/hicolor/...` for `QIcon.fromTheme` lookup. Qt's SVG renderer handles HiDPI at any scale factor without raster variants — the HiDPI "audit" is "we use SVG end-to-end," unit-tested via the 14 new cases in `tests/ui/test_tray_icon_states.py`.
-- **M7.b — Keyboard navigation audit of the dialog** — pending.
+- **M7.b — Keyboard navigation audit of the dialog** — **done** 2026-04-21. Sidebar receives initial focus; explicit `setTabOrder(sidebar → stack → buttons)` pins the Tab chain; `_DeleteKeyTableView` + `_DeleteKeyListWidget` subclasses let Delete / Backspace remove the selected row on the Rules table and Exclusions list (QShortcut alone doesn't work because `QTableView.keyPressEvent` swallows the key for cell-editing); accessible-name / description strings added to the sidebar, rules table and exclusions list so orca + Qt's accessibility bridge announce them clearly. 7 new tests in `tests/ui/test_dialog_keyboard.py`; docs/08 §Accessibility rewritten present-tense.
 - **M7.c — Error-surfacing audit** — pending.
 - **M7.d — Performance harness (500 windows × 500 rules)** — pending.
 - **M7.e — Privacy review of logs** — pending.
