@@ -25,10 +25,20 @@ from PySide6.QtCore import (
     Qt,
 )
 
-from perch.backend.types import Geometry, WindowId, WindowInfo
+from perch.backend.types import Geometry, WindowId, WindowInfo, WindowType
 from perch.core.identity import compute_identity
 
 _Index = QModelIndex | QPersistentModelIndex
+
+# Only user-manageable window types land in the Windows pane. Everything
+# else (docks, menus, tooltips, splashes, desktop backgrounds, toolbars,
+# utility palettes) is noise — they flash in and out as the user hovers
+# over UI chrome, and no rule / layout ever acts on them because rules
+# run against the same list. ``UNKNOWN`` is conservatively included so
+# backends that don't set a type (some X11 apps) don't disappear.
+USER_VISIBLE_TYPES: frozenset[WindowType] = frozenset(
+    {WindowType.NORMAL, WindowType.DIALOG, WindowType.UNKNOWN}
+)
 
 COL_IDENTITY = 0
 COL_TITLE = 1
@@ -74,12 +84,25 @@ class WindowsTableModel(QAbstractTableModel):
     def set_windows(self, windows: list[WindowInfo]) -> None:
         """Replace the current window list wholesale. Used on page open."""
         self.beginResetModel()
-        self._order = [w.id for w in windows]
-        self._info = {w.id: w for w in windows}
+        filtered = [w for w in windows if w.type in USER_VISIBLE_TYPES]
+        self._order = [w.id for w in filtered]
+        self._info = {w.id: w for w in filtered}
         self.endResetModel()
 
     def upsert(self, info: WindowInfo) -> None:
-        """Insert or update ``info``. Emits the narrowest signal possible."""
+        """Insert or update ``info``. Emits the narrowest signal possible.
+
+        Non-user-visible window types (tooltips, menus, docks, …) are
+        dropped at the model boundary so hovering over UI chrome
+        doesn't flash phantom rows into the pane.
+        """
+        if info.type not in USER_VISIBLE_TYPES:
+            # If a window type flips *out* of visible (rare — mostly at
+            # state transitions), remove its row so the pane reflects
+            # the current filter.
+            if info.id in self._info:
+                self.remove(info.id)
+            return
         if info.id in self._info:
             self._info[info.id] = info
             row = self._order.index(info.id)

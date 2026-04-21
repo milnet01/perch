@@ -247,11 +247,19 @@ class WindowsPage(QWidget):
         self,
         backend: WindowBackend | None,
         state_store: StateStore | None,
+        config: Config | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._backend = backend
         self._state_store = state_store
+        # Live user-snap table, so the preset combo reflects the user's
+        # named presets alongside the built-ins. When ``config`` is None
+        # (tests) only the built-ins show.
+        self._user_snaps: dict[str, Any] = (
+            dict(config.snaps) if config is not None else {}
+        )
+        self._outputs_cache: dict[str, Any] = {}
         self._dirty = False
 
         layout = QVBoxLayout(self)
@@ -269,6 +277,8 @@ class WindowsPage(QWidget):
             layout.addWidget(label)
             self.model: WindowsTableModel | None = None
             self.view: QTableView | None = None
+            self.preset_combo: QComboBox | None = None
+            self.apply_preset_button: QPushButton | None = None
             return
 
         self.model = WindowsTableModel(
@@ -302,13 +312,26 @@ class WindowsPage(QWidget):
 
         hint = QLabel(
             self.tr(
-                "Windows currently tracked by the active backend. "
-                "Use the buttons below to save the current geometry of "
-                "a window as its remembered position, or forget a "
-                "previously-saved one."
+                "Windows tracked by the active backend. Pick a preset "
+                "below and click Apply preset to resize/reposition the "
+                "selected window. Save as last-seen records the current "
+                "geometry so Perch restores it on next open."
             )
         )
         hint.setWordWrap(True)
+
+        # Preset row: [preset combo] [Apply preset]
+        self.preset_combo = QComboBox(self)
+        self._populate_presets()
+
+        self.apply_preset_button = QPushButton(self.tr("Apply preset"))
+        self.apply_preset_button.setEnabled(False)
+        self.apply_preset_button.clicked.connect(self._on_apply_preset)
+
+        preset_row = QHBoxLayout()
+        preset_row.addWidget(QLabel(self.tr("Preset:")))
+        preset_row.addWidget(self.preset_combo, 1)
+        preset_row.addWidget(self.apply_preset_button)
 
         self.save_button = QPushButton(self.tr("Save as last-seen"))
         self.forget_button = QPushButton(self.tr("Forget last-seen"))
@@ -328,6 +351,7 @@ class WindowsPage(QWidget):
 
         layout.addWidget(hint)
         layout.addWidget(self.view, 1)
+        layout.addLayout(preset_row)
         layout.addLayout(buttons_row)
 
         # Wire live events. ``window_opened`` and ``window_changed`` both
@@ -413,12 +437,109 @@ class WindowsPage(QWidget):
         if info is None:
             self.save_button.setEnabled(False)
             self.forget_button.setEnabled(False)
+            if self.apply_preset_button is not None:
+                self.apply_preset_button.setEnabled(False)
             return
         self.save_button.setEnabled(True)
         identity = compute_identity(info)
         self.forget_button.setEnabled(
             self._state_store.get_last_seen(identity) is not None
         )
+        if self.apply_preset_button is not None:
+            self.apply_preset_button.setEnabled(True)
+
+    # ── Preset handling ─────────────────────────────────────────────────
+    def _populate_presets(self) -> None:
+        """Fill the preset combo with built-ins + user [snaps] entries.
+
+        Each item's ``userData`` is the preset's name (str) so the apply
+        path round-trips through :class:`PresetGeometry`. User snaps are
+        suffixed with "(snap)" so the user can tell them apart from the
+        built-in rectangles.
+        """
+        if self.preset_combo is None:
+            return
+        from perch.core.actions import BUILTIN_PRESETS
+
+        self.preset_combo.clear()
+        for name in BUILTIN_PRESETS:
+            self.preset_combo.addItem(name, name)
+        for name in self._user_snaps:
+            self.preset_combo.addItem(
+                self.tr("{name} (snap)").format(name=name), name
+            )
+
+    def _on_apply_preset(self) -> None:
+        """Resolve the selected preset against the selected window and apply.
+
+        Runs through :func:`perch.core.resolver.resolve_action`, so the
+        same percent→pixel math that the rules engine uses serves the
+        dialog too. Failure (unknown output, missing snap, backend
+        error) surfaces a ``QMessageBox.warning`` with the specific
+        problem — the user gets a real diagnostic rather than silent
+        no-op.
+        """
+        if self._backend is None or self.preset_combo is None:
+            return
+        info = self._current_window()
+        if info is None:
+            return
+        preset_name = self.preset_combo.currentData()
+        if not preset_name:
+            return
+
+        import qasync
+
+        from perch.core.actions import ApplyAction, PresetGeometry
+        from perch.core.resolver import ResolveError, resolve_action
+
+        async def _apply() -> None:
+            assert self._backend is not None  # narrowed above; re-assert for mypy
+            try:
+                outputs = await self._backend.list_outputs()
+            except Exception as exc:
+                log.exception("WindowsPage: list_outputs() failed")
+                QMessageBox.warning(
+                    self,
+                    self.tr("Apply preset failed"),
+                    self.tr("Could not read outputs: {err}").format(err=str(exc)),
+                )
+                return
+            action = ApplyAction(geometry=PresetGeometry(preset_name))
+            try:
+                placement = resolve_action(
+                    action, info, outputs, self._user_snaps
+                )
+            except ResolveError as exc:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Apply preset failed"),
+                    str(exc),
+                )
+                return
+            if placement.geometry is None or placement.monitor is None:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Apply preset failed"),
+                    self.tr("Preset resolved to an empty placement."),
+                )
+                return
+            try:
+                await self._backend.set_geometry(
+                    info.id, placement.geometry, placement.monitor
+                )
+            except Exception as exc:
+                log.exception("WindowsPage: set_geometry failed")
+                QMessageBox.warning(
+                    self,
+                    self.tr("Apply preset failed"),
+                    self.tr("Backend rejected set_geometry: {err}").format(
+                        err=str(exc)
+                    ),
+                )
+
+        slot = qasync.asyncSlot()(_apply)
+        slot()
 
     def _on_save_clicked(self) -> None:
         if self._state_store is None or self.model is None:
@@ -2327,7 +2448,9 @@ class ConfigDialog(QDialog):
         if section == SECTION_GENERAL:
             return GeneralPage(self._state)
         if section == SECTION_WINDOWS:
-            return WindowsPage(self._backend, self._state_store)
+            return WindowsPage(
+                self._backend, self._state_store, self._state.config
+            )
         if section == SECTION_RULES:
             return RulesPage(self._state)
         if section == SECTION_LAYOUTS:
