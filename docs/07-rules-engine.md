@@ -123,7 +123,17 @@ Dry-run is UI-state only; it does not persist to disk.
 
 ## Performance model
 
-Window events are rare (dozens per minute at most during heavy use). Matching is a linear scan through the rules list. No indexing, no RETE, no compiled matchers — for v1 this is fine. If a user with a 500-rule config ever materialises, we revisit then.
+Window events are rare (dozens per minute at most during heavy use). Matching is a linear scan through the rules list. No indexing, no RETE, no compiled matchers — for v1 this is fine.
+
+**Measured** (M7.d harness at `tests/core/test_engine_performance.py`, worst case: each window's matching rule is placed last in the rules list):
+
+| Scale | Wall time |
+|---|---|
+| 100 rules × 100 windows | ~5 ms |
+| 500 rules × 500 windows | ~55 ms |
+| 1000 rules × 1000 windows | ~200 ms |
+
+Budgets in the harness are deliberately 10-20× the measured times so CI runner jitter doesn't flake the test; the point is to catch accidental quadratic regressions, not to pin a tight latency number. If a user with a 500+-rule config ever materialises and the measured numbers climb toward the budgets, revisit — compiled regex caches and app_id → rule-index prefiltering are the obvious first cuts.
 
 ## Debugging and observability
 
