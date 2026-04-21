@@ -410,5 +410,5 @@ poll();
 // ``KPlugin.Version`` and ``perch.backend.kwin.BUNDLED_SCRIPT_VERSION``.
 // Kept as a literal here because KWin's JS sandbox has no JSON-file reader;
 // install-time parity is verified by ``tests/backend/kwin/test_bundled_script.py``.
-const SCRIPT_VERSION = "1.1.0";
+const SCRIPT_VERSION = "1.1.1";
 callDBus(SVC, OBJ, IF, "ScriptReady", JSON.stringify({ version: SCRIPT_VERSION }));

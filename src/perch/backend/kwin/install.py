@@ -20,6 +20,7 @@ than quietly load a mismatched pair.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -116,27 +117,81 @@ def _mirror_tree(source: Path, target: Path) -> None:
             shutil.copy2(Path(root) / f, dest_root / f)
 
 
+def _tree_digest(root: Path) -> str:
+    """Return a stable SHA-256 digest of ``root``'s file contents.
+
+    Walks the tree deterministically (sorted) and hashes each relative
+    path plus its bytes. Used by :func:`ensure_installed` to detect
+    when the on-disk script has drifted from the bundled source even
+    though ``metadata.json``'s version still matches — the bug that
+    made v1.1.0's ``Qt.rect`` fix land on GitHub but never reach the
+    user's running KWin session.
+
+    Returns an empty-tree sentinel (``"empty"``) if ``root`` is missing
+    or holds no files, so a first-time install reliably mismatches.
+    """
+    if not root.is_dir():
+        return "empty"
+    h = hashlib.sha256()
+    files = sorted(
+        (p for p in root.rglob("*") if p.is_file()),
+        key=lambda p: p.relative_to(root).as_posix(),
+    )
+    if not files:
+        return "empty"
+    for path in files:
+        h.update(path.relative_to(root).as_posix().encode("utf-8"))
+        h.update(b"\0")
+        try:
+            h.update(path.read_bytes())
+        except OSError:
+            # Any unreadable file → treat as drift, mirror will retry.
+            return "unreadable"
+        h.update(b"\0")
+    return h.hexdigest()
+
+
 def ensure_installed(
     *,
     source: Path | None = None,
     target: Path | None = None,
 ) -> Path:
-    """Make sure the bundled script is present at the expected target.
+    """Make sure the bundled script is present and content-matched at the target.
 
     Returns the absolute path to ``contents/code/main.js`` (which is what
-    ``Scripting.loadScript`` wants). Idempotent: if the on-disk version
-    already matches :data:`BUNDLED_SCRIPT_VERSION` and the main script file
-    exists, returns immediately without re-copying.
+    ``Scripting.loadScript`` wants).
+
+    Installation is idempotent but **content-based**: if the bundled
+    tree's SHA-256 digest matches the on-disk tree's digest, we skip
+    the copy. Version-only matching is not enough — a bugfix to
+    ``main.js`` that didn't bump ``BUNDLED_SCRIPT_VERSION`` would
+    otherwise be shadowed by a stale install, and the user would keep
+    loading the broken script forever (this exact bug landed in
+    v1.1.0 before M9.f.14).
     """
     src = source if source is not None else bundled_source()
     tgt = target if target is not None else target_dir()
 
     if _read_version(tgt) == BUNDLED_SCRIPT_VERSION:
         main_js = tgt / "contents" / "code" / "main.js"
-        if main_js.is_file():
-            log.debug("KWin script already at v%s at %s", BUNDLED_SCRIPT_VERSION, tgt)
+        if main_js.is_file() and _tree_digest(src) == _tree_digest(tgt):
+            log.debug(
+                "KWin script already at v%s (content match) at %s",
+                BUNDLED_SCRIPT_VERSION, tgt,
+            )
             return main_js.resolve()
-        log.info("KWin script metadata matched but main.js missing at %s; reinstalling", tgt)
+        if main_js.is_file():
+            log.info(
+                "KWin script metadata matched at %s but content drifted "
+                "from bundled source; reinstalling",
+                tgt,
+            )
+        else:
+            log.info(
+                "KWin script metadata matched but main.js missing at %s; "
+                "reinstalling",
+                tgt,
+            )
 
     log.info("installing KWin script v%s to %s", BUNDLED_SCRIPT_VERSION, tgt)
     _mirror_tree(src, tgt)
