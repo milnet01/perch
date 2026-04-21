@@ -2338,28 +2338,6 @@ def tomllib_exceptions() -> tuple[type[BaseException], ...]:
     return (tomllib.TOMLDecodeError, tomlkit.exceptions.TOMLKitError)
 
 
-class _PlaceholderPage(QWidget):
-    """Stub page used for sections whose editor lands in a later milestone."""
-
-    def __init__(
-        self,
-        message: str,
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        label = QLabel(message)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setWordWrap(True)
-        layout = QVBoxLayout(self)
-        layout.addWidget(label)
-
-    def is_dirty(self) -> bool:
-        return False
-
-    def commit(self) -> None:
-        return None
-
-
 # ── Dialog shell ────────────────────────────────────────────────────────
 
 _Page = (
@@ -2371,7 +2349,6 @@ _Page = (
     | ExclusionsPage
     | HotkeysPage
     | ImportExportPage
-    | _PlaceholderPage
 )
 
 

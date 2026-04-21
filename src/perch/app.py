@@ -24,10 +24,10 @@ from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from . import autostart, paths
+from . import __version__, autostart, paths
 from .backend import BackendUnavailable, WindowBackend, select
 from .backend.mock import MockBackend
 from .config import Config, load_or_create
@@ -180,7 +180,33 @@ def _handle_intent(
         case OpenConfigFolder():
             _open_in_file_manager(paths.config_dir())
         case ShowAbout():
-            log.info("about dialog (stub — lands in a follow-up milestone)")
+            _show_about_dialog()
+
+
+def _show_about_dialog() -> None:
+    """Render a simple About dialog: version, license, project URL."""
+    app = QApplication.instance()
+    if not isinstance(app, QApplication):
+        return
+    box = QMessageBox()
+    box.setWindowTitle(
+        QCoreApplication.translate("perch.app", "About Perch")
+    )
+    box.setIcon(QMessageBox.Icon.Information)
+    box.setTextFormat(Qt.TextFormat.RichText)
+    box.setText(
+        QCoreApplication.translate(
+            "perch.app",
+            "<h3>Perch {version}</h3>"
+            "<p>Persistent, compositor-aware window geometry "
+            "manager for Linux desktops.</p>"
+            "<p>License: GPL-3.0-or-later<br>"
+            "Home: <a href=\"https://github.com/milnet01/perch\">"
+            "github.com/milnet01/perch</a></p>",
+        ).format(version=__version__)
+    )
+    box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    box.exec()
 
 
 async def _snap_active_window(reducer: Reducer, preset: str) -> None:

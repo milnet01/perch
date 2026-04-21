@@ -219,6 +219,40 @@ patterns:
       description: Perch floors Python 3.12+ (see docs/11-roadmap.md Phase 2.5); >=3.11 is stale
       skip_comments: true
 
+    # ── Shipped-stub smells ────────────────────────────────────────────
+    # Code that logs "we haven't wired this up yet" at runtime is the
+    # single easiest-to-ship bug class in this codebase (caught four
+    # separately during v1.0.0 smoke-testing: SnapFocused, WindowsPage,
+    # LayoutsPage, HotkeysPage). These patterns target the literal
+    # strings a dev leaves behind when deferring work.
+    - name: stub_log_routed_in_M
+      pattern: \b(routed|lands|arrives|follows|deferred)\s+(in|with)\s+M\d
+      file_glob: '*.py,*.js'
+      severity: high
+      description: Shipped stub — log string says the work happens in a milestone that has already shipped
+      exclude_pattern: /docs/|CHANGELOG
+      skip_comments: true
+    - name: stub_log_not_yet
+      pattern: \bnot\s+yet\s+(persisted|saved|implemented|wired|routed)\b
+      file_glob: '*.py,*.js'
+      severity: medium
+      description: Shipped stub — UI string promises "not yet" behaviour that should already work in v1.0.0
+      exclude_pattern: /docs/|CHANGELOG|test_|_test\.py
+      skip_comments: false
+    - name: stub_log_later_milestone
+      pattern: \blands?\s+in\s+(a\s+)?(later|follow-?up)\s+milestone\b
+      file_glob: '*.py,*.js'
+      severity: medium
+      description: Shipped stub — placeholder string targeting a vague "later milestone"
+      exclude_pattern: /docs/|CHANGELOG
+      skip_comments: false
+    - name: stub_marker_placeholder
+      pattern: \bplaceholder\b|\bsoon\b(?!\s*—\s*see)
+      file_glob: '*.py,*.js'
+      severity: info
+      description: Prose marker suggesting incomplete work; verify whether the referenced behaviour has since shipped
+      exclude_pattern: /docs/|CHANGELOG|test_|_test\.py|# .*note|/experiments/
+
   # ─── Docs-first rule enforcement (lightweight — docs-drift-check.sh is primary) ──
   code_quality:
     - name: todo_fixme
