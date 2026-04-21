@@ -19,7 +19,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 | 2 | Review + research | **done** (2026-04-20) | Validated design against current state of KWin scripting, GNOME extensions, Wayland protocols, Python toolchain. See Phase 2 log at the bottom of this file. |
 | 2.5 | Implementation-readiness research | **done** (2026-04-20) | Concrete 2026 toolchain picks; qasync/sdbus bootstrap pattern; KWin IPC long-poll pattern; X11 pragmatics. Log at the bottom of this file. |
 | 3 | Docs revision | **done** (2026-04-20) | Applied Phase 2 + 2.5 findings to all affected docs. Design is frozen. |
-| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 done; M7 in progress) | Milestones M1…M9 below, with an injected M2.5 spike |
+| 4 | Implementation | in progress (M1 + M2 + M2.5 + M3 + M4 + M5 + M6 + M7 done; M8 next) | Milestones M1…M9 below, with an injected M2.5 spike |
 
 ---
 
@@ -318,7 +318,7 @@ test-collection time so missing transports skip cleanly on dev boxes.
 
 **Goal:** things that aren't features but decide whether Perch feels good.
 
-**Status:** in progress (2026-04-21). Sequenced as six subphases M7.a…M7.f; cheapest / most isolated first so each subphase lands as an independent commit. Exit criteria listed below; per-subphase acceptance is recorded inline as each one ships.
+**Status:** **done** 2026-04-21. Sequenced as six subphases M7.a…M7.f; cheapest / most isolated first so each subphase landed as an independent commit. Exit criteria met: no accessibility regressions, no `TODO` / `FIXME` markers in shipped code (verified via `grep -rn "TODO\|FIXME\|HACK\|XXX" src/perch/` returning zero hits at M7-close). Per-subphase acceptance recorded inline below.
 
 **Subphases:**
 
@@ -327,7 +327,7 @@ test-collection time so missing transports skip cleanly on dev boxes.
 - **M7.c — Error-surfacing audit** — **done** 2026-04-21. `src/perch/ui/status.py` introduces `wire_backend_status(backend, controller, tray)` that bridges the three `WindowBackend` status signals into the tray surface: `backend_connected` clears `backend_degraded`, `backend_disconnected` sets it (so the tray icon swaps to the warning variant and the tooltip changes to "Perch — backend disconnected"), and `backend_error` surfaces a `QSystemTrayIcon.showMessage` balloon notification. The composition root in `src/perch/app.py` wires the bridge between tray construction and `backend.start()` so a synchronous `backend_connected` from `start()` still updates the tray. Remaining untranslated user-visible strings wrapped in `QCoreApplication.translate(...)` / `self.tr(...)`: the `_maybe_show_appindicator_hint` dialog title / body / informative text, and the four `MatchEditor` `QLineEdit` placeholders. 8 new tests in `tests/ui/test_status_bridge.py`.
 - **M7.d — Performance harness (500 windows × 500 rules)** — **done** 2026-04-21. `tests/core/test_engine_performance.py` parametrises `evaluate()` at (100×100), (500×500), (1000×1000), with the matching rule placed *last* in the rules list so every window walks the full list (worst case). Measured: 5 ms / 55 ms / 200 ms on the reference dev box; budgets in the harness are 0.5 s / 2 s / 10 s — the 10-20× headroom absorbs CI jitter while still catching quadratic regressions. A separate test confirms builtin-exclusion short-circuits O(1) on 500 dock windows. `docs/07-rules-engine.md` §Performance model updated with the measured table.
 - **M7.e — Privacy review of logs** — **done** 2026-04-21. `src/perch/logging_privacy.py` adds `redact_payload(payload)` + `summarize_keys(payload)`; window-title-bearing keys (`title`, `name`, `caption`, `class`, `initialTitle`, `initialClass`, `window_class`) are replaced with `<redacted>` while the rest of the structure is preserved for debuggability. Applied to the high-risk sites: KWin `on_window_added` (WARNING), `on_window_geometry_changed`, `on_window_properties_changed`, and `list_windows` skip-malformed path (DEBUG); Hyprland `list_windows`, `list_outputs`, `event dispatch failed`, and `unhandled Hyprland event` (the last two redact to the event name only — the raw line and `data` payload both carry the active window title verbatim on ≥ 0.40). 9 new tests in `tests/test_logging_privacy.py`; docs/08-ui.md gets a new §Logging and privacy subsection pinning the policy.
-- **M7.f — Dark-theme pass** — pending.
+- **M7.f — Dark-theme pass** — **done** 2026-04-21. `src/perch/ui/theming.py::apply_theme(app, theme)` called from `src/perch/app.py::main` at startup, right after `install_translators`. `"auto"` reads `QGuiApplication.styleHints().colorScheme()` (Qt 6.5+): `Unknown` is a no-op (leaves Breeze-Dark et al. untouched), `Light` / `Dark` apply Fusion + the matching hand-built palette. Explicit `"light"` / `"dark"` values force Fusion + the matching palette unconditionally. Palettes are Breeze-inspired so the result looks native on Plasma users who override to `"dark"` specifically. 9 new tests in `tests/ui/test_theming.py`; docs/08-ui.md §Interaction updated present-tense. Runtime theme-change propagation without a restart is a follow-up.
 
 **Exit criteria:**
 

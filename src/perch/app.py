@@ -47,6 +47,7 @@ from .ui.intents import (
 )
 from .ui.sni_probe import is_gnome_wayland, sni_host_available
 from .ui.status import wire_backend_status
+from .ui.theming import apply_theme
 from .ui.tray import TrayController, TrayIcon, TrayState
 
 log = logging.getLogger(__name__)
@@ -184,8 +185,10 @@ async def main() -> int:
 
     app = QApplication.instance()
     assert app is not None, "QApplication must exist before main() runs"
+    assert isinstance(app, QApplication), "main() requires a QApplication"
 
     install_translators(app)
+    apply_theme(app, config.general.theme)
 
     close_event = asyncio.Event()
     app.aboutToQuit.connect(close_event.set)
