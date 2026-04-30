@@ -6,6 +6,14 @@ Each test gets its own XDG tree under ``tmp_path`` so the real user's
 
 from __future__ import annotations
 
+# Force Qt's offscreen QPA platform before any pytest-qt fixture imports
+# QApplication. Without this, every test using qtbot/QApplication briefly
+# composites a real top-level window — visible to whatever desktop is
+# hosting the runner. `setdefault` lets a CI override
+# (e.g. QT_QPA_PLATFORM=minimal) still win.
+import os
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from collections.abc import Iterator
 from pathlib import Path
 
