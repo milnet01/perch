@@ -404,14 +404,15 @@ sandbox marker.
 1. Update `CHANGELOG.md` and `data/io.github.milnet01.Perch.metainfo.xml` `<release>` entry.
 2. `/bump <new-version>` rewrites the five version-bearing files wired in `.claude/bump.json`: `pyproject.toml` `version`, `src/perch/__init__.py` `__version__`, `packaging/rpm/perch.spec` `Version:`, `packaging/aur/PKGBUILD` `pkgver=`, and the Flatpak manifest's `tag:` line. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §Version pinning).
 3. Tag: `v1.2.3`.
-4. CI builds:
-   - **AppImage** (`packaging/appimage/build.sh`) — attached to the GitHub release as the self-contained end-user download.
-   - PyPI source + wheel artefact (kept for users who want it manually; not published to PyPI).
-   - Flatpak manifest PR to Flathub repo.
-   - OBS `_service` picks up the tag.
-   - COPR build triggered manually.
-   - AUR updated manually (or via a `aurpublish` script in `contrib/`).
-5. KDE Store: updated from the Flatpak artefact.
+4. **GitHub Actions builds and attaches, automatically** (`.github/workflows/release.yml`, on release publish):
+   - **AppImage** (`packaging/appimage/build.sh`) — the self-contained end-user download, plus a `SHA256SUMS.txt`.
+   - (The `sdist` + wheel are buildable for anyone who wants them manually; not published to PyPI.)
+5. **Downstream channels — manual / external, and only once each is live** (the going-live work is the v1.0.1 milestone, see [11-roadmap.md](11-roadmap.md)):
+   - Flathub: open/refresh the manifest PR against the Flathub repo.
+   - openSUSE OBS: the `_service` picks up the tag once the OBS project exists.
+   - Fedora COPR: build triggered manually.
+   - AUR: `perch` PKGBUILD `pkgver` bumped and pushed manually.
+   - KDE Store: updated from the Flatpak artefact.
 
 The `/release` skill drives this checklist; see CLAUDE.md for skill wiring.
 

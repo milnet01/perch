@@ -10,6 +10,9 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **Self-contained AppImage — a single-file, zero-dependency Linux download**
+  Download → chmod +x → run; no Python, PySide6, or system packages for the user to install. Bundles the interpreter, Qt, and the xcb platform libraries (verified self-contained on a bare container). Recipe at packaging/appimage/; built and attached to releases by .github/workflows/release.yml.
+
 ### Changed
 
 ### Deprecated
