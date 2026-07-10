@@ -1,0 +1,51 @@
+name: release
+
+# Builds the self-contained AppImage on GitHub's infrastructure (where the
+# AppImage runtime download is reliable) and attaches it to the release as the
+# end-user download. See packaging/appimage/ and docs/10-packaging.md § AppImage.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build + attach the AppImage to (e.g. v1.0.0)"
+        required: true
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # needed to upload release assets
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # build.sh runs the AlmaLinux 8 harvest in a container; Docker is
+      # preinstalled on the runner and build.sh auto-detects it (podman||docker).
+      - name: Build AppImage
+        run: ./packaging/appimage/build.sh
+
+      - name: Checksum
+        working-directory: dist
+        run: |
+          sha256sum Perch-*-x86_64.AppImage | tee SHA256SUMS.txt
+
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          gh release upload "$TAG" \
+            dist/Perch-*-x86_64.AppImage dist/SHA256SUMS.txt --clobber
