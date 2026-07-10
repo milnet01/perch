@@ -455,19 +455,103 @@ file is validated by CI on every PR.
 
 ---
 
-## Post-v1 ideas (not a commitment)
+## Post-v1 ideas
 
-- CLI frontend for scripting (`perch apply coding`, `perch snap left-half`). Referenced from `docs/06-backend-stubs.md` §Sway / Hotkeys and `docs/08-ui.md` §Hotkeys as the self-grabbed-hotkey fallback for compositors that don't expose a hotkey API.
-- Runtime theme-change propagation (global re-apply without a restart). Referenced from `docs/08-ui.md` §Interaction.
-- `docs/contributing-backend-mutter.md` covering GJS conventions, per-GNOME-branch policy, and the release-to-EGO checklist. Owned by the first community contributor to take the Mutter stub to full backend. Referenced from `docs/06-backend-stubs.md` §Contributor path.
-- `perch --test-rules <config.toml>` replay tool for rules-engine regression testing. Referenced from `docs/07-rules-engine.md` §Debugging and observability.
-- D-Bus service interface for external triggers.
-- Headless daemon mode for minimal WMs.
-- "Enforcement mode" per rule — pin a window, fight user drags.
-- Topology-scoped last-seen ("remember this arrangement per topology automatically").
-- GNOME Shell extension published to extensions.gnome.org.
-- Full Plasma 5 support.
-- Activity-scoped rules.
+These are organised into themed target releases for planning clarity, but
+none is a hard commitment — scope and ordering may change, and community
+backends land whenever a contributor picks them up. Effort tags: **S** small,
+**M** medium, **L** large, **XL** spans multiple releases.
+
+### v1.0.1 — Get it downloadable
+
+**Goal:** anyone can install Perch without building from source.
+
+- Ship a single-file **AppImage** (download → mark executable → run; no system
+  install, no root). Becomes the primary channel for distros that don't carry
+  Perch in their repos. [M]
+- **Publish** the existing recipes so they're actually installable: Flathub
+  (`packaging/flathub/`), AUR (`packaging/aur/`), KDE Store
+  (`packaging/kde-store/`). The manifests exist; this is the submission +
+  review round-trip. [M]
+
+### v1.1 — Onboarding & robustness
+
+**Goal:** fewer first-run support tickets; the config is safe.
+
+- **First-run setup wizard** — detect the compositor, verify the tray works
+  (prompt to install the AppIndicator extension on GNOME Wayland, per the
+  tray-visibility risk above), confirm autostart. [M]
+- **Config backup / restore points** — snapshot the config on each write and
+  offer "revert to a previous version" in the dialog; guards the window-memory
+  data against a bad edit or a crash mid-write. [M]
+- **Monitor hotplug re-apply** — on output add/remove (dock / undock),
+  re-resolve and re-place managed windows automatically. [M]
+- **Self-update** — for the **AppImage** and the **Windows installer**, Perch
+  checks for a newer release, downloads it in the background, then closes,
+  swaps itself in place, and relaunches (AppImage: zsync delta via the
+  AppImageUpdate mechanism; Windows: download + installer handoff). For
+  store-managed installs (Flatpak / RPM / AUR) Perch does **not** self-update —
+  it detects the managed channel and only notifies, so it never fights the
+  system package manager. [L]
+- **Runtime theme-change propagation** (global re-apply without a restart).
+  Referenced from `docs/08-ui.md` §Interaction. [S]
+
+### v1.2 — Smarts
+
+**Goal:** Perch learns instead of only obeying.
+
+- **Learn mode** — observe where windows actually land over time and offer to
+  promote a recurring pattern into a rule. Builds on the topology-scoped
+  last-seen idea ("remember this arrangement per topology automatically"). [L]
+- **CLI frontend** for scripting (`perch apply coding`, `perch snap
+  left-half`). Referenced from `docs/06-backend-stubs.md` §Sway / Hotkeys and
+  `docs/08-ui.md` §Hotkeys as the self-grabbed-hotkey fallback for compositors
+  that don't expose a hotkey API. [M]
+- **Activity-scoped rules** — rules that apply only within a given KDE
+  Activity. [M]
+- `perch --test-rules <config.toml>` replay tool for rules-engine regression
+  testing. Referenced from `docs/07-rules-engine.md` §Debugging and
+  observability. [S]
+
+### v2.0 — Wayland-native
+
+**Goal:** one backend for the wlroots family instead of four hand-written stubs.
+
+- A backend built on the standard Wayland protocols
+  (`ext-foreign-toplevel-list` for enumeration plus the maturing placement
+  protocols) that works across wlroots compositors, promoting the **Sway** and
+  **Hyprland** stubs — and, where the protocol reaches, the **Mutter/GNOME**
+  stub — from stub to real support. [XL]
+- Publish the **GNOME Shell extension** to extensions.gnome.org for the parts
+  that still need an extension. [L]
+- `docs/contributing-backend-mutter.md` covering GJS conventions,
+  per-GNOME-branch policy, and the release-to-EGO checklist. Owned by the first
+  community contributor to take the Mutter stub to full backend. Referenced
+  from `docs/06-backend-stubs.md` §Contributor path. [M]
+
+### Windows edition — separate track
+
+Perch does **not** run on Windows today: the backends depend on `sdbus` (Linux
+system bus) and `python-xlib` (X11), and there is no Win32 backend. But the
+core (tray, rules, memory, UI) is OS-agnostic and Qt already runs on Windows,
+so a port is a self-contained new backend, not a rewrite. It roughly doubles
+the platform surface to maintain forever, so it is gated on a deliberate "yes,
+commit to Windows" decision rather than a drive-by.
+
+- A `WindowBackend` implementation over the **Win32 API** (enumerate / move /
+  resize / virtual desktop). [XL]
+- Windows global hotkeys (`RegisterHotKey`), a signed `.msi` / `.exe`
+  installer, and Windows CI runners. [L]
+- Self-update via the installer handoff described in v1.1. [M]
+
+### Someday / unscheduled
+
+- **D-Bus service interface** for external triggers.
+- **Headless daemon mode** for minimal WMs.
+- **"Enforcement mode"** per rule — pin a window, fight user drags.
+- **Full Plasma 5 support.**
+- Config sync across machines; an accessibility pass on the config dialog; a
+  docs / marketing site for discoverability.
 
 ## Known risks (post Phase 2)
 
