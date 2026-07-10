@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# local_CI.sh — run the EXACT same checks as .github/workflows/ci.yml, locally,
+# local_CI.sh — run the same checks as .github/workflows/ci.yml, locally,
 # BEFORE pushing. Catches ruff/mypy/pytest/packaging failures here so a push
 # doesn't burn a CI run to tell us what we could have known in 30 seconds.
+# Goal: a green local_CI implies a green CI.
 #
 # HARD RULE: keep this script in lockstep with .github/workflows/ci.yml. If you
 # edit one, edit the other in the SAME commit — drift between them defeats the
@@ -13,9 +14,13 @@
 # at the end, so a single local run tells you everything to fix rather than one
 # thing at a time. The pass/fail verdict (exit status) is identical to CI.
 #
-# Matrix note: CI runs the test job on Python 3.12, 3.13 and 3.14. This script
-# uses whatever `python`/`ruff`/`mypy`/`pytest` resolve to on your PATH. For
-# full matrix parity, run it once under each interpreter.
+# Two deliberate deviations, both so the local verdict matches CI's:
+#   - Matrix: CI runs the test job on Python 3.12, 3.13 and 3.14. This script
+#     uses whatever `python`/`ruff`/`mypy`/`pytest` resolve to on your PATH; for
+#     full matrix parity, run it once under each interpreter.
+#   - Live tests: the pytest step excludes the `x11`/`kwin` markers (see the
+#     note at that step). CI installs no compositor so those tests skip there;
+#     excluding them locally keeps the "green local ⟹ green CI" implication.
 
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -67,8 +72,13 @@ need() {  # need <tool> "<install hint>" — records a failure if the tool is ab
 need ruff   "pipx install ruff (or pip install -e '.[dev]')"   && run "ruff"  ruff check .
 need mypy   "pip install -e '.[dev]'"                          && run "mypy"  mypy
 run "intent-dispatch audit" "$PYTHON" tools/intent_dispatch_audit.py
+# The `x11` / `kwin` markers gate LIVE integration tests that spawn a real
+# Xvfb+openbox / kwin_wayland session. CI installs neither compositor, so those
+# tests skip there — but this dev box has openbox installed, so they would run
+# (and they are live + flaky). Exclude them so a green local_CI implies a green
+# CI (the whole point of the gate); run them deliberately with `pytest -m x11`.
 need pytest "pip install -e '.[dev]'" \
-  && run "pytest" env QT_QPA_PLATFORM=offscreen pytest -ra
+  && run "pytest" env QT_QPA_PLATFORM=offscreen pytest -ra -m "not x11 and not kwin"
 
 # ==== job: packaging (ci.yml) ================================================
 need appstreamcli "zypper in appstream" \
