@@ -62,10 +62,16 @@ that pass lands.
 ### Marking strings
 
 - **Every user-facing string is wrapped for translation.** On `QObject`
-  subclasses use `self.tr("…")` (≈150 call sites); in non-`QObject` / module-level
-  code use `QCoreApplication.translate("<context>", "…")`; mark
-  deferred/table-driven literals with `QT_TR_NOOP("…")` and translate at display
-  time against the same context.
+  subclasses use `self.tr("…")`; in non-`QObject` / module-level code use
+  `QCoreApplication.translate("<context>", "…")`.
+- **Deferred / table-driven literals must carry their context explicitly.** Use
+  `QT_TRANSLATE_NOOP("<context>", "…")` — **not** bare `QT_TR_NOOP("…")` — and
+  look the string up at display time with `QCoreApplication.translate` under the
+  **same** `<context>`. Qt keys translations by `(context, source)`: a literal
+  marked with contextless `QT_TR_NOOP` is extracted under the empty context and
+  will never match a `translate("some.context", …)` lookup, so the string
+  silently reverts to English even once translated. Match the context on both
+  sides or the round-trip is broken.
 - `pyside6-lupdate` extracts **only** these literal forms. Do not route a string
   through a Python wrapper/format helper before wrapping — extraction silently
   drops it. Keep the `tr` / `translate` / `QT_TR_NOOP` call on the literal.

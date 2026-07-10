@@ -21,8 +21,8 @@ Two subject-line shapes coexist in the history, chosen by what the commit is:
 
 ### Body
 
-- Explain **why** the change exists — the constraint, the tradeoff, the thing that would otherwise be non-obvious — not a restatement of the diff.
-- Wrap prose at ~72–80 columns. Bullet lists and short build-shape recipes are fine (see `a4e73c7`, `07b11e2`).
+- Explain **why** the change exists — the constraint, the tradeoff, the thing that would otherwise be non-obvious — not a restatement of the diff (e.g. `07b11e2`, a prose "why" body).
+- Wrap prose at ~72–80 columns. Bullet lists and short build-shape recipes are fine (e.g. `a4e73c7`, a numbered build-shape recipe).
 
 ### Co-Authored-By trailer
 

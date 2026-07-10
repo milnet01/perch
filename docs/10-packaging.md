@@ -395,14 +395,18 @@ sandbox marker.
 
 ## Versioning
 
-- **SemVer** — `MAJOR.MINOR.PATCH`.
-- Schema version of config / state is independent (see [02-state-format.md](02-state-format.md)).
-- KWin script version is independent (bundled, pinned by the Python backend).
+SemVer, the independent config/state schema and KWin-script versions, and the
+five version-bearing files are governed by
+[versioning-release-standards.md](versioning-release-standards.md) — that
+standard is the single source for versioning policy. Packaging-specific note
+only: the schema version is independent of the app version (see
+[02-state-format.md](02-state-format.md)), so a package rebuild never implies a
+schema migration.
 
 ## Release mechanics
 
 1. Update `CHANGELOG.md` and `data/io.github.milnet01.Perch.metainfo.xml` `<release>` entry.
-2. `/bump <new-version>` rewrites the five version-bearing files wired in `.claude/bump.json`: `pyproject.toml` `version`, `src/perch/__init__.py` `__version__`, `packaging/rpm/perch.spec` `Version:`, `packaging/aur/PKGBUILD` `pkgver=`, and the Flatpak manifest's `tag:` line. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §Version pinning).
+2. `/bump <new-version>` rewrites the version-bearing files wired in `.claude/bump.json` and verifies lockstep — the file list is enumerated in [versioning-release-standards.md](versioning-release-standards.md) §Version-bearing files. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §Version pinning).
 3. Tag: `v1.2.3`.
 4. **GitHub Actions builds and attaches, automatically** (`.github/workflows/release.yml`, on release publish):
    - **AppImage** (`packaging/appimage/build.sh`) — the self-contained end-user download, plus a `SHA256SUMS.txt`.

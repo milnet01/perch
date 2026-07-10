@@ -1,10 +1,10 @@
 # Documentation standard
 
-How Perch's documentation is written, structured, and kept in lockstep with the code. Perch is documentation-first with a no-documentation-debt hard rule; this document codifies the conventions that make those rules mechanical rather than aspirational. It does not restate the rule text in [`../CLAUDE.md`](../CLAUDE.md) — read that for the binding wording; read this for how to satisfy it.
+How Perch's documentation is written, structured, and kept in lockstep with the code. Perch is docs-first with a no-documentation-debt hard rule; this document codifies the conventions that make those rules mechanical rather than aspirational. [`../CLAUDE.md`](../CLAUDE.md) holds the binding wording of the rules; this doc paraphrases them and shows how to satisfy them in practice — if the two ever diverge, CLAUDE.md wins.
 
 ## Docs-first
 
-Any behaviour change lands in the relevant `docs/` file **before or in the same PR as** the code that implements it. There is no "code now, document later." If a request implies behaviour no existing doc covers, the first deliverable is the doc change — propose it and let it be reviewed before writing implementation code. See the "Docs-first rule (hard rule)" and CONTRIBUTING's [§Design-first workflow](../CONTRIBUTING.md).
+Any behaviour change lands in the relevant `docs/` file **before or in the same PR as** the code that implements it. There is no "code now, document later." If a request implies behaviour no existing doc covers, the first deliverable is the doc change — propose it and let it be reviewed before writing implementation code. CONTRIBUTING calls this the [§Design-first workflow](../CONTRIBUTING.md#design-first-workflow) — the same rule under a different heading.
 
 ## No documentation debt
 
@@ -48,7 +48,7 @@ Either way, apply the **six-month test**: a reader opening the doc six months on
 ## Review gates
 
 - **`/perch-docs-check`** — the on-demand, read-only drift scan across `docs/` (stale library names, retired API symbols, obsolete Python-version floors, future-tense claims on shipped features, broken cross-references). Run it after any non-trivial doc change and before every release. It reports; it does not edit.
-- **`/cold-eyes`** — every new or edited **spec / standards / design doc** (the numbered `NN-` docs, this file, other non-numbered standards docs) runs through the `/cold-eyes` skill the moment the draft is complete, and loops until a pass returns zero verified findings. Run it *before* implementation — a wrong contract makes the implementation wrong by construction. Later loops run cold (no briefing on prior findings). **Exempt:** per-feature test specs at `tests/features/<name>/spec.md` — these are tiny per-feature test contracts, not multi-file design docs, and a self-read suffices.
+- **`/cold-eyes`** — every new or edited **spec / standards / design doc** (the numbered `NN-` docs, this file, other non-numbered standards docs) runs through the `/cold-eyes` skill the moment the draft is complete, and loops until a pass returns zero verified findings. Run it *before* implementation — a wrong contract makes the implementation wrong by construction. Later loops run cold (no briefing on prior findings). **Exempt:** per-feature test specs — when written, they live at `tests/features/<name>/spec.md` (the `/feature-test` skill's output; the directory is created on first use) — these are tiny per-feature test contracts, not multi-file design docs, and a self-read suffices.
 
 ## See also
 

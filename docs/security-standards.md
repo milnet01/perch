@@ -29,8 +29,8 @@ describes the actual code as it ships; aspirational items are labelled as such.
   state at `$XDG_STATE_HOME/perch/state.json`, both under the user's home. See
   [02-state-format.md](02-state-format.md).
 - **Safe parsing, never `eval`.** Config is read with the stdlib `tomllib`
-  parser and written with `tomlkit` ([config/loader.py], [config/writer.py]).
-  State is plain `json`. No `eval`, `exec`, `pickle`, or YAML-unsafe-load is used
+  parser and written with `tomlkit` (`src/perch/config/loader.py`,
+  `src/perch/config/writer.py`). State is plain `json`. No `eval`, `exec`, `pickle`, or YAML-unsafe-load is used
   on any on-disk data — a malformed or malicious config can at worst raise a
   parse/validation error, not execute code.
 - **Schema validation + graceful failure.** Every loaded document runs through
@@ -43,10 +43,11 @@ describes the actual code as it ships; aspirational items are labelled as such.
   `core/state_store.py`). A crash or power loss during a write cannot corrupt the
   live file; the previous good copy always survives as `.bak`.
 - **No secrets stored.** Perch persists window identities, geometries, rules, and
-  layouts — no passwords, tokens, or credentials. Files are written with normal
-  user-readable permissions (config at mode `0644`); this is intentional and
-  safe because nothing sensitive is stored. If you ever add a secret-bearing
-  field, that assumption must be revisited.
+  layouts — no passwords, tokens, or credentials. Files are world-readable
+  (`config.toml` is written at an explicit mode `0644`; `state.json` inherits the
+  process umask, typically `0644`); this is intentional and safe because nothing
+  sensitive is stored. If you ever add a secret-bearing field, that assumption —
+  and both files' permissions — must be revisited.
 - **Window titles are treated as sensitive.** The log file omits window titles
   by default (they often leak paths, URLs, chat counterparties); `PERCH_LOG_TITLES=1`
   is an explicit opt-in. See [02-state-format.md](02-state-format.md) §Log file.
@@ -114,10 +115,12 @@ behalf.
 ## No telemetry / no network calls
 
 Verified against the source tree: Perch makes **no network calls**. There is no
-`requests`, `urllib`, `httpx`, or `aiohttp` usage anywhere in `src/`; the only
-sockets in play are the local X11 display socket and the Unix-domain IPC sockets
-for the Sway/Hyprland stub backends. There is no analytics, crash reporting, or
-update check that contacts a remote host. Perch is fully offline-capable.
+`requests`, `urllib`, `httpx`, or `aiohttp` usage anywhere in `src/`; the sockets
+in play are all local — the X11 display socket, the session D-Bus socket (KWin
+backend, the GlobalShortcuts / Background portals), and the Unix-domain IPC
+sockets for the Sway/Hyprland stub backends. There is no analytics, crash
+reporting, or update check that contacts a remote host. Perch is fully
+offline-capable.
 
 ## Reporting a vulnerability
 

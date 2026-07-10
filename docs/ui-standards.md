@@ -92,13 +92,12 @@ for several of them.
 
 ## Translatability
 
-- **Every user-visible string is wrapped for translation.** On `QObject`
-  subclasses use `self.tr("…")`; in module-level / non-QObject code use
-  `QCoreApplication.translate("<context>", "…")`; mark deferred literals with
-  `QT_TR_NOOP(...)` and translate them at display time. `pyside6-lupdate` only
-  extracts these literal forms — do not wrap them in a Python helper, which
-  breaks extraction. Full i18n workflow and the a11y rules:
-  [accessibility-i18n-standards.md](accessibility-i18n-standards.md).
+- **Every user-visible string is wrapped for translation** — `self.tr("…")` on
+  `QObject` subclasses, `QCoreApplication.translate("<context>", "…")` elsewhere.
+  The full marking rules (including the `QT_TRANSLATE_NOOP` context-matching
+  caveat) and the `.ts` → `.qm` workflow live in one place:
+  [accessibility-i18n-standards.md](accessibility-i18n-standards.md) §Marking
+  strings.
 
 ## See also
 

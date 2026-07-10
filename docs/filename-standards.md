@@ -26,11 +26,12 @@ Two kinds of document, distinguished by filename:
   (Qt widgets, tray, models), `backend/` (per-compositor backends), `config/`
   (config subsystem). Top-level entry points: `__main__.py` (CLI),
   `app.py` (async `main()`).
-- **Backends follow a fixed sub-layout**: `backend/<name>/backend.py` holds the
-  `WindowBackend` implementation, with siblings named by concern
-  (`hotkeys.py`, `protocol.py`, `outputs.py`, `identity.py`, `service.py`).
-  `<name>` is the compositor slug (`x11`, `kwin`, `sway`, `hyprland`,
-  `mutter`).
+- **Backends follow a sub-layout**: `backend/<name>/backend.py` holds the
+  `WindowBackend` implementation, with siblings named by concern — the set
+  varies per backend (e.g. `outputs.py`, `identity.py` under `x11/`;
+  `protocol.py`, `service.py`, `hotkeys.py` under `kwin/`), not a fixed roster
+  every backend carries. `<name>` is the compositor slug (`x11`, `kwin`,
+  `sway`, `hyprland`, `mutter`).
 - Classes `CamelCase`, functions/vars `snake_case`, module-level constants
   `UPPER_SNAKE` (`LOG_MAX_BYTES`, `TOPOLOGY_DEBOUNCE_SECONDS`).
 

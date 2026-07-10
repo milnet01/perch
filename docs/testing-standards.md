@@ -15,8 +15,12 @@ drift.
   runs on the loop with no per-test `@pytest.mark.asyncio` decorator. Backend
   methods are all awaitables (see [03-backend-interface.md](03-backend-interface.md)),
   so most backend/core tests are `async`.
-- **pytest-xvfb** — provides a virtual framebuffer (`xvfb_width`/`xvfb_height`
-  in the ini block) for the rare test that needs a real X server.
+- **pytest-xvfb** — when the `Xvfb` binary is present, it wraps the whole test
+  session in a virtual framebuffer (`xvfb_width`/`xvfb_height` in the ini block)
+  and sets `$DISPLAY`. The default suite runs under offscreen QPA and simply
+  ignores it (see below); it is a safety net so a stray real-window test can't
+  paint onto the host desktop. The live `x11` tests spawn their own Xvfb rather
+  than relying on it.
 
 The dev toolchain installs via `pip install -e ".[dev]"` (the `dev` extra in
 `pyproject.toml`). See [contributing-dev-setup.md](contributing-dev-setup.md).
@@ -26,8 +30,9 @@ The dev toolchain installs via `pip install -e ".[dev]"` (the `dev` extra in
 `tests/conftest.py` calls `os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")`
 at collection time, before any `QApplication` is constructed. This keeps UI
 tests from compositing a real top-level window onto the host desktop. It uses
-`setdefault`, so a CI override (`QT_QPA_PLATFORM=minimal`) still wins. CI and
-`local_CI.sh` both export `QT_QPA_PLATFORM=offscreen` explicitly as belt-and-braces.
+`setdefault`, so an explicit `QT_QPA_PLATFORM` in the environment still wins —
+which is exactly why CI and `local_CI.sh` both export
+`QT_QPA_PLATFORM=offscreen` themselves, belt-and-braces.
 
 ## Per-test XDG isolation
 
@@ -42,6 +47,7 @@ config, state, or logs **must** take `xdg_env` so the real user's
 ```
 tests/
   conftest.py            offscreen QPA + xdg_env fixture
+  fixtures/              shared test data / helpers
   test_*.py              CLI, config loader/roundtrip/schema, logging, paths, autostart
   core/                  backend-agnostic engine: rules, snaps, layouts, profiles, reducer, resolver…
   ui/                    Qt dialog/tray/pane tests (need qtbot + offscreen QPA)
@@ -49,7 +55,7 @@ tests/
     conftest.py          parametrises the compliance suite over every available backend
     test_compliance.py   the backend compliance suite (see below)
     test_mock.py         MockBackend driver
-    kwin/ x11/ …         per-backend unit + live-integration tests
+    kwin/ x11/ sway/ hyprland/ mutter/   per-backend unit + live-integration tests
 ```
 
 ## Backend compliance suite
@@ -78,8 +84,9 @@ Two markers gate tests that spawn a **real** compositor:
 They are **opt-in**: run with `pytest -m x11` (or `-m kwin`). They are excluded
 by default in `local_CI.sh` (`pytest -m "not x11 and not kwin"`) because a dev
 box may have `openbox` installed and would run them live and flaky. **CI does
-not exclude them** — it runs plain `pytest -ra`, but installs no compositor, so
-the fixtures self-skip and the effect is the same. Live tests therefore give
+not exclude them** — it runs plain `pytest -ra`; it installs `xvfb` but no
+`openbox` / `kwin_wayland`, so the live fixtures self-skip and the effect is the
+same. Live tests therefore give
 coverage only on a machine with the compositor present, never a false green.
 
 ## Regression tests: reproduce-before-fix
@@ -87,9 +94,10 @@ coverage only on a machine with the compositor present, never a false green.
 Per [../CLAUDE.md](../CLAUDE.md), a reported bug is fixed **failing-test-first**:
 write a test that reproduces the symptom, confirm it fails, then fix and watch it
 pass — the test stays as a regression lock. Scaffold these with the
-`/feature-test` skill (feature-test-writer subagent), which produces a
-`tests/features/<name>/spec.md` (the behaviour contract) plus its test file. Skip
-the ceremony only for mechanical one-liners where reproduction is pure overhead.
+`/feature-test` skill (feature-test-writer subagent), which will create a
+`tests/features/<name>/spec.md` (the behaviour contract) plus its test file —
+that directory is created on first use and is not populated yet. Skip the
+ceremony only for mechanical one-liners where reproduction is pure overhead.
 
 ## The matrix and the push gate
 
@@ -103,12 +111,14 @@ and [contributing-dev-setup.md](contributing-dev-setup.md)). `local_CI.sh` and
 
 ## What not to do
 
-- **No network in unit tests.** Nothing under `tests/` should open a socket or
-  make an HTTP request; the whole suite runs offline (CI validates with
-  `--no-net`). Compositor transports are exercised via `MockBackend` or the
-  gated live markers, never a real remote.
+- **No network in unit tests.** Nothing under `tests/` should open a network
+  socket or make an HTTP request — Perch itself makes no network calls, and the
+  suite runs fully offline. This is a convention, not a flag-enforced gate: keep
+  it green by construction. Compositor transports are exercised via
+  `MockBackend` or the gated live markers, never a real remote.
 - **No reliance on a real display outside the `x11` / `kwin` markers.** Default
-  tests run under offscreen QPA with no X server or compositor. If a test needs
+  tests run under offscreen QPA — a real X server or compositor is neither
+  assumed nor required. If a test needs
   one, it carries the appropriate marker and its skip guard — it never assumes
   `$DISPLAY`.
 - **No touching the real user environment.** Take `xdg_env` for anything that

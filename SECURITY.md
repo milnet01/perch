@@ -12,8 +12,8 @@ most recent **1.x** release is supported.
 
 | Version | Supported |
 |---|---|
-| 1.0.x (latest) | ✅ |
-| < 1.0 | ❌ |
+| Latest 1.x release | ✅ |
+| Anything older | ❌ |
 
 ## Reporting a vulnerability
 

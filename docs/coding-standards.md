@@ -43,9 +43,10 @@ wins and this doc is the bug.
 ## Async model
 
 Perch runs **one event loop** driving both Qt and asyncio via `qasync`. The
-loop is bootstrapped in `__main__.py::cli` as
-`asyncio.run(app_main(...), loop_factory=QEventLoop)`, with the `QApplication`
-constructed *before* the loop (qasync ≥0.28 asserts on it).
+loop is bootstrapped in `__main__.py::cli`, which runs the `perch.app.main`
+coroutine via `asyncio.run(..., loop_factory=QEventLoop)` (imported there as
+`app_main`), with the `QApplication` constructed *before* the loop (qasync
+≥0.28 asserts on it).
 
 - Get the loop with **`asyncio.get_running_loop()`**, never
   `asyncio.get_event_loop()`. Schedule with `loop.create_task(...)` /
@@ -63,7 +64,7 @@ Never import: **`dbus_next`**, **`ewmh`**, **`asyncqt`**, **`tomli_w`**,
 `dbus-next` → **`sdbus`** (active, C-backed, clean async that attaches to the
 running loop) and `python-ewmh` → **`python-xlib`** + a small in-tree EWMH
 helper (`python-ewmh` is unmaintained since 2017 and unpackaged on
-Fedora/openSUSE). See [`01-architecture.md`](01-architecture.md) §Dependencies.
+Fedora/openSUSE). See [`01-architecture.md`](01-architecture.md) §"Dependencies, fixed".
 
 ## Logging
 
