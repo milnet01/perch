@@ -81,5 +81,14 @@ The rest of `docs/`:
 
 Standards (apply across the project, not tied to one milestone):
 
+- [coding-standards.md](coding-standards.md) — language floor, lint/type config, async model, forbidden imports.
+- [filename-standards.md](filename-standards.md) — how files and directories are named across the tree.
+- [documentation-standards.md](documentation-standards.md) — docs-first, no-doc-debt, the review gates.
+- [ui-standards.md](ui-standards.md) — PySide6/Qt 6 idioms and UI conventions.
+- [accessibility-i18n-standards.md](accessibility-i18n-standards.md) — keyboard/screen-reader access and the translation workflow.
+- [security-standards.md](security-standards.md) — posture, config/state handling, trust boundaries, no telemetry.
+- [testing-standards.md](testing-standards.md) — pytest setup, the x11/kwin live-test markers, backend compliance, reproduce-before-fix.
+- [git-commit-standards.md](git-commit-standards.md) — commit format, branching, the pre-push gate.
+- [versioning-release-standards.md](versioning-release-standards.md) — SemVer, version-bearing files, the release flow.
 - [dependency-policy.md](dependency-policy.md) — dependency currency: run the latest, document any exception, retest capped versions when a newer one ships.
 - [contributing-dev-setup.md](contributing-dev-setup.md) — dev environment and the pre-push `local_CI.sh` gate.
