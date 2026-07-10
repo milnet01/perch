@@ -78,3 +78,8 @@ The rest of `docs/`:
 - [09-layouts-profiles.md](09-layouts-profiles.md) — named layouts and per-topology profiles.
 - [10-packaging.md](10-packaging.md) — Flatpak, RPM, Arch, KDE Store.
 - [11-roadmap.md](11-roadmap.md) — phased milestones.
+
+Standards (apply across the project, not tied to one milestone):
+
+- [dependency-policy.md](dependency-policy.md) — dependency currency: run the latest, document any exception, retest capped versions when a newer one ships.
+- [contributing-dev-setup.md](contributing-dev-setup.md) — dev environment and the pre-push `local_CI.sh` gate.

@@ -36,6 +36,14 @@ Docs and code must stay in sync, always. This is a stronger rule than "docs-firs
 
 The invariant: **reading `docs/` at any commit on `main` tells the reader what the code does at that commit.** Drifting from that invariant is treated as breaking the build.
 
+## Dependency currency (hard rule)
+
+Every dependency — runtime library, dev/test tool, CI action, Python runtime, base image — runs the **latest stable version**. This is a security posture as much as a feature one: the latest release is the one getting security patches. Pin below latest **only** when a newer version explicitly breaks a Perch feature and there's no workaround; when you do, add an inline reason *and* a row in the Broken-version register — both in the same change. The full standard, the register, and the outstanding-cap audit live in [`docs/dependency-policy.md`](docs/dependency-policy.md). Run `.venv/bin/python -m pip list --outdated` on a currency sweep each release cycle.
+
+## Never push without a green `local_CI.sh` (hard rule)
+
+`./local_CI.sh` mirrors `.github/workflows/ci.yml` exactly (both jobs). Run it and get `safe to push` **before every push** — a red push burns a CI run to tell us what the script would have caught in seconds. If you edit `ci.yml`, edit `local_CI.sh` in the same commit; they must never drift.
+
 ## Tech stack
 
 - **Language:** Python 3.12+
