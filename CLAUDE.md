@@ -38,11 +38,11 @@ The invariant: **reading `docs/` at any commit on `main` tells the reader what t
 
 ## Dependency currency (hard rule)
 
-Every dependency — runtime library, dev/test tool, CI action, Python runtime, base image — runs the **latest stable version**. This is a security posture as much as a feature one: the latest release is the one getting security patches. Pin below latest **only** when a newer version explicitly breaks a Perch feature and there's no workaround; when you do, add an inline reason *and* a row in the Broken-version register — both in the same change. The full standard, the register, and the outstanding-cap audit live in [`docs/dependency-policy.md`](docs/dependency-policy.md). Run `.venv/bin/python -m pip list --outdated` on a currency sweep each release cycle.
+Every dependency — runtime library, dev/test tool, CI action, Python runtime, base image — runs the **latest stable version** (a security posture as much as a feature one: the latest release is the one getting security patches). Two things justify a cap below latest: a **confirmed breakage** (needs an inline reason *and* a Broken-version-register row, same change) or a precautionary **upper-bound ceiling** (usually `<next-major`) that must be tested and lifted when the guarded version ships. The full standard, register, ceiling list, and the currency-sweep command live in [`docs/dependency-policy.md`](docs/dependency-policy.md) (run the sweep each release cycle and whenever you touch a manifest); packaged-runtime version constraints live in [`docs/10-packaging.md`](docs/10-packaging.md).
 
 ## Never push without a green `local_CI.sh` (hard rule)
 
-`./local_CI.sh` mirrors `.github/workflows/ci.yml` exactly (both jobs). Run it and get `safe to push` **before every push** — a red push burns a CI run to tell us what the script would have caught in seconds. If you edit `ci.yml`, edit `local_CI.sh` in the same commit; they must never drift.
+`./local_CI.sh` runs the same test and packaging checks as `.github/workflows/ci.yml` (both jobs), on a single interpreter — CI additionally runs the test job across a 3.12 / 3.13 / 3.14 matrix, so a version-specific failure can still slip past a green local run. Run it and get `safe to push` **before every push** — a red push burns a CI run to tell us what the script would have caught in seconds. If you edit `ci.yml`, edit `local_CI.sh` in the same commit; they must never drift. Fuller dev-setup detail: [`docs/contributing-dev-setup.md`](docs/contributing-dev-setup.md).
 
 ## Tech stack
 

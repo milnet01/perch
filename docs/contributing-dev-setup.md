@@ -41,25 +41,29 @@ Fresh-environment behaviour (no existing config) is that Perch writes a default 
 
 ## Checks CI runs
 
-**Before every push, run [`local_CI.sh`](../local_CI.sh)** — it runs the exact
-same checks as `.github/workflows/ci.yml` (both the test job and the packaging
-job), so a failure surfaces locally in seconds instead of burning a CI run:
+**Before every push, run [`local_CI.sh`](../local_CI.sh)** — it runs the same
+checks as `.github/workflows/ci.yml` (both jobs) on a single interpreter, so a
+failure surfaces locally in seconds instead of burning a CI run. (CI also runs
+the test job across a Python matrix; the script header explains how to match it
+locally.)
 
 ```sh
 ./local_CI.sh
 ```
 
 It auto-uses the project `.venv`, runs every check (rather than stopping at the
-first failure like CI does), and prints `safe to push` only when all pass. The
-script and `ci.yml` are kept in lockstep — edit one, edit the other in the same
-commit.
+first failure like CI does), and prints `safe to push` only when all pass. It
+must stay in lockstep with `ci.yml` — see the hard rule in
+[`CLAUDE.md`](../CLAUDE.md).
 
-The individual test-job steps, if you want to run them by hand:
+The individual test-job steps, if you want to run them by hand (same order as
+CI):
 
 ```sh
-ruff check .          # lint
-mypy                  # strict type-check per pyproject.toml
-pytest -ra            # unit tests (pytest-xvfb handles the display)
+ruff check .                            # lint
+mypy                                    # strict type-check per pyproject.toml
+python tools/intent_dispatch_audit.py   # every Intent variant has a real handler
+pytest -ra                              # unit tests (conftest defaults QT_QPA_PLATFORM=offscreen)
 ```
 
 The `tests/test_config_roundtrip.py` fixture exercises the tomlkit comment-preservation contract described in [`docs/02-state-format.md`](02-state-format.md) §Read / write split. A failure there is release-blocking.
