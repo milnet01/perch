@@ -95,7 +95,8 @@ for several of them.
 - **Every user-visible string is wrapped for translation** — `self.tr("…")` on
   `QObject` subclasses, `QCoreApplication.translate("<context>", "…")` elsewhere.
   The full marking rules (including the `QT_TRANSLATE_NOOP` context-matching
-  caveat) and the `.ts` → `.qm` workflow live in one place:
+  caveat and the one known-broken exception — the tray snap-preset labels) and
+  the `.ts` → `.qm` workflow live in one place:
   [accessibility-i18n-standards.md](accessibility-i18n-standards.md) §Marking
   strings.
 

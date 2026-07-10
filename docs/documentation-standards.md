@@ -21,7 +21,7 @@ The invariant this protects: **reading `docs/` at any commit on `main` tells the
 
 Two kinds of file live under `docs/`:
 
-- **Numbered design docs** `NN-topic.md` (`00`…`11`) — the ordered design narrative, from [`00-overview.md`](00-overview.md) through [`11-roadmap.md`](11-roadmap.md). Each owns one subsystem or concern; the [document map](00-overview.md) in `00` is the index. A new numbered doc is added only for a genuinely new subsystem, and `00`'s map is updated in the same change.
+- **Numbered design docs** `NN-topic.md` (`00`…`11`) — the ordered design narrative, from [`00-overview.md`](00-overview.md) through [`11-roadmap.md`](11-roadmap.md). Each owns one subsystem or concern; the [document map](00-overview.md#document-map) in `00` is the index. A new numbered doc is added only for a genuinely new subsystem, and `00`'s map is updated in the same change.
 - **Non-numbered standards / how-to docs** — cross-cutting policy or process that isn't tied to one milestone, e.g. [`dependency-policy.md`](dependency-policy.md), [`contributing-dev-setup.md`](contributing-dev-setup.md), and this file. These are referenced from `00`'s "Standards" list.
 
 Filenames are **kebab-case** (`.md`); numbered docs keep their `NN-` prefix. See [`filename-standards.md`](filename-standards.md) for the full naming rules.

@@ -35,8 +35,8 @@ wins and this doc is the bug.
   `[tool.mypy]`). Full annotations on every function signature, including
   `-> None`. `mypy` (no args) runs clean before every push.
 - Untyped third-party stubs are whitelisted centrally via
-  `[[tool.mypy.overrides]]` (`qasync`, `Xlib.*`, `sdbus.*`, `i3ipc`) — don't
-  scatter per-call ignores for those.
+  `[[tool.mypy.overrides]]` (`qasync`, `Xlib.*`, `sdbus.*`, `i3ipc`, `i3ipc.*`) —
+  don't scatter per-call ignores for those.
 - Value types are `@dataclass` (widely used across `core/`); Qt-facing
   interfaces are `typing.Protocol`.
 
@@ -58,13 +58,15 @@ coroutine via `asyncio.run(..., loop_factory=QEventLoop)` (imported there as
 
 ## Forbidden imports
 
-Locked in Phase 2 / 2.5 research; enforced by `/audit` and the house rules.
-Never import: **`dbus_next`**, **`ewmh`**, **`asyncqt`**, **`tomli_w`**,
-**`PySide6.QtAsyncio`**. Two of these are libraries Perch deliberately swapped:
-`dbus-next` → **`sdbus`** (active, C-backed, clean async that attaches to the
-running loop) and `python-ewmh` → **`python-xlib`** + a small in-tree EWMH
-helper (`python-ewmh` is unmaintained since 2017 and unpackaged on
-Fedora/openSUSE). See [`01-architecture.md`](01-architecture.md) §"Dependencies, fixed".
+Locked in Phase 2 / 2.5 research. The **canonical forbidden set** — `dbus_next`,
+`ewmh`, `asyncqt`, `tomli_w`, `PySide6.QtAsyncio` — lives in the
+[house rules](contributing-dev-setup.md#house-rules) (rule 5) and is enforced by
+`/audit`; don't re-derive it. Two of these mark deliberate library swaps whose
+rationale matters here: `dbus-next` → **`sdbus`** (active, C-backed, clean async
+that attaches to the running loop) and `python-ewmh` → **`python-xlib`** + a
+small in-tree EWMH helper (`python-ewmh` is unmaintained since 2017 and
+unpackaged on Fedora/openSUSE). See [`01-architecture.md`](01-architecture.md)
+§"Dependencies, fixed".
 
 ## Logging
 

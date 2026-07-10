@@ -15,7 +15,7 @@ For this app the bump rules read as:
 Two version lines are **independent** of the app version and never move with it:
 
 - **Config/state schema version** — see [02-state-format.md](02-state-format.md).
-- **KWin bundled-script version** — `BUNDLED_SCRIPT_VERSION` in `src/perch/backend/kwin/__init__.py` (currently `1.1.2`). It moves only when the bundled KWin JS script's protocol changes, per [05-backend-kwin.md](05-backend-kwin.md) §Version pinning. It is deliberately **not** listed in `.claude/bump.json`.
+- **KWin bundled-script version** — `BUNDLED_SCRIPT_VERSION` in `src/perch/backend/kwin/__init__.py`. It moves only when the bundled KWin JS script's protocol changes, per [05-backend-kwin.md](05-backend-kwin.md) §"Script installation strategy". It is deliberately **not** listed in `.claude/bump.json`.
 
 ## Version-bearing files (must stay in lockstep)
 
@@ -37,7 +37,7 @@ Do not hand-edit these individually — `/bump <version>` edits all five and run
 
 ## Release flow
 
-The full checklist is [10-packaging.md](10-packaging.md) §Release mechanics; in outline:
+This is the authoritative release sequence; the `/release` skill drives it end to end. [10-packaging.md](10-packaging.md) §Release mechanics covers the per-channel packaging specifics (what CI builds, how each downstream channel updates), not a competing sequence.
 
 1. **Content first** — promote `[Unreleased]` in `CHANGELOG.md` to a dated `## [X.Y.Z]` header, and add the matching `<release>` entry to `data/io.github.milnet01.Perch.metainfo.xml` (its body mirrors the CHANGELOG). These are content changes, so they sit outside `bump.json` and are drafted by the changelog-writer subagent.
 2. **`/bump <X.Y.Z>`** — rewrites the five version-bearing files above; verifies lockstep.

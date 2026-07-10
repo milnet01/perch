@@ -405,8 +405,12 @@ schema migration.
 
 ## Release mechanics
 
+The authoritative release sequence and versioning policy live in
+[versioning-release-standards.md](versioning-release-standards.md) §Release flow;
+this section is the packaging-channel view of the same release.
+
 1. Update `CHANGELOG.md` and `data/io.github.milnet01.Perch.metainfo.xml` `<release>` entry.
-2. `/bump <new-version>` rewrites the version-bearing files wired in `.claude/bump.json` and verifies lockstep — the file list is enumerated in [versioning-release-standards.md](versioning-release-standards.md) §Version-bearing files. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §Version pinning).
+2. `/bump <new-version>` rewrites the version-bearing files wired in `.claude/bump.json` and verifies lockstep — the file list is enumerated in [versioning-release-standards.md](versioning-release-standards.md) §Version-bearing files. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §"Script installation strategy").
 3. Tag: `v1.2.3`.
 4. **GitHub Actions builds and attaches, automatically** (`.github/workflows/release.yml`, on release publish):
    - **AppImage** (`packaging/appimage/build.sh`) — the self-contained end-user download, plus a `SHA256SUMS.txt`.

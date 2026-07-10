@@ -14,7 +14,7 @@ describes the actual code as it ships; aspirational items are labelled as such.
   privileged helper. (The drive-level convention of `SUDO_ASKPASS` in the parent
   `CLAUDE.md` covers unrelated system admin, not Perch.)
 - **No network service in v1.** Perch listens on nothing and phones home to
-  nothing (verified — see §No telemetry). It is not remotely reachable.
+  nothing (verified — see §"No telemetry / no network calls"). It is not remotely reachable.
 - **In scope:** local config/state file handling, the session-bus / X11 /
   compositor trust boundary, hotkey registration, and supply-chain integrity of
   the shipped artifacts.
@@ -43,11 +43,12 @@ describes the actual code as it ships; aspirational items are labelled as such.
   `core/state_store.py`). A crash or power loss during a write cannot corrupt the
   live file; the previous good copy always survives as `.bak`.
 - **No secrets stored.** Perch persists window identities, geometries, rules, and
-  layouts — no passwords, tokens, or credentials. Files are world-readable
-  (`config.toml` is written at an explicit mode `0644`; `state.json` inherits the
-  process umask, typically `0644`); this is intentional and safe because nothing
-  sensitive is stored. If you ever add a secret-bearing field, that assumption —
-  and both files' permissions — must be revisited.
+  layouts — no passwords, tokens, or credentials. Files are world-readable:
+  `config.toml` is pinned to mode `0644` on rewrite but umask-derived (typically
+  `0644`) on the first-run seed, and `state.json` is always umask-derived. This
+  is intentional and safe because nothing sensitive is stored. If you ever add a
+  secret-bearing field, that assumption — and every write path's permissions —
+  must be revisited.
 - **Window titles are treated as sensitive.** The log file omits window titles
   by default (they often leak paths, URLs, chat counterparties); `PERCH_LOG_TITLES=1`
   is an explicit opt-in. See [02-state-format.md](02-state-format.md) §Log file.

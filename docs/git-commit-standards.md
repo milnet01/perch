@@ -44,7 +44,7 @@ One logical change per commit; the subject should describe it in full without an
 ## Branch naming
 
 - **External contributors** (forks, per `CONTRIBUTING.md`): `feat/<short-name>`, `fix/<short-name>`, `docs/<short-name>`.
-- **Authored feature work** (per the global convention in `../CLAUDE.md`): `<author>/<id>-<topic>`, e.g. `alice/PERCH-1234-live-search`.
+- **Authored feature work** (per the global convention in `../CLAUDE.md`): `<author>/<id>-<topic>`, where `<id>` is the milestone key this project uses (e.g. `milnet01/M10.a-learn-mode`), not a `PROJ-1234` tracker id — Perch has no external issue tracker.
 - The default branch is `main`.
 
 ## Direct-to-main vs PR

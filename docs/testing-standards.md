@@ -47,8 +47,8 @@ config, state, or logs **must** take `xdg_env` so the real user's
 ```
 tests/
   conftest.py            offscreen QPA + xdg_env fixture
-  fixtures/              shared test data / helpers
-  test_*.py              CLI, config loader/roundtrip/schema, logging, paths, autostart
+  fixtures/              shared test data (e.g. commented_config.toml)
+  test_*.py              CLI, config loader/roundtrip/schema/atomic-write, logging, paths, autostart
   core/                  backend-agnostic engine: rules, snaps, layouts, profiles, reducer, resolver…
   ui/                    Qt dialog/tray/pane tests (need qtbot + offscreen QPA)
   backend/

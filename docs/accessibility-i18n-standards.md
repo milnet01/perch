@@ -72,9 +72,15 @@ that pass lands.
   will never match a `translate("some.context", …)` lookup, so the string
   silently reverts to English even once translated. Match the context on both
   sides or the round-trip is broken.
+  - **Known exception (pending fix):** the tray snap-preset labels in
+    `src/perch/ui/tray.py` currently use bare `QT_TR_NOOP` and are looked up
+    under context `perch.ui.tray`, so they hit exactly this bug — their
+    translations do not resolve. New code must use the `QT_TRANSLATE_NOOP`
+    form above; the tray labels are to be migrated to it (and the committed
+    `translations/perch_en.ts` regenerated) rather than copied.
 - `pyside6-lupdate` extracts **only** these literal forms. Do not route a string
   through a Python wrapper/format helper before wrapping — extraction silently
-  drops it. Keep the `tr` / `translate` / `QT_TR_NOOP` call on the literal.
+  drops it. Keep the `tr` / `translate` / `QT_TRANSLATE_NOOP` call on the literal.
 - **Never concatenate translated fragments.** Use a single translatable string
   with named placeholders and `.format()`: e.g.
   `self.tr("Backend rejected set_geometry: {err}").format(err=str(exc))`. This
