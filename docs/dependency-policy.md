@@ -59,9 +59,16 @@ latest release and then either **lifted** or given a **register row (§4)**:
 
 | Pin | Latest | Action |
 |---|---|---|
-| `mypy>=1.20,<2` | `2.2.0` | Retest under mypy 2.x `--strict`; lift to `<3` if clean, else record the breakage. **Currently the only behind-latest dependency.** |
 | `PySide6>=6.8,<7` | `6.x` | `<7` guards the Qt 6→7 major bump; keep, but add a register row once Qt 7 exists and is tested. |
 | `qasync>=0.28,<1` · `sdbus>=0.14.2,<1` · `ruff>=0.15,<0.16` | within cap | Confirm each cap's intent; document the reason inline or widen the range. |
+
+Every runtime and dev dependency is currently **at its latest stable release**;
+no dependency is behind latest.
+
+**Resolved:** `mypy` was capped `<2` while `2.2.0` was available. Retested
+2026-07-10 under mypy 2.2.0 with `strict = true` — clean (no issues in 141
+source files, full `local_CI.sh` green) — so the cap was lifted to `<3`, which
+now only guards the eventual 2→3 major bump.
 
 ## 6. Recording a new broken version
 
