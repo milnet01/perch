@@ -1,6 +1,6 @@
 # Documentation standard
 
-How Perch's documentation is written, structured, and kept in lockstep with the code. Perch is docs-first with a no-documentation-debt hard rule; this document codifies the conventions that make those rules mechanical rather than aspirational. [`../CLAUDE.md`](../CLAUDE.md) holds the binding wording of the rules; this doc paraphrases them and shows how to satisfy them in practice — if the two ever diverge, CLAUDE.md wins.
+How Perch's documentation is written, structured, and kept in lockstep with the code. Perch is docs-first with a no-documentation-debt hard rule; this document codifies the conventions that make those rules mechanical rather than aspirational. [`../CLAUDE.md`](../CLAUDE.md) holds the binding wording of the **docs-first** and **no-documentation-debt** hard rules; this doc paraphrases those and adds the conventions and review gates (§Review gates) that make them mechanical. Where this doc and CLAUDE.md overlap and ever diverge, CLAUDE.md wins.
 
 ## Docs-first
 
@@ -13,7 +13,7 @@ Docs and code are edited in the **same change**, never in a follow-up:
 - Adding, changing, or removing user-visible behaviour updates the relevant `docs/` file in the same PR.
 - Changing an internal contract (the `WindowBackend` interface, the state/config schema, identity rules) updates the corresponding numbered doc in the same PR.
 - Removing a feature removes **every** mention of it from `docs/` — no ghost features left in the prose.
-- Before declaring work done, grep the touched docs for `planned`, `will`, `to be`, `not yet` and rewrite any that describe now-shipped behaviour. The `/perch-docs-check` scan catches these too, but grep first.
+- Before declaring work done, grep the touched docs for future-tense tells (`planned`, `will be`, `to be added`, `not yet`, `in progress`, `coming`) and rewrite any that describe now-shipped behaviour. The `/perch-docs-check` scan looks for the same set, but grep first.
 
 The invariant this protects: **reading `docs/` at any commit on `main` tells the reader what the code does at that commit.** Drift from it is treated as a broken build, not paperwork.
 
@@ -47,7 +47,7 @@ Either way, apply the **six-month test**: a reader opening the doc six months on
 
 ## Review gates
 
-- **`/perch-docs-check`** — the on-demand, read-only drift scan across `docs/` (stale library names, retired API symbols, obsolete Python-version floors, future-tense claims on shipped features, broken cross-references). Run it after any non-trivial doc change and before every release. It reports; it does not edit.
+- **`/perch-docs-check`** — the on-demand, read-only drift scan across `docs/` (plus `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`): stale library names, retired API symbols, obsolete Python-version floors, future-tense claims on shipped features, broken cross-references. Run it after any non-trivial doc change and before every release. It reports; it does not edit.
 - **`/cold-eyes`** — every new or edited **spec / standards / design doc** (the numbered `NN-` docs, this file, other non-numbered standards docs) runs through the `/cold-eyes` skill the moment the draft is complete, and loops until a pass returns zero verified findings. Run it *before* implementation — a wrong contract makes the implementation wrong by construction. Later loops run cold (no briefing on prior findings). **Exempt:** per-feature test specs — when written, they live at `tests/features/<name>/spec.md` (the `/feature-test` skill's output; the directory is created on first use) — these are tiny per-feature test contracts, not multi-file design docs, and a self-read suffices.
 
 ## See also

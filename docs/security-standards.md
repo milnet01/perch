@@ -29,26 +29,27 @@ describes the actual code as it ships; aspirational items are labelled as such.
   state at `$XDG_STATE_HOME/perch/state.json`, both under the user's home. See
   [02-state-format.md](02-state-format.md).
 - **Safe parsing, never `eval`.** Config is read with the stdlib `tomllib`
-  parser and written with `tomlkit` (`src/perch/config/loader.py`,
-  `src/perch/config/writer.py`). State is plain `json`. No `eval`, `exec`, `pickle`, or YAML-unsafe-load is used
+  parser (`src/perch/config/loader.py`) and rewritten with `tomlkit`
+  (`src/perch/config/writer.py`); the first-run default is seeded as a plain
+  string. State is plain `json`. No `eval`, `exec`, `pickle`, or YAML-unsafe-load is used
   on any on-disk data — a malformed or malicious config can at worst raise a
   parse/validation error, not execute code.
 - **Schema validation + graceful failure.** Every loaded document runs through
   `schema.validate`. A parse or schema failure falls back to the last known-good
-  `.bak`, and if that also fails Perch raises `ConfigError` and exits non-zero
-  rather than limping on with garbage. A `schema_version` newer than this build
+  `.bak`, and if that also fails the loader raises `ConfigError` (which
+  `__main__` maps to a non-zero exit) rather than limping on with garbage. A `schema_version` newer than this build
   understands is refused, not guessed at.
 - **Atomic writes + backup rotation.** All writes use tmp → `fsync` → rotate old
   file to `.bak` → `rename` → `fsync` dir (`config/writer.py`,
   `core/state_store.py`). A crash or power loss during a write cannot corrupt the
   live file; the previous good copy always survives as `.bak`.
 - **No secrets stored.** Perch persists window identities, geometries, rules, and
-  layouts — no passwords, tokens, or credentials. Files are world-readable:
-  `config.toml` is pinned to mode `0644` on rewrite but umask-derived (typically
-  `0644`) on the first-run seed, and `state.json` is always umask-derived. This
-  is intentional and safe because nothing sensitive is stored. If you ever add a
-  secret-bearing field, that assumption — and every write path's permissions —
-  must be revisited.
+  layouts — no passwords, tokens, or credentials. No file is written more
+  permissive than `0644`; the exact mode is umask-masked (so `0644` under the
+  usual `umask 022`, tighter under a stricter umask). This is intentional and
+  safe because nothing sensitive is stored. If you ever add a secret-bearing
+  field, that assumption — and every write path's permissions — must be
+  revisited.
 - **Window titles are treated as sensitive.** The log file omits window titles
   by default (they often leak paths, URLs, chat counterparties); `PERCH_LOG_TITLES=1`
   is an explicit opt-in. See [02-state-format.md](02-state-format.md) §Log file.

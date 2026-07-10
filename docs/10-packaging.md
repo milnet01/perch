@@ -405,24 +405,26 @@ schema migration.
 
 ## Release mechanics
 
-The authoritative release sequence and versioning policy live in
-[versioning-release-standards.md](versioning-release-standards.md) §Release flow;
-this section is the packaging-channel view of the same release.
+The authoritative release sequence (content → `/bump` → tag → CI builds and
+attaches the AppImage) and the versioning policy live in
+[versioning-release-standards.md](versioning-release-standards.md) §Release flow
+— that is the single source; it is not restated here. This section covers only
+the **packaging-channel delta**: what happens to each distribution channel once
+a release is tagged.
 
-1. Update `CHANGELOG.md` and `data/io.github.milnet01.Perch.metainfo.xml` `<release>` entry.
-2. `/bump <new-version>` rewrites the version-bearing files wired in `.claude/bump.json` and verifies lockstep — the file list is enumerated in [versioning-release-standards.md](versioning-release-standards.md) §Version-bearing files. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §"Script installation strategy").
-3. Tag: `v1.2.3`.
-4. **GitHub Actions builds and attaches, automatically** (`.github/workflows/release.yml`, on release publish):
-   - **AppImage** (`packaging/appimage/build.sh`) — the self-contained end-user download, plus a `SHA256SUMS.txt`.
-   - (The `sdist` + wheel are buildable for anyone who wants them manually; not published to PyPI.)
-5. **Downstream channels — manual / external, and only once each is live** (the going-live work is the v1.0.1 milestone, see [11-roadmap.md](11-roadmap.md)):
-   - Flathub: open/refresh the manifest PR against the Flathub repo.
-   - openSUSE OBS: the `_service` picks up the tag once the OBS project exists.
-   - Fedora COPR: build triggered manually.
-   - AUR: `perch` PKGBUILD `pkgver` bumped and pushed manually.
-   - KDE Store: updated from the Flatpak artefact.
+- **AppImage** — built and attached to the GitHub release automatically by
+  `.github/workflows/release.yml` (`packaging/appimage/build.sh`), plus a
+  `SHA256SUMS.txt`. The `sdist` + wheel are buildable for anyone who wants them
+  manually; not published to PyPI.
+- **Downstream channels — manual / external, and only once each is live** (the
+  going-live work is the v1.0.1 milestone, see [11-roadmap.md](11-roadmap.md)):
+  - Flathub: open/refresh the manifest PR against the Flathub repo.
+  - openSUSE OBS: the `_service` picks up the tag once the OBS project exists.
+  - Fedora COPR: build triggered manually.
+  - AUR: `perch` PKGBUILD `pkgver` bumped and pushed manually.
+  - KDE Store: updated from the Flatpak artefact.
 
-The `/release` skill drives this checklist; see CLAUDE.md for skill wiring.
+The `/release` skill drives the full sequence; see CLAUDE.md for skill wiring.
 
 ## Signed binaries / reproducible builds
 

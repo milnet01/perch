@@ -55,6 +55,7 @@ tests/
     conftest.py          parametrises the compliance suite over every available backend
     test_compliance.py   the backend compliance suite (see below)
     test_mock.py         MockBackend driver
+    test_select.py       backend picker (select())
     kwin/ x11/ sway/ hyprland/ mutter/   per-backend unit + live-integration tests
 ```
 
@@ -84,7 +85,7 @@ Two markers gate tests that spawn a **real** compositor:
 They are **opt-in**: run with `pytest -m x11` (or `-m kwin`). They are excluded
 by default in `local_CI.sh` (`pytest -m "not x11 and not kwin"`) because a dev
 box may have `openbox` installed and would run them live and flaky. **CI does
-not exclude them** — it runs plain `pytest -ra`; it installs `xvfb` but no
+not exclude them** — it runs `pytest -ra` with no marker filter; it installs `xvfb` but no
 `openbox` / `kwin_wayland`, so the live fixtures self-skip and the effect is the
 same. Live tests therefore give
 coverage only on a machine with the compositor present, never a false green.

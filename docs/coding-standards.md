@@ -58,15 +58,14 @@ coroutine via `asyncio.run(..., loop_factory=QEventLoop)` (imported there as
 
 ## Forbidden imports
 
-Locked in Phase 2 / 2.5 research. The **canonical forbidden set** — `dbus_next`,
-`ewmh`, `asyncqt`, `tomli_w`, `PySide6.QtAsyncio` — lives in the
-[house rules](contributing-dev-setup.md#house-rules) (rule 5) and is enforced by
-`/audit`; don't re-derive it. Two of these mark deliberate library swaps whose
-rationale matters here: `dbus-next` → **`sdbus`** (active, C-backed, clean async
-that attaches to the running loop) and `python-ewmh` → **`python-xlib`** + a
-small in-tree EWMH helper (`python-ewmh` is unmaintained since 2017 and
-unpackaged on Fedora/openSUSE). See [`01-architecture.md`](01-architecture.md)
-§"Dependencies, fixed".
+Locked in Phase 2 / 2.5 research. The canonical forbidden-import list lives in
+the [house rules](contributing-dev-setup.md#house-rules) (rule 5) and is enforced
+by `/audit` — that is the single source; don't copy it here. What this doc adds
+is the *why* behind the two deliberate library swaps: `dbus-next` → **`sdbus`**
+(active, C-backed, clean async that attaches to the running loop) and
+`python-ewmh` → **`python-xlib`** + a small in-tree EWMH helper (`python-ewmh`
+is unmaintained since 2017 and unpackaged on Fedora/openSUSE). See
+[`01-architecture.md`](01-architecture.md) §"Dependencies, fixed".
 
 ## Logging
 

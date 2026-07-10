@@ -34,8 +34,11 @@ for several of them.
   attribute for objects Qt does not own. `TrayIcon` keeps its menu alive with
   `self._menu` and its actions in `self._menu_actions` because
   `QSystemTrayIcon` does not take menu ownership on every platform. Where a
-  bare non-owning handle is needed, use `QPointer<T>`; **never** `QWeakPointer`
-  (that is the `QSharedPointer` companion, not a QObject-lifetime guard).
+  bare non-owning handle to a QObject is genuinely needed, `QPointer` (which
+  auto-nulls when the object is destroyed) is the tool — but in PySide6, Python
+  refcounting plus parent-ownership almost always suffices, so reach for it
+  rarely. (The C++ `QWeakPointer` lifetime foot-gun doesn't arise here — it
+  isn't exposed to Python.)
 - **String literals:** Python has no `QStringLiteral`; the equivalent
   discipline here is that every user-visible literal is wrapped for translation
   (below) rather than passed raw.
@@ -92,11 +95,10 @@ for several of them.
 
 ## Translatability
 
-- **Every user-visible string is wrapped for translation** — `self.tr("…")` on
-  `QObject` subclasses, `QCoreApplication.translate("<context>", "…")` elsewhere.
-  The full marking rules (including the `QT_TRANSLATE_NOOP` context-matching
-  caveat and the one known-broken exception — the tray snap-preset labels) and
-  the `.ts` → `.qm` workflow live in one place:
+- **Every user-visible string is wrapped for translation.** The marking rules
+  (`self.tr` / `QCoreApplication.translate`, the `QT_TRANSLATE_NOOP`
+  context-matching caveat, and the one known-broken exception — the tray
+  snap-preset labels) and the `.ts` → `.qm` workflow live in one place:
   [accessibility-i18n-standards.md](accessibility-i18n-standards.md) §Marking
   strings.
 

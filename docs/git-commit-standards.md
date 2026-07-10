@@ -16,8 +16,8 @@ Two subject-line shapes coexist in the history, chosen by what the commit is:
 ### Subject line rules
 
 - **Imperative mood** — "Add X", not "Added"/"Adds X".
-- **Under 72 characters.**
-- These two rules are the project's stated commit policy (`CONTRIBUTING.md` §Commit messages).
+- **Target ≤72 characters.** Keep subjects short; the occasional longer subject (e.g. a milestone commit enumerating a doc set) is tolerated but not the norm.
+- These rules are the project's stated commit policy (`CONTRIBUTING.md` §Commit messages).
 
 ### Body
 
@@ -50,7 +50,7 @@ One logical change per commit; the subject should describe it in full without an
 ## Direct-to-main vs PR
 
 - **Land directly on `main`:** bug fixes, docs-only changes, chores/debt sweeps, and release commits. This is the routine path — most of Perch's history is direct-to-main.
-- **PR (review-before-merge):** new-feature (`implement`-kind) work, where a reviewer benefits from seeing intent before it merges. PRs use `.github/PULL_REQUEST_TEMPLATE.md` — note its **Docs-first check** block is a merge blocker, not a formality.
+- **PR (review-before-merge):** available for new-feature (`implement`-kind) work and the standing path for external-contributor forks, where a reviewer benefits from seeing intent before it merges (PRs use `.github/PULL_REQUEST_TEMPLATE.md` — its **Docs-first check** block is a merge blocker, not a formality). In practice Perch's authored history is entirely direct-to-main; the PR path is optional for the author and expected only when review adds value or a contributor opens one.
 
 ## The push gate — green `local_CI.sh` before every push
 

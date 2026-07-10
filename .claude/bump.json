@@ -1,5 +1,5 @@
 {
-  "$comment": "Recipe for the /bump skill. Every file whose version must follow the Perch release version goes here. The KWin bundled-script version (src/perch/backend/kwin/__init__.py BUNDLED_SCRIPT_VERSION) is NOT listed — it's independently versioned, per docs/05-backend-kwin.md §Version pinning.",
+  "$comment": "Recipe for the /bump skill. Every file whose version must follow the Perch release version goes here. The KWin bundled-script version (src/perch/backend/kwin/__init__.py BUNDLED_SCRIPT_VERSION) is NOT listed — it's independently versioned, per docs/05-backend-kwin.md §\"Script installation strategy\".",
   "files": [
     {
       "path": "pyproject.toml",

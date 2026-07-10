@@ -86,5 +86,5 @@ Summarised from [`CONTRIBUTING.md`](../CONTRIBUTING.md) and [`CLAUDE.md`](../CLA
 1. **Docs-first + no-doc-debt.** Every behaviour change updates `docs/` in the same PR.
 2. **No debt of any kind** — no `TODO`/`FIXME` without a linked issue, no stubs-that-pretend, no silent workarounds, no suppressed type or lint warnings without an inline reason.
 3. **Milestones are discrete.** Exit criteria are defined in [`docs/11-roadmap.md`](11-roadmap.md); a milestone is done only when they all pass in CI.
-4. **Python floor is 3.12.** No `requires-python = ">=3.11"` strays, no `from __future__` that 3.12 no longer needs.
+4. **Python floor is 3.12.** No `requires-python = ">=3.11"` strays, and no `from __future__` import that 3.12 no longer needs — with the deliberate exception of `from __future__ import annotations`, which is still opt-in and is the one Perch modules do use (see [`coding-standards.md`](coding-standards.md)).
 5. Forbidden imports (invariants locked in Phase 2 / 2.5 — see [`docs/11-roadmap.md`](11-roadmap.md)): `dbus_next`, `ewmh`, `asyncqt`, `tomli_w`, `PySide6.QtAsyncio`. `asyncio.get_event_loop()` and `asyncio.ensure_future()` from a Qt slot are also forbidden; use `get_running_loop()` or `@qasync.asyncSlot` instead.

@@ -499,6 +499,12 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
   system package manager. [L]
 - **Runtime theme-change propagation** (global re-apply without a restart).
   Referenced from `docs/08-ui.md` §Interaction. [S]
+- **Fix tray snap-preset translations** — the tray snap labels in
+  `src/perch/ui/tray.py` are marked with bare `QT_TR_NOOP` (empty context) but
+  looked up under context `perch.ui.tray`, so their translations never resolve.
+  Migrate them to `QT_TRANSLATE_NOOP("perch.ui.tray", …)` and regenerate the
+  stale `translations/perch_en.ts`. See `docs/accessibility-i18n-standards.md`
+  §Marking strings. [S]
 
 ### v1.2 — Smarts
 
