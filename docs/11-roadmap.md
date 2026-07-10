@@ -466,9 +466,13 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
 
 **Goal:** anyone can install Perch without building from source.
 
-- Ship a single-file **AppImage** (download → mark executable → run; no system
-  install, no root). Becomes the primary channel for distros that don't carry
-  Perch in their repos. [M]
+- ✅ **AppImage — done.** Single-file download → mark executable → run; no system
+  install, no root, and **zero dependencies for the user to install** — the
+  Python interpreter, PySide6/Qt, and the Qt `xcb` platform libraries are all
+  bundled (verified on a bare container with none of them pre-installed). Recipe
+  at `packaging/appimage/`; build shape and glibc-2.28 floor in
+  `docs/10-packaging.md` § AppImage. The primary channel for distros that don't
+  carry Perch in their repos. [M]
 - **Publish** the existing recipes so they're actually installable: Flathub
   (`packaging/flathub/`), AUR (`packaging/aur/`), KDE Store
   (`packaging/kde-store/`). The manifests exist; this is the submission +
@@ -541,7 +545,10 @@ commit to Windows" decision rather than a drive-by.
 - A `WindowBackend` implementation over the **Win32 API** (enumerate / move /
   resize / virtual desktop). [XL]
 - Windows global hotkeys (`RegisterHotKey`), a signed `.msi` / `.exe`
-  installer, and Windows CI runners. [L]
+  installer, and Windows CI runners. The installer must be **fully
+  self-contained** — the same zero-dependency bar as the Linux AppImage: the
+  user installs one thing and runs it, with the Python runtime and Qt bundled,
+  never a separate Python/PySide6 install. [L]
 - Self-update via the installer handoff described in v1.1. [M]
 
 ### Someday / unscheduled

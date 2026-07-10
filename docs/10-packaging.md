@@ -50,12 +50,66 @@ The GitHub namespace (`milnet01`) is chosen as the project owner's stable identi
 
 | Channel | Who uses it | Status |
 |---|---|---|
-| **Flathub (Flatpak)** | Anyone — primary cross-distro channel | manifest authored at `packaging/flathub/`, submitted to Flathub at v1.0.0 |
-| **openSUSE OBS** | openSUSE Tumbleweed & Leap users | spec + `_service` authored at `packaging/rpm/`, project `home:milnet01/perch` goes live at v1.0.0 |
-| **Fedora COPR** | Fedora / RHEL clones | same spec as OBS; COPR project goes live at v1.0.0 |
-| **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs at `packaging/aur/`, pushed to AUR at v1.0.0 (user-maintained is acceptable) |
-| **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`, entry created when Flathub goes live |
+| **AppImage** | Anyone — download one file, run it, no install | recipe at `packaging/appimage/`; the self-contained download attached to each GitHub release (§ AppImage below). **The available download today.** |
+| **Flathub (Flatpak)** | Anyone — primary cross-distro store channel | manifest authored at `packaging/flathub/`; Flathub submission tracked under v1.0.1 (`docs/11-roadmap.md`) |
+| **openSUSE OBS** | openSUSE Tumbleweed & Leap users | spec + `_service` authored at `packaging/rpm/`; OBS project `home:milnet01/perch` tracked under v1.0.1 |
+| **Fedora COPR** | Fedora / RHEL clones | same spec as OBS; COPR project tracked under v1.0.1 |
+| **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs authored at `packaging/aur/`; AUR push tracked under v1.0.1 (user-maintained is acceptable) |
+| **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`; entry created when Flathub goes live |
 | **PyPI** | Python devs who want to `pipx install perch` | not v1 |
+
+The store channels ship their recipes today; getting them *live* (the
+submission + review round-trip) is the v1.0.1 milestone. Until then the
+**AppImage** is the way an end user installs Perch without building from source.
+
+## AppImage (self-contained download)
+
+The AppImage is the *download → `chmod +x` → run* channel: one file, **zero
+dependencies for the user to install**. It bundles the Python interpreter,
+PySide6/Qt, and the system libraries the Qt `xcb` platform plugin needs, so it
+runs on a bare desktop with nothing pre-installed. Recipe and full rationale:
+[`packaging/appimage/`](../packaging/appimage/README.md).
+
+```bash
+./packaging/appimage/build.sh          # -> dist/Perch-<version>-x86_64.AppImage
+```
+
+**Build shape** (a Python + Qt app, so not a plain `linuxdeploy` build):
+
+1. `pip wheel` builds the `perch` wheel.
+2. [`python-appimage`](https://github.com/niess/python-appimage) assembles an
+   AppDir around a **manylinux_2_28** interpreter — glibc **2.28** floor, so the
+   AppImage runs on Ubuntu 20.04+, Debian 10+, Fedora, openSUSE, Arch — and
+   pip-installs perch + its deps into it.
+3. `harvest-libs.sh` runs in an **AlmaLinux 8** container (matching that glibc
+   2.28 baseline) and bundles the libraries `python-appimage` leaves out but the
+   GUI dlopens at runtime: `libxcb-cursor`, the `xcb-util` family,
+   `libxkbcommon-x11`, and the vendor-neutral glvnd `EGL`/`GL` dispatchers. They
+   are sourced from old glibc so they stay portable. Without this step Perch's
+   window fails with *"could not load the Qt platform plugin xcb"* on a minimal
+   system.
+4. `appimagetool` packs the AppDir behind the AppImage runtime.
+
+**What is deliberately *not* bundled** (host-provided): glibc, the GL/DRM driver
+stack (`libGL`/`libdrm`/`libgbm` — driver-specific), and the X core libs
+(`libX11`, `libxcb.so.1`) that every X server already ships. Bundling those
+would break hardware acceleration or clash with the live X server.
+
+**glibc floor.** `manylinux_2_28` (glibc 2.28) is the bundled-interpreter
+baseline and the AppImage's effective floor. It is pinned in
+`packaging/appimage/build.sh` (`MANYLINUX_TAG`); moving it is a portability
+decision — bump it here and in that script in lockstep, and re-run the
+bare-container check below.
+
+**Verification.** The build is validated by extracting the AppImage on a **bare
+`ubuntu:22.04` container** (none of the Qt/xcb libraries installed) and
+confirming `QApplication` initialises with the `xcb` platform — i.e. the bundle
+is genuinely self-contained, not silently borrowing the build host's libraries.
+
+**Runtime stub.** `appimagetool` fetches the AppImage `runtime-x86_64` from
+GitHub; `build.sh` accepts `PERCH_APPIMAGE_RUNTIME=/path` to use a local copy
+when that download is unreachable. CI (GitHub Actions) is the intended release
+build — the fetch is reliable there.
 
 ## Flatpak (primary)
 
@@ -351,6 +405,7 @@ sandbox marker.
 2. `/bump <new-version>` rewrites the five version-bearing files wired in `.claude/bump.json`: `pyproject.toml` `version`, `src/perch/__init__.py` `__version__`, `packaging/rpm/perch.spec` `Version:`, `packaging/aur/PKGBUILD` `pkgver=`, and the Flatpak manifest's `tag:` line. The KWin script's `BUNDLED_SCRIPT_VERSION` is deliberately independent and only moves when the bundled script's protocol changes (see `docs/05-backend-kwin.md` §Version pinning).
 3. Tag: `v1.2.3`.
 4. CI builds:
+   - **AppImage** (`packaging/appimage/build.sh`) — attached to the GitHub release as the self-contained end-user download.
    - PyPI source + wheel artefact (kept for users who want it manually; not published to PyPI).
    - Flatpak manifest PR to Flathub repo.
    - OBS `_service` picks up the tag.

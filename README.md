@@ -1,66 +1,110 @@
-# Perch
+# Perch 🪟
 
-> Persistent, compositor-aware window geometry manager with a system-tray UI for Linux desktops.
+> **Your windows, where you left them.** Perch quietly remembers where each of
+> your windows lives — which screen, which spot, what size — and puts them back
+> there every time they reopen.
 
-**Status:** v1.0.0 — see [`CHANGELOG.md`](CHANGELOG.md) and [`docs/11-roadmap.md`](docs/11-roadmap.md) for the per-milestone history.
+Perch sits in your system tray and does one thing well: it stops you from
+dragging the same windows into the same places every single day. Open your
+editor and it lands on the left half of your second monitor, like it always
+does. Reconnect your laptop to your desk and everything shuffles back to where
+it belongs.
 
-## What Perch does
+**Status:** v1.0.0 · Linux · free & open source (GPL-3.0). See
+[`CHANGELOG.md`](CHANGELOG.md) for what's new.
 
-- Runs in the system tray; launches automatically at login.
-- Remembers position, size, monitor, and virtual desktop of every managed window.
-- Restores windows to their remembered spot when they reopen.
-- Provides a live-editable list of open windows (x, y, width, height).
-- One-click snap presets: center, left half, right half, top-left, top-right, bottom-left, bottom-right, plus quarter snaps and "maximize on this monitor".
-- Named layouts ("coding", "media", "writing") switchable from the tray.
-- Rules engine: *"always open Firefox on monitor 2, maximized"*.
-- Per-monitor-layout profiles — separate positions for docked vs. laptop-only.
-- Global hotkeys for snap presets (via `xdg-desktop-portal` GlobalShortcuts, with KGlobalAccel / `XGrabKey` fallbacks).
-- Exclusion list for windows that shouldn't be managed (splash screens, transient dialogs).
-- Export / import configs so layouts survive a reinstall.
+---
 
-## Supported display servers
+## Download & run
 
-Perch uses a backend-plugin architecture so it can target any mainstream Linux display server / compositor.
+Perch ships as an **AppImage** — a single file you download and run. **No
+installing, no dependencies, no Python to set up.** It works on any modern Linux
+desktop (Ubuntu 20.04+, Debian, Fedora, openSUSE, Arch, and more).
 
-| Backend | Status | How it works |
-|---|---|---|
-| X11 (any EWMH window manager) | full | `python-xlib` + an in-tree EWMH helper |
-| KWin / Plasma Wayland | full | KWin D-Bus + a bundled KWin JavaScript script |
-| Mutter / GNOME Wayland | stub | GNOME Shell extension (contributor-welcome) |
-| Sway / wlroots | stub | `swaymsg` |
-| Hyprland | stub | `hyprctl` |
+1. Download `Perch-1.0.0-x86_64.AppImage` from the
+   [**Releases page**](https://github.com/milnet01/perch/releases/latest).
+2. Make it runnable (once):
+   ```bash
+   chmod +x Perch-1.0.0-x86_64.AppImage
+   ```
+3. Run it:
+   ```bash
+   ./Perch-1.0.0-x86_64.AppImage
+   ```
 
-Writing a new backend means implementing the `WindowBackend` interface described in [`docs/03-backend-interface.md`](docs/03-backend-interface.md) — no core changes required.
+Perch appears in your system tray. Right-click the tray icon for everything —
+snap presets, layouts, and settings. To start it automatically at login, use
+the **General → Start at login** toggle in its settings.
 
-## Installation
+> **Coming soon:** one-command installs via Flathub, the AUR, Fedora COPR, and
+> openSUSE — see the [roadmap](docs/11-roadmap.md#v101--get-it-downloadable).
+> For now, the AppImage above is the easy button.
 
-Perch is distributed through:
+---
 
-- **Flathub** (Flatpak) — primary cross-distro channel
-- **openSUSE OBS** — RPM
-- **AUR** — Arch / Manjaro (`perch` stable, `perch-git` HEAD)
-- **Fedora COPR** — RPM
-- **KDE Store** (store.kde.org) — links at the Flatpak
+## What it does
 
-Packaging recipes live under [`packaging/`](packaging/). See [`docs/10-packaging.md`](docs/10-packaging.md) for the per-channel installation commands.
+- **Remembers everything** about each window — position, size, which monitor,
+  which virtual desktop — and restores it when the window reopens.
+- **Snap presets** from the tray: centre, left/right half, the four quarters,
+  and "maximise on this screen".
+- **Named layouts** — flip your whole screen between "coding", "media", and
+  "writing" arrangements in one click.
+- **Rules** — *"always open Firefox on monitor 2, maximised"* and it just
+  happens.
+- **Docked vs. laptop profiles** — different window positions for when your
+  laptop is at your desk versus on its own.
+- **Global hotkeys** for snap presets.
+- **An exclusions list** so splash screens and little dialogs are left alone.
+- **Export / import** your setup so it survives a reinstall or moves to a new
+  machine.
 
-## Building from source
+## Will it work on my desktop?
 
-Perch targets **Python 3.12+** with PySide6 ≥ 6.8.
+Perch supports the mainstream Linux display servers through a plug-in design.
+
+| Your desktop | Support |
+|---|---|
+| **KDE Plasma** (X11 or Wayland) | ✅ full |
+| **Any X11 desktop** (Xfce, MATE, Cinnamon, i3, …) | ✅ full |
+| GNOME (Wayland) | 🚧 stub — help wanted |
+| Sway / wlroots | 🚧 stub — help wanted |
+| Hyprland | 🚧 stub — help wanted |
+
+The "stub" backends have the wiring in place but need a contributor to finish
+them — adding one means implementing a single interface
+([`docs/03-backend-interface.md`](docs/03-backend-interface.md)), no changes to
+Perch's core.
+
+## Windows?
+
+Not yet — Perch is Linux-only today. A Windows edition (same idea, native
+Win32 backend, fully self-contained installer) is on the
+[roadmap](docs/11-roadmap.md#windows-edition--separate-track).
+
+---
+
+## For developers
+
+Perch is Python 3.12+ with PySide6 (Qt 6). To run from source:
 
 ```bash
 git clone https://github.com/milnet01/perch.git
 cd perch
-pip install --user --break-system-packages -e ".[dev]"
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -e ".[dev]"
 perch --version
 ```
 
-See [`docs/contributing-dev-setup.md`](docs/contributing-dev-setup.md) for the full dev workflow (system packages, test commands, pre-commit expectations).
+- **Full dev setup, tests, and the pre-push check:**
+  [`docs/contributing-dev-setup.md`](docs/contributing-dev-setup.md).
+- **Build the AppImage yourself:** [`packaging/appimage/`](packaging/appimage/README.md).
+- **Design docs (how it all works):** [`docs/`](docs/).
+
+Contributions welcome — please read [`CONTRIBUTING.md`](CONTRIBUTING.md) first.
+Perch is **docs-first**: any behaviour change updates the relevant `docs/` file
+in the same change.
 
 ## License
 
-GPL-3.0-or-later. See [`LICENSE`](LICENSE).
-
-## Contributing
-
-Design-first: please read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the relevant file in [`docs/`](docs/) before opening a PR. Any behavior change should be reflected in the docs either before or in the same PR as the code.
+[GPL-3.0-or-later](LICENSE).
