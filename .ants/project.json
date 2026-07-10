@@ -1,0 +1,11 @@
+{
+    "changelog": "CHANGELOG.md",
+    "docs_dir": "docs",
+    "roadmap": "docs/11-roadmap.md",
+    "source_roots": [
+        "src"
+    ],
+    "test_roots": [
+        "tests"
+    ]
+}
