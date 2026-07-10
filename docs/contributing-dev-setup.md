@@ -41,7 +41,20 @@ Fresh-environment behaviour (no existing config) is that Perch writes a default 
 
 ## Checks CI runs
 
-Always run these before pushing:
+**Before every push, run [`local_CI.sh`](../local_CI.sh)** — it runs the exact
+same checks as `.github/workflows/ci.yml` (both the test job and the packaging
+job), so a failure surfaces locally in seconds instead of burning a CI run:
+
+```sh
+./local_CI.sh
+```
+
+It auto-uses the project `.venv`, runs every check (rather than stopping at the
+first failure like CI does), and prints `safe to push` only when all pass. The
+script and `ci.yml` are kept in lockstep — edit one, edit the other in the same
+commit.
+
+The individual test-job steps, if you want to run them by hand:
 
 ```sh
 ruff check .          # lint
