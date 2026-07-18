@@ -21,6 +21,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Tray snap-preset labels are now translatable**
+  The built-in snap-preset labels (Left half, Right half, …) were marked
+  for extraction with a context-less QT_TR_NOOP but translated at runtime
+  under the perch.ui.tray context, so a translator's work never reached
+  the tray menu. They now use QT_TRANSLATE_NOOP("perch.ui.tray", …) and
+  translations/perch_en.ts was regenerated (also picking up strings added
+  since M3 that had never been re-extracted).
+
 ### Security
 
 ## [1.0.0] — 2026-04-21

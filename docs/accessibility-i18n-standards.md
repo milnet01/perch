@@ -72,13 +72,13 @@ that pass lands.
   will never match a `translate("some.context", …)` lookup, so the string
   silently reverts to English even once translated. Match the context on both
   sides or the round-trip is broken.
-  - **Known exception (pending fix):** the tray snap-preset labels in
-    `src/perch/ui/tray.py` currently use bare `QT_TR_NOOP` and are looked up
+  - **Worked example:** the tray snap-preset labels in
+    `src/perch/ui/tray.py` once used bare `QT_TR_NOOP` while being looked up
     under context `perch.ui.tray`, so they hit exactly this bug — their
-    translations do not resolve. New code must use the `QT_TRANSLATE_NOOP`
-    form above; the tray labels are to be migrated to it (and the committed
-    `translations/perch_en.ts` regenerated) rather than copied — tracked in
-    [`11-roadmap.md`](11-roadmap.md) under v1.1.
+    translations did not resolve. They now use
+    `QT_TRANSLATE_NOOP("perch.ui.tray", …)`, matching the display-time
+    context; `tests/test_translations.py` guards against a regression by
+    asserting the catalogue has no empty-context block.
 - `pyside6-lupdate` extracts **only** these literal forms. Do not route a string
   through a Python wrapper/format helper before wrapping — extraction silently
   drops it. Keep the `tr` / `translate` / `QT_TRANSLATE_NOOP` call on the literal.

@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, cast
 
-from PySide6.QtCore import QT_TR_NOOP, QCoreApplication, QObject, Signal
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, QObject, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
@@ -123,23 +123,25 @@ class TrayState:
 
 
 # Built-in snap presets — ``(preset_id, source_language_label)``. Labels
-# are marked with ``QT_TR_NOOP`` so lupdate extracts them; the actual
-# translate call happens at menu-build time against the same context.
-# ``cast`` to ``str`` because PySide6's ``QT_TR_NOOP`` typing stub
-# returns ``object`` even though the runtime value is the input string.
+# are marked with ``QT_TRANSLATE_NOOP`` under the ``perch.ui.tray`` context
+# so lupdate extracts them into the *same* context the menu-build translate
+# call looks them up under (:func:`build_tray_menu`); a bare ``QT_TR_NOOP``
+# would file them under the empty context and the lookup would never resolve.
+# ``cast`` to ``str`` because PySide6's ``QT_TRANSLATE_NOOP`` typing stub
+# returns ``object`` even though the runtime value is the source string.
 BUILTIN_SNAP_MENU_ITEMS: tuple[tuple[str, str], ...] = (
-    ("maximize", cast(str, QT_TR_NOOP("Maximize on this monitor"))),
-    ("left-half", cast(str, QT_TR_NOOP("Left half"))),
-    ("right-half", cast(str, QT_TR_NOOP("Right half"))),
-    ("top-left", cast(str, QT_TR_NOOP("Top-left quarter"))),
-    ("top-right", cast(str, QT_TR_NOOP("Top-right quarter"))),
-    ("bottom-left", cast(str, QT_TR_NOOP("Bottom-left quarter"))),
-    ("bottom-right", cast(str, QT_TR_NOOP("Bottom-right quarter"))),
+    ("maximize", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Maximize on this monitor"))),
+    ("left-half", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Left half"))),
+    ("right-half", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Right half"))),
+    ("top-left", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Top-left quarter"))),
+    ("top-right", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Top-right quarter"))),
+    ("bottom-left", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Bottom-left quarter"))),
+    ("bottom-right", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Bottom-right quarter"))),
     # "Centre" keeps the current window size and repositions to the
     # centre of the work area; "Centre (60%)" is the legacy 60%-sized
     # rectangle. Both ride on the same preset pipeline.
-    ("center-in-place", cast(str, QT_TR_NOOP("Centre (keep size)"))),
-    ("center-60", cast(str, QT_TR_NOOP("Centre (60%)"))),
+    ("center-in-place", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Centre (keep size)"))),
+    ("center-60", cast(str, QT_TRANSLATE_NOOP("perch.ui.tray", "Centre (60%)"))),
 )
 
 
@@ -225,9 +227,9 @@ def build_tray_menu(
         QCoreApplication.translate("perch.ui.tray", "Snap focused window")
     )
     for preset_id, label in BUILTIN_SNAP_MENU_ITEMS:
-        # ``label`` is a ``QT_TR_NOOP``-marked literal extracted above;
-        # translate at display time against the same context lupdate
-        # records for the NOOP marker.
+        # ``label`` is a ``QT_TRANSLATE_NOOP("perch.ui.tray", …)`` literal
+        # extracted above; translate at display time against the same
+        # ``perch.ui.tray`` context lupdate recorded for the NOOP marker.
         act = snap_menu.addAction(
             QCoreApplication.translate("perch.ui.tray", label)
         )

@@ -9,6 +9,7 @@ Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of 
 3. **Milestones are discrete.** A milestone is "done" only when its exit criteria pass in CI. No partial rollovers.
 4. **Stubs are real.** A backend marked "stub" still implements `WindowBackend` faithfully and passes the compliance suite. It just declares narrower capabilities.
 5. **No workarounds without documentation.** Any `# WORKAROUND:` comment must cite the underlying issue (a bug URL, a compositor quirk, a protocol gap). Silent workarounds are tech debt.
+6. **Published binaries are self-contained.** Every artefact a user downloads and runs directly — the Linux AppImage today, the Windows installer to come — bundles its own Python runtime, Qt, and platform libraries. The user downloads one file and runs it; they never install a dependency by hand. (Store-managed channels — Flatpak, RPM, AUR — are exempt: the package manager owns the dependency graph there.)
 
 ## Phase map
 
@@ -477,6 +478,11 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
   (`packaging/flathub/`), AUR (`packaging/aur/`), KDE Store
   (`packaging/kde-store/`). The manifests exist; this is the submission +
   review round-trip. [M]
+  - **AUR is deferred** (2026-07-18) pending the maintainer completing AUR
+    account setup — the post-registration confirmation step (SSH-key / email
+    code) is failing to load on the AUR site. The `packaging/aur/` PKGBUILDs
+    stay CI-validated and ready; only the `git push` to the AUR remote waits.
+    Flathub and KDE Store are unaffected.
 
 ### v1.1 — Onboarding & robustness
 
@@ -499,12 +505,14 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
   system package manager. [L]
 - **Runtime theme-change propagation** (global re-apply without a restart).
   Referenced from `docs/08-ui.md` §Interaction. [S]
-- **Fix tray snap-preset translations** — the tray snap labels in
-  `src/perch/ui/tray.py` are marked with bare `QT_TR_NOOP` (empty context) but
-  looked up under context `perch.ui.tray`, so their translations never resolve.
-  Migrate them to `QT_TRANSLATE_NOOP("perch.ui.tray", …)` and regenerate the
-  stale `translations/perch_en.ts`. See `docs/accessibility-i18n-standards.md`
-  §Marking strings. [S]
+- ✅ **Fix tray snap-preset translations — done (2026-07-18).** The tray snap
+  labels in `src/perch/ui/tray.py` were marked with bare `QT_TR_NOOP` (empty
+  context) but looked up under context `perch.ui.tray`, so their translations
+  never resolved. Migrated to `QT_TRANSLATE_NOOP("perch.ui.tray", …)` and
+  regenerated `translations/perch_en.ts` (which was stale project-wide — the
+  re-extraction also picked up the M3→M9 strings that had never been
+  re-scanned). Locked by `tests/test_translations.py`. See
+  `docs/accessibility-i18n-standards.md` §Marking strings. [S]
 
 ### v1.2 — Smarts
 
@@ -545,8 +553,11 @@ Perch does **not** run on Windows today: the backends depend on `sdbus` (Linux
 system bus) and `python-xlib` (X11), and there is no Win32 backend. But the
 core (tray, rules, memory, UI) is OS-agnostic and Qt already runs on Windows,
 so a port is a self-contained new backend, not a rewrite. It roughly doubles
-the platform surface to maintain forever, so it is gated on a deliberate "yes,
-commit to Windows" decision rather than a drive-by.
+the platform surface to maintain forever — a cost the maintainer has now
+explicitly accepted: **a Windows edition is a committed goal** (maintainer
+request, 2026-07-18), scheduled after the Linux v1.x line stabilises. Its
+published installer is bound by ground rule 6 — fully self-contained, zero
+dependencies for the user, the same bar as the Linux AppImage.
 
 - A `WindowBackend` implementation over the **Win32 API** (enumerate / move /
   resize / virtual desktop). [XL]
