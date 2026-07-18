@@ -51,10 +51,11 @@ Phase 2.5 research found no comment-preserving alternative in 2026. `tomli_w` is
 schema_version = 1
 
 [general]
-start_at_login     = true
-restore_on_open    = true       # apply remembered geometry when a window reappears
-notify_on_restore  = false
-theme              = "auto"     # "auto" | "light" | "dark"
+start_at_login       = true
+restore_on_open      = true     # apply remembered geometry when a window reappears
+notify_on_restore    = false
+theme                = "auto"   # "auto" | "light" | "dark"
+onboarding_completed = false    # set true once the first-run wizard is dismissed (docs/08-ui.md)
 
 [exclusions]
 # Never manage these. Matched as [07-rules-engine.md] patterns.
