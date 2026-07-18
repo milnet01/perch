@@ -55,7 +55,7 @@ start_at_login       = true
 restore_on_open      = true     # apply remembered geometry when a window reappears
 notify_on_restore    = false
 theme                = "auto"   # "auto" | "light" | "dark"
-onboarding_completed = false    # set true once the first-run wizard is dismissed (docs/08-ui.md)
+onboarding_completed = false    # illustrative only — NOT emitted in the seed; absent ⇒ false. Set true once the setup wizard is dismissed (docs/08-ui.md)
 
 [exclusions]
 # Never manage these. Matched as [07-rules-engine.md] patterns.
