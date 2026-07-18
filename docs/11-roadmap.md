@@ -491,6 +491,20 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
 - **First-run setup wizard** — detect the compositor, verify the tray works
   (prompt to install the AppIndicator extension on GNOME Wayland, per the
   tray-visibility risk above), confirm autostart. [M]
+- **Zero-config first-run screen** — the wizard opens by stating the one thing
+  that matters: *just move your windows where you like them — Perch remembers,
+  no rules or layouts required.* Perch grew more capable than first envisioned
+  (rules engine, layouts, per-monitor profiles, snap presets); this keeps that
+  power **opt-in** rather than front-and-centre, so the complexity only surfaces
+  for users who go looking for it. [S]
+- **Guided "create your first rule / layout" flows** — promote the existing
+  point-of-need affordances ("Add rule from this window…", "Save current as new
+  layout…" in `docs/08-ui.md` §Menu structure) into optional one-time
+  walkthroughs offered from the first-run wizard and re-discoverable from the
+  config dialog. Teaches the complex features by doing, at the moment the user
+  wants them, instead of a manual nobody reads. Pairs with the **Explain last
+  placement** idea (also in v1.1) as the "see why it did that" half of the same
+  onboarding story. [M]
 - **Config backup / restore points** — snapshot the config on each write and
   offer "revert to a previous version" in the dialog; guards the window-memory
   data against a bad edit or a crash mid-write. [M]
@@ -505,6 +519,24 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
   system package manager. [L]
 - **Runtime theme-change propagation** (global re-apply without a restart).
   Referenced from `docs/08-ui.md` §Interaction. [S]
+- **Explain last placement** — surface a plain-language "why did this window
+  land here?" answer in the UI (e.g. right-click a managed window → *Explain
+  placement*): the matched rule, the active profile, the resolved
+  monitor/desktop, and the last-seen fallback when no rule matched. The GUI
+  companion to the `perch --test-rules` replay tool (v1.2) and the
+  observability hooks in `docs/07-rules-engine.md` §Debugging and
+  observability; turns a "why did it do that?" support ticket into a
+  self-serve answer. [M]
+- ✅ **Pause Perch (panic toggle) — done (2026-07-18).** Broadened the existing
+  narrow "Pause restore" tray toggle (which suppressed only the last-seen
+  auto-restore and let rules and layouts keep moving windows) into a full
+  off-switch: while paused the reducer's `_execute` drops every placement
+  decision — rules, layouts, and last-seen restore — so no window is moved
+  automatically. Manual "Snap focused" still applies (it bypasses the reducer);
+  unpausing does not retroactively rearrange. Renamed the `TogglePauseRestore`
+  intent → `TogglePause` and `toggle_pause_restore()` → `toggle_pause()`.
+  Contract in `docs/08-ui.md` §Menu structure; locked by
+  `tests/core/test_reducer.py` + `tests/ui/test_tray.py`. [S]
 - ✅ **Fix tray snap-preset translations — done (2026-07-18).** The tray snap
   labels in `src/perch/ui/tray.py` were marked with bare `QT_TR_NOOP` (empty
   context) but looked up under context `perch.ui.tray`, so their translations
@@ -530,6 +562,12 @@ backends land whenever a contributor picks them up. Effort tags: **S** small,
 - `perch --test-rules <config.toml>` replay tool for rules-engine regression
   testing. Referenced from `docs/07-rules-engine.md` §Debugging and
   observability. [S]
+- **Shareable layouts** — export a single named layout to a portable
+  `.perch-layout` file and import someone else's, distinct from the whole-config
+  Export / Import pane (`docs/08-ui.md` §Import / Export), which ships the
+  entire `config.toml`. Lets users pass one layout around ("here's my ultrawide
+  coding setup") without exposing the rest of their config — rules, hotkeys,
+  profiles. Builds on named layouts in `docs/09-layouts-profiles.md`. [M]
 
 ### v2.0 — Wayland-native
 
