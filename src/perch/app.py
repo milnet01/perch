@@ -46,7 +46,7 @@ from .ui.intents import (
     ReapplyRules,
     ShowAbout,
     SnapFocused,
-    TogglePauseRestore,
+    TogglePause,
 )
 from .ui.sni_probe import is_gnome_wayland, sni_host_available
 from .ui.status import wire_backend_status
@@ -162,8 +162,8 @@ def _handle_intent(
             # "Event loop stopped before Future completed" traceback.
             _ = quit_app  # retained so existing callers keep working
             close_event.set()
-        case TogglePauseRestore():
-            reducer.toggle_pause_restore()
+        case TogglePause():
+            reducer.toggle_pause()
         case ReapplyRules():
             _spawn(reducer.recompute_topology())
         case ActivateLayout(name):

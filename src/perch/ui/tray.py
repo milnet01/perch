@@ -40,7 +40,7 @@ from .intents import (
     ReapplyRules,
     ShowAbout,
     SnapFocused,
-    TogglePauseRestore,
+    TogglePause,
 )
 
 # ``pyside6-lupdate`` only extracts strings from literal
@@ -79,7 +79,7 @@ class TrayState:
     available_layouts: tuple[str, ...]
     user_snaps: tuple[SnapPreset, ...] = ()
     windows: tuple[WindowInfo, ...] = ()
-    pause_restore: bool = False
+    paused: bool = False
     backend_degraded: bool = False
     awaiting_extension: bool = False
     compositor_missing: bool = False
@@ -250,14 +250,14 @@ def build_tray_menu(
 
     menu.addSeparator()
 
-    # Pause restore + reapply --------------------------------------------
+    # Pause Perch + reapply -----------------------------------------------
     pause_action = menu.addAction(
-        QCoreApplication.translate("perch.ui.tray", "Pause restore")
+        QCoreApplication.translate("perch.ui.tray", "Pause Perch")
     )
     pause_action.setCheckable(True)
-    pause_action.setChecked(state.pause_restore)
+    pause_action.setChecked(state.paused)
     pause_action.triggered.connect(
-        lambda _checked=False: controller.emit_intent(TogglePauseRestore())
+        lambda _checked=False: controller.emit_intent(TogglePause())
     )
 
     reapply = menu.addAction(
@@ -371,8 +371,8 @@ class TrayIcon(QSystemTrayIcon):
         * Left / right click → show the context menu. Qt does this for us
           when a ``contextMenu`` is set; the hook is here so subclasses or
           tests can override if needed.
-        * Middle click → toggle pause restore (the "escape hatch" per
+        * Middle click → toggle "Pause Perch" (the panic switch per
           docs/08-ui.md §Menu structure).
         """
         if reason == QSystemTrayIcon.ActivationReason.MiddleClick:
-            self._controller.emit_intent(TogglePauseRestore())
+            self._controller.emit_intent(TogglePause())

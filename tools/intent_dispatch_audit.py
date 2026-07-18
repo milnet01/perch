@@ -12,7 +12,7 @@ Why this exists
 Perch's v1.0.0 smoke test found four shipped stubs where a tray
 intent was wired to nothing but a log line (``SnapFocused`` → "routed
 in M4", ``ShowAbout`` → "stub — lands in a follow-up milestone",
-``TogglePauseRestore`` → "stub — reducer flag in M4", placeholder
+``TogglePause`` → "stub — reducer flag in M4", placeholder
 panes in the config dialog). Those slipped past every static-analysis
 pass because the regex audit only matches literal strings — it can't
 tell "this handler does real work" from "this handler logs and

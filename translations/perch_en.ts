@@ -858,7 +858,7 @@
     </message>
     <message>
         <location filename="../src/perch/ui/tray.py" line="255"/>
-        <source>Pause restore</source>
+        <source>Pause Perch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

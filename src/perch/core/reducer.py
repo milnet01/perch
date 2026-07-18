@@ -97,12 +97,12 @@ class Reducer:
         self._outputs: dict[OutputName, OutputInfo] = {}
         self._topology_key: str = ""
 
-        # When True, the reducer skips RestoreLastSeen decisions on
-        # window_opened — the user's "Pause restore" toggle, exposed
-        # via the tray's middle-click + menu item. Other decision
-        # kinds (rule matches, layout-entry placement) still apply:
-        # the user explicitly wrote those, pausing them would be
-        # surprising. See docs/08-ui.md §Tray menu.
+        # When True, ``_execute`` drops EVERY placement decision — rule
+        # matches, layout-entry placement, and last-seen restore — so no
+        # window is moved automatically. This is the "Pause Perch" panic
+        # toggle, exposed via the tray's middle-click + menu item. Manual
+        # snap bypasses the reducer and is unaffected. See docs/08-ui.md
+        # §Menu structure.
         self.paused: bool = False
 
         # The reducer caches the most recent :class:`WindowInfo` per window so
@@ -288,17 +288,16 @@ class Reducer:
                 window, trigger=TriggerEvent.USER_TRIGGER
             )
 
-    # ── Pause restore ──────────────────────────────────────────────────────
-    def toggle_pause_restore(self) -> bool:
+    # ── Pause Perch ────────────────────────────────────────────────────────
+    def toggle_pause(self) -> bool:
         """Flip the pause flag and return the new value.
 
-        When paused, ``handle_window_opened`` still evaluates rules and
-        layouts but drops any ``RestoreLastSeen`` decision. The tray
-        menu wires middle-click + the "Pause restore" menu item to
-        this method.
+        When paused, :meth:`_execute` drops every placement decision, so
+        no window is moved automatically. The tray menu wires middle-click
+        + the "Pause Perch" menu item to this method.
         """
         self.paused = not self.paused
-        log.info("pause-restore %s", "enabled" if self.paused else "disabled")
+        log.info("pause %s", "enabled" if self.paused else "disabled")
         return self.paused
 
     # ── Effective layout (base layout + profile overrides) ────────────────
@@ -321,18 +320,16 @@ class Reducer:
     async def _execute(
         self, window: WindowInfo, identity: str, decision: Decision
     ) -> None:
+        if self.paused:
+            # "Pause Perch" panic toggle — suppress every placement
+            # decision (rules, layouts, last-seen restore) so no window is
+            # moved automatically. Manual snap bypasses the reducer, so it
+            # stays live. See docs/08-ui.md §Menu structure.
+            log.debug("placement suppressed (paused): %s", identity)
+            return
         if isinstance(decision, Ignore):
             return
         if isinstance(decision, RestoreLastSeen):
-            if self.paused:
-                # "Pause restore" is a user-triggered escape hatch —
-                # see docs/08-ui.md §Tray menu. Rule / layout actions
-                # still fire (they're explicit user intent); only the
-                # last-seen auto-restore is suppressed.
-                log.debug(
-                    "restore suppressed (paused): %s", identity
-                )
-                return
             await self._restore_last_seen(window, identity)
             return
         if isinstance(decision, ApplyActionDecision):

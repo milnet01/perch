@@ -15,6 +15,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **Tray "Pause restore" is now "Pause Perch" — a full panic switch**
+  Paused now suppresses every automatic placement (rules, layouts, and
+  last-seen restore), not just the last-seen auto-restore, so no window is
+  moved while paused. Manual "Snap focused" still applies. Renamed the
+  TogglePauseRestore intent to TogglePause. See docs/08-ui.md §Menu structure.
+
 ### Deprecated
 
 ### Removed

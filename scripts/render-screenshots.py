@@ -60,7 +60,7 @@ def render_tray_menu() -> None:
         active_layout="coding",
         available_layouts=("coding", "writing", "media"),
         user_snaps=(snap,),
-        pause_restore=False,
+        paused=False,
     )
     controller = TrayController(state)
     menu = build_tray_menu(state, controller, parent=None)

@@ -241,6 +241,63 @@ async def test_restore_suppressed_when_restore_on_open_false(
     assert backend.commands.names() == []
 
 
+# ── Pause Perch ────────────────────────────────────────────────────────────
+async def test_pause_suppresses_rule_placement(tmp_path: Path) -> None:
+    """Pause Perch drops every placement decision — including a matching
+    rule, which the old narrow "pause restore" let through. No window is
+    moved while paused. See docs/08-ui.md §Menu structure."""
+    backend, reducer, _ = await _make(
+        {
+            "rules": [
+                {
+                    "match": {"app_id": "firefox"},
+                    "apply": {"geometry": "left-half", "monitor": "HDMI-1"},
+                }
+            ]
+        },
+        tmp_path,
+    )
+    await reducer.start()
+
+    assert reducer.toggle_pause() is True  # now paused
+
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    assert backend.commands.names() == []
+
+
+async def test_unpause_re_enables_placement(tmp_path: Path) -> None:
+    """Flipping Pause Perch back off lets the next window_opened place again."""
+    backend, reducer, _ = await _make(
+        {
+            "rules": [
+                {
+                    "match": {"app_id": "firefox"},
+                    "apply": {"geometry": "left-half", "monitor": "HDMI-1"},
+                }
+            ]
+        },
+        tmp_path,
+    )
+    await reducer.start()
+
+    reducer.toggle_pause()  # paused
+    reducer.toggle_pause()  # unpaused again
+
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    geom_calls = [
+        args for name, args in backend.commands.entries if name == "set_geometry"
+    ]
+    assert geom_calls == [
+        ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", 0),
+    ]
+
+
 # ── Feedback-loop prevention ───────────────────────────────────────────────
 async def test_set_geometry_echo_is_dropped(tmp_path: Path) -> None:
     backend, reducer, store = await _make(

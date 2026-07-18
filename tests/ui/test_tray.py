@@ -22,7 +22,7 @@ from perch.ui.intents import (
     ReapplyRules,
     ShowAbout,
     SnapFocused,
-    TogglePauseRestore,
+    TogglePause,
 )
 from perch.ui.tray import (
     BUILTIN_SNAP_MENU_ITEMS,
@@ -54,7 +54,7 @@ def _populated_state() -> TrayState:
         active_layout="coding",
         available_layouts=("coding", "writing", "media"),
         user_snaps=(user_snap,),
-        pause_restore=True,
+        paused=True,
     )
 
 
@@ -77,7 +77,7 @@ def test_build_menu_has_documented_top_level_entries(qtbot: QtBot) -> None:
         "Perch — idle / no layout",
         "Layouts",
         "Snap focused window",
-        "Pause restore",
+        "Pause Perch",
         "Reapply rules now",
         "Configure Perch…",
         "Open config folder",
@@ -162,12 +162,12 @@ def test_snap_submenu_appends_user_snaps_after_separator(
     assert actions[builtin_count + 1].text() == "my-center"
 
 
-def test_pause_restore_action_reflects_state(qtbot: QtBot) -> None:
+def test_pause_action_reflects_state(qtbot: QtBot) -> None:
     controller = TrayController(_populated_state())
     menu = build_tray_menu(controller.state, controller)
     qtbot.addWidget(menu)
 
-    pause = next(a for a in menu.actions() if a.text() == "Pause restore")
+    pause = next(a for a in menu.actions() if a.text() == "Pause Perch")
     assert pause.isCheckable()
     assert pause.isChecked()
 
@@ -207,14 +207,14 @@ def test_reapply_rules_action_emits_reapply_intent(qtbot: QtBot) -> None:
     assert isinstance(blocker.args[0], ReapplyRules)
 
 
-def test_pause_restore_action_emits_toggle_intent(qtbot: QtBot) -> None:
+def test_pause_action_emits_toggle_intent(qtbot: QtBot) -> None:
     controller = TrayController(_empty_state())
     menu = build_tray_menu(controller.state, controller)
     qtbot.addWidget(menu)
 
     with qtbot.waitSignal(controller.intent, timeout=500) as blocker:
-        _trigger(menu, "Pause restore")
-    assert isinstance(blocker.args[0], TogglePauseRestore)
+        _trigger(menu, "Pause Perch")
+    assert isinstance(blocker.args[0], TogglePause)
 
 
 def test_configure_action_emits_open_config_dialog(qtbot: QtBot) -> None:
@@ -347,7 +347,7 @@ def test_tray_icon_rebuilds_menu_on_state_change(qtbot: QtBot) -> None:
     tray.hide()
 
 
-def test_tray_middle_click_toggles_pause_restore(qtbot: QtBot) -> None:
+def test_tray_middle_click_toggles_pause(qtbot: QtBot) -> None:
     from PySide6.QtWidgets import QSystemTrayIcon
 
     from perch.ui.tray import TrayIcon
@@ -358,5 +358,5 @@ def test_tray_middle_click_toggles_pause_restore(qtbot: QtBot) -> None:
     with qtbot.waitSignal(controller.intent, timeout=500) as blocker:
         tray._on_activated(QSystemTrayIcon.ActivationReason.MiddleClick)
 
-    assert isinstance(blocker.args[0], TogglePauseRestore)
+    assert isinstance(blocker.args[0], TogglePause)
     tray.hide()

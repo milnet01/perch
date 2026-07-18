@@ -28,10 +28,13 @@ class SnapFocused:
 
 
 @dataclass(frozen=True, slots=True)
-class TogglePauseRestore:
-    """Toggle the "pause restore" flag (middle-click / menu toggle).
+class TogglePause:
+    """Toggle the "Pause Perch" flag (middle-click / menu toggle).
 
-    When paused, the reducer ignores ``window_opened`` restore decisions.
+    When paused, the reducer drops every placement decision — rules,
+    layouts, and last-seen restore — so no window is moved automatically.
+    Manual snap is unaffected (it bypasses the reducer). See
+    ``docs/08-ui.md`` §Menu structure.
     """
 
 
@@ -65,7 +68,7 @@ class Quit:
 Intent = (
     ActivateLayout
     | SnapFocused
-    | TogglePauseRestore
+    | TogglePause
     | ReapplyRules
     | OpenConfigDialog
     | OpenConfigFolder
