@@ -298,6 +298,45 @@ async def test_unpause_re_enables_placement(tmp_path: Path) -> None:
     ]
 
 
+# ── Reapply rules ──────────────────────────────────────────────────────────
+async def test_reapply_reevaluates_with_unchanged_topology(
+    tmp_path: Path,
+) -> None:
+    """"Reapply rules now" re-evaluates every open window even when the
+    monitor topology is unchanged. The old wiring routed the intent through
+    ``recompute_topology``, whose topology-key early-return swallowed it, so
+    the tray action was a silent no-op. See ``ui/intents.py::ReapplyRules``."""
+    backend, reducer, _ = await _make(
+        {
+            "rules": [
+                {
+                    "match": {"app_id": "firefox"},
+                    "apply": {"geometry": "left-half", "monitor": "HDMI-1"},
+                }
+            ]
+        },
+        tmp_path,
+    )
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.start()  # places it once
+
+    def _geom() -> list[Any]:
+        return [
+            args
+            for name, args in backend.commands.entries
+            if name == "set_geometry"
+        ]
+
+    assert len(_geom()) == 1
+
+    # Topology has not changed since start(); reapply must still re-place.
+    await reducer.reapply()
+
+    assert len(_geom()) == 2
+    assert _geom()[-1] == ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", 0)
+
+
 # ── Feedback-loop prevention ───────────────────────────────────────────────
 async def test_set_geometry_echo_is_dropped(tmp_path: Path) -> None:
     backend, reducer, store = await _make(

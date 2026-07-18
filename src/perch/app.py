@@ -165,7 +165,7 @@ def _handle_intent(
         case TogglePause():
             reducer.toggle_pause()
         case ReapplyRules():
-            _spawn(reducer.recompute_topology())
+            _spawn(reducer.reapply())
         case ActivateLayout(name):
             _spawn(reducer.activate_layout(name))
         case SnapFocused(preset):

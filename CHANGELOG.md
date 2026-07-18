@@ -27,6 +27,13 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **"Reapply rules now" is no longer a silent no-op**
+  The tray "Reapply rules now" action was wired to recompute_topology(),
+  whose topology-key early-return meant no window was re-evaluated unless the
+  monitor layout had changed. It now calls a dedicated Reducer.reapply() that
+  re-evaluates every open window regardless of topology, matching the
+  ReapplyRules intent's contract.
+
 - **Tray snap-preset labels are now translatable**
   The built-in snap-preset labels (Left half, Right half, …) were marked
   for extraction with a context-less QT_TR_NOOP but translated at runtime

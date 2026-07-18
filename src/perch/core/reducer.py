@@ -258,8 +258,7 @@ class Reducer:
             layout=self.active_layout.name if self.active_layout else None,
         )
         self.state_store.mark_dirty()
-        for window in await self.backend.list_windows():
-            await self.handle_window_opened(window, trigger=TriggerEvent.USER_TRIGGER)
+        await self.reapply()
 
     # ── Layout activation ──────────────────────────────────────────────────
     async def activate_layout(self, name: str | None) -> None:
@@ -283,6 +282,17 @@ class Reducer:
             layout=name,
         )
         self.state_store.mark_dirty()
+        await self.reapply()
+
+    async def reapply(self) -> None:
+        """Re-evaluate every open window under the current profile + layout.
+
+        A user trigger (``USER_TRIGGER``), not a window event — wired to the
+        "Reapply rules now" tray action and reused by :meth:`activate_layout`
+        and :meth:`recompute_topology` once they have updated active state.
+        Unlike ``recompute_topology`` it does not gate on the topology key:
+        the user asked for a re-apply, so every open window is re-evaluated.
+        """
         for window in await self.backend.list_windows():
             await self.handle_window_opened(
                 window, trigger=TriggerEvent.USER_TRIGGER
