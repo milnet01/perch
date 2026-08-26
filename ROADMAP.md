@@ -154,6 +154,45 @@ Goal: fewer first-run support tickets; the config is safe.
 
 ---
 
+- 📋 [PERC-0031] **State what "your config survives a reinstall or a new machine" actually means.**
+  Found by an adopt-project cold read, 2026-08-26. Export / import is one of
+  the nine v1 goals in docs/00-overview.md and is repeated in README.md, and it
+  is the only one of them with no written sign of success anywhere in the docs.
+  What exists (docs/02-state-format.md, docs/08-ui.md) describes the buttons and
+  the file operations, which is a specification of the mechanism, not a criterion
+  for the outcome.
+
+  What is needed is a round-trip condition: a config exported on machine A and
+  imported on machine B yields the same placements for the same windows -- or a
+  named class of thing that must come across and a named class that need not.
+
+  This is the single reason the project reads as workflow.md state 1 rather than
+  state 2, despite v1.0.0 having shipped. Every other stated goal has a bar
+  somewhere, several of them in docs/testing/*.md.
+  **Layman:** Perch promises your settings survive moving to a new computer, but nowhere says what counts as having survived.
+  Kind: doc.
+  Source: adopt-project cold read 2026-08-26.
+
+- 📋 [PERC-0032] **docs/02-state-format.md and docs/08-ui.md disagree about what Export actually exports.**
+  Found by an adopt-project cold read, 2026-08-26. The two documents describe
+  the same button differently, and the difference is the substantive one.
+
+  docs/02-state-format.md, Export / import: "A separate 'Include last-seen
+  geometries' checkbox lets power users export state too, if they want to
+  pre-seed a new machine."
+
+  docs/08-ui.md, Sections item 8: the Export button "copies the current on-disk
+  config.toml to the chosen path" -- no checkbox mentioned.
+
+  So it cannot be settled from the docs whether last-seen geometries, which are
+  literally where your windows were, travel with an export at all. Settle it
+  against the shipped code and fix whichever document is wrong. Blocks the
+  criterion in the sibling item, since that criterion has to say whether
+  geometries are in scope.
+  **Layman:** Two of our own documents describe the Export button differently, and neither can be trusted until we check the code.
+  Kind: doc-fix.
+  Source: adopt-project cold read 2026-08-26.
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.

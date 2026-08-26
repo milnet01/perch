@@ -20,6 +20,25 @@ Phase sequence:
 3. Revise docs based on findings — **done**.
 4. Implementation (M1…M9) — **done**.
 
+## Roadmap lives in the store, not the file (hard rule)
+
+`ROADMAP.md` is a **generated render** of the roadmap store — the store is the
+source of truth. Do not hand-edit `ROADMAP.md`: the next `roadmap_log` write
+re-renders the whole file and silently reverts your edit. Add and change items
+with the Ants MCP verbs (`roadmap_log` op `append` / `append_batch` / `flip` /
+`annotate`), and query with `roadmap_query` rather than reading the file.
+
+Two things that will otherwise look like bugs. The renderer **strips the
+trailing full stop from every `**Layman:**` line** and reports it as restyling,
+so a hand-added period will vanish. And a byte-identical `ROADMAP.md` right
+after a migration is correct — the file is re-rendered by the next write, not
+by the migration itself.
+
+Milestone history, ground rules and the Phase 2 / 2.5 research logs stay in
+`docs/11-roadmap.md`, which is an ordinary hand-edited document. Roughly thirty
+citations from `src/`, `tests/`, `pyproject.toml` and `audit_config.yaml` point
+into it — do not rename or restructure it casually.
+
 ## Docs-first rule (hard rule)
 
 Any behavior change must land in the relevant `docs/` file **before or in the same PR as** the code that implements it. Do not write implementation code that isn't backed by a doc. If a user request implies a behavior that isn't covered by an existing doc, the correct first step is to propose a doc change.
