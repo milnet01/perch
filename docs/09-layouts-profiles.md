@@ -155,7 +155,7 @@ This allows one layout name ("coding") to mean different pixel-precise arrangeme
 ## What profiles are *not*
 
 - Not a way to group rules. Rules live at top level; use `context.profile` for scope.
-- Not a way to persist "current window arrangement for this topology automatically." That would be a *topology-scoped last-seen* feature — plausible, but out of v1 scope. Open question tracked in [11-roadmap.md](11-roadmap.md).
+- Not a way to persist "current window arrangement for this topology automatically." That would be a *topology-scoped last-seen* feature — plausible, but out of v1 scope. Open question tracked as PERC-0013 in [`ROADMAP.md`](../ROADMAP.md).
 
 ## Implementation pointers
 

@@ -37,7 +37,7 @@ snap presets, layouts, and settings. To start it automatically at login, use
 the **General → Start at login** toggle in its settings.
 
 > **Coming soon:** one-command installs via Flathub, the AUR, Fedora COPR, and
-> openSUSE — see the [roadmap](docs/11-roadmap.md#v101--get-it-downloadable).
+> openSUSE — see the [roadmap](ROADMAP.md#v101--get-it-downloadable).
 > For now, the AppImage above is the easy button.
 
 ---
@@ -80,7 +80,7 @@ Perch's core.
 
 Not yet — Perch is Linux-only today. A Windows edition (same idea, native
 Win32 backend, fully self-contained installer) is on the
-[roadmap](docs/11-roadmap.md#windows-edition--separate-track).
+[roadmap](ROADMAP.md#windows-edition--separate-track).
 
 ---
 

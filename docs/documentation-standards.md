@@ -28,7 +28,7 @@ Filenames are **kebab-case** (`.md`); numbered docs keep their `NN-` prefix. See
 
 ## Present tense for shipped features
 
-Perch is at v1.0.0 — Phases 0–4 are done. Describe shipped behaviour in the **present tense** ("Perch restores geometry on open"), not the future ("Perch will restore…"). Future/aspirational phrasing is reserved for genuinely unshipped work, and only in [`11-roadmap.md`](11-roadmap.md). When a feature ships, its doc prose is flipped to present tense in the same PR that ships it.
+Perch is at v1.0.0 — Phases 0–4 are done. Describe shipped behaviour in the **present tense** ("Perch restores geometry on open"), not the future ("Perch will restore…"). Future/aspirational phrasing is reserved for genuinely unshipped work, and only in [`ROADMAP.md`](../ROADMAP.md). When a feature ships, its doc prose is flipped to present tense in the same PR that ships it.
 
 ## Tone and audience
 

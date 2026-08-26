@@ -1,7 +1,7 @@
 {
     "changelog": "CHANGELOG.md",
     "docs_dir": "docs",
-    "roadmap": "docs/11-roadmap.md",
+    "roadmap": "ROADMAP.md",
     "source_roots": [
         "src"
     ],

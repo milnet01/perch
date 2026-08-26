@@ -10,7 +10,7 @@ Home: https://github.com/milnet01/perch — license: **GPL-3.0-or-later**.
 
 ## Current phase
 
-Perch is at **v1.0.0**. Phases 0–4 are complete; see `docs/11-roadmap.md` for the per-milestone history and `CHANGELOG.md` for release notes.
+Perch is at **v1.0.0**. Phases 0–4 are complete. Live and planned work is `ROADMAP.md` at the repo root (`PERC-NNNN` items, backed by the roadmap store); `docs/11-roadmap.md` holds the per-milestone history, the ground rules and the research logs; `CHANGELOG.md` has release notes.
 
 Phase sequence:
 
@@ -77,6 +77,7 @@ perch/
   CONTRIBUTING.md
   CODE_OF_CONDUCT.md
   CHANGELOG.md
+  ROADMAP.md            ← live + planned work (PERC-NNNN, roadmap-store backed)
   pyproject.toml
   .gitignore
   .github/              ← issue templates, PR template, CI

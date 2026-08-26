@@ -50,7 +50,7 @@ says so rather than overstating it.
 ### Honestly partial
 
 A broader **accessibility pass on the config dialog is still on the roadmap**
-(see [11-roadmap.md](11-roadmap.md), deferred items). M7 covered keyboard nav +
+(PERC-0029 in [`ROADMAP.md`](../ROADMAP.md)). M7 covered keyboard nav +
 accessible names on the primary surfaces; it did not audit every editor sub-dialog
 (`EntryEditorDialog`, the match/geometry editors) for a full screen-reader pass,
 and there is no automated a11y regression test beyond the keyboard tests in

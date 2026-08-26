@@ -77,7 +77,8 @@ The rest of `docs/`:
 - [08-ui.md](08-ui.md) — tray menu, config dialog, hotkeys.
 - [09-layouts-profiles.md](09-layouts-profiles.md) — named layouts and per-topology profiles.
 - [10-packaging.md](10-packaging.md) — Flatpak, RPM, Arch, KDE Store.
-- [11-roadmap.md](11-roadmap.md) — phased milestones.
+- [11-roadmap.md](11-roadmap.md) — milestone history, ground rules, research logs.
+- [ROADMAP.md](../ROADMAP.md) — live and planned work (`PERC-NNNN` items).
 
 Standards (apply across the project, not tied to one milestone):
 

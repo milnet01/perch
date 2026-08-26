@@ -51,7 +51,7 @@ The GitHub namespace (`milnet01`) is chosen as the project owner's stable identi
 | Channel | Who uses it | Status |
 |---|---|---|
 | **AppImage** | Anyone — download one file, run it, no install | recipe at `packaging/appimage/`; the self-contained download attached to each GitHub release (§ AppImage below). **The available download today.** |
-| **Flathub (Flatpak)** | Anyone — primary cross-distro store channel | manifest authored at `packaging/flathub/`; Flathub submission tracked under v1.0.1 (`docs/11-roadmap.md`) |
+| **Flathub (Flatpak)** | Anyone — primary cross-distro store channel | manifest authored at `packaging/flathub/`; Flathub submission tracked as PERC-0002 in `ROADMAP.md` |
 | **openSUSE OBS** | openSUSE Tumbleweed & Leap users | spec + `_service` authored at `packaging/rpm/`; OBS project `home:milnet01/perch` tracked under v1.0.1 |
 | **Fedora COPR** | Fedora / RHEL clones | same spec as OBS; COPR project tracked under v1.0.1 |
 | **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs authored at `packaging/aur/`; AUR push tracked under v1.0.1 (user-maintained is acceptable) |
@@ -417,7 +417,7 @@ a release is tagged.
   `SHA256SUMS.txt`. The `sdist` + wheel are buildable for anyone who wants them
   manually; not published to PyPI.
 - **Downstream channels — manual / external, and only once each is live** (the
-  going-live work is the v1.0.1 milestone, see [11-roadmap.md](11-roadmap.md)):
+  going-live work is PERC-0002, see [`ROADMAP.md`](../ROADMAP.md)):
   - Flathub: open/refresh the manifest PR against the Flathub repo.
   - openSUSE OBS: the `_service` picks up the tag once the OBS project exists.
   - Fedora COPR: build triggered manually.
