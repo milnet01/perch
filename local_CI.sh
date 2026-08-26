@@ -32,8 +32,23 @@ cd "$(dirname "$0")"
 # directly rather than sourcing .venv/bin/activate: activate bakes in an
 # absolute VIRTUAL_ENV that silently points at the wrong bin dir if the
 # checkout was ever moved, sending pytest to the system interpreter.
-if [[ -z "${VIRTUAL_ENV:-}" && -x .venv/bin/python ]]; then
-  export VIRTUAL_ENV="$PWD/.venv"
+#
+# A detached worktree (the pre-push hook gates the tip being pushed in one, so
+# the gate sees the commit rather than the dirty tree) has no .venv of its own
+# -- .venv is gitignored and therefore never checked out. Fall back to the main
+# worktree's .venv in that case, otherwise every check that needs the editable
+# `perch` install fails to import it and the gate reports a false failure.
+VENV_DIR=""
+if [[ -x .venv/bin/python ]]; then
+  VENV_DIR="$PWD/.venv"
+else
+  _common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  if [[ -n $_common_dir && -x "${_common_dir%/.git}/.venv/bin/python" ]]; then
+    VENV_DIR="${_common_dir%/.git}/.venv"
+  fi
+fi
+if [[ -z "${VIRTUAL_ENV:-}" && -n $VENV_DIR ]]; then
+  export VIRTUAL_ENV="$VENV_DIR"
   export PATH="$VIRTUAL_ENV/bin:$PATH"
   hash -r 2>/dev/null || true
 fi
