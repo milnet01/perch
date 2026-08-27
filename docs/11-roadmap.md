@@ -1,6 +1,8 @@
-# 11 — Roadmap
+# 11 — Roadmap history
 
-Phased plan, from "repo bootstrap" to "v1.0.0 shipped." This is the **source of truth** for milestone ordering; everything else references it.
+**Live and planned work is [`ROADMAP.md`](../ROADMAP.md) at the repository root**, where each item carries a `PERC-NNNN` id and is backed by the roadmap store. This file is the record of how Perch got to v1.0.0: the phased plan from "repo bootstrap" to "v1.0.0 shipped", every milestone's exit criteria and the evidence they were met, the ground rules, the known-risks list, and the Phase 2 / 2.5 research logs. It is the source of truth for those; it is not where new work is filed.
+
+The filename keeps its `11-` prefix because the numbered sequence is the reading order and is stable ([`filename-standards.md`](filename-standards.md)).
 
 ## Ground rules
 

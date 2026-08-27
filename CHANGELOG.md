@@ -15,6 +15,16 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **Live and planned work moved to ROADMAP.md at the repo root; docs/11-roadmap.md is now history**
+  ROADMAP.md is a generated render of the roadmap store, and each item carries a
+  PERC-NNNN id. docs/11-roadmap.md keeps its number and filename (the numbered
+  sequence is the reading order and is stable, per docs/filename-standards.md)
+  but is retitled "Roadmap history" and now says up front what it is: the record
+  of how Perch reached v1.0.0 — the phased plan, each milestone's exit criteria
+  and the evidence they were met, the ground rules, the known risks, and the
+  Phase 2 / 2.5 research logs. It had still described itself as the source of
+  truth for milestone ordering.
+
 - **Tray "Pause restore" is now "Pause Perch" — a full panic switch**
   Paused now suppresses every automatic placement (rules, layouts, and
   last-seen restore), not just the last-seen auto-restore, so no window is
