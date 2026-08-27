@@ -65,6 +65,38 @@ Goal: anyone can install Perch without building from source.
   authenticated but nothing has been pushed; AUR stays blocked on the
   maintainer's account confirmation; KDE Store is a manual web listing that
   wants the Flathub build to be public first.
+  Progress (2026-08-27, later): OBS is LIVE at home:milnet:perch (subproject,
+  matching the ants-terminal / finbreak convention -- the docs' old
+  "home:milnet01/perch" was wrong on both the account name and the shape).
+  Repositories: openSUSE_Tumbleweed and Fedora_44, x86_64.
+
+  Fedora_44 BUILDS GREEN: perch-1.0.0-7.1.noarch.rpm. openSUSE_Tumbleweed
+  was still failing 50-check-filelist as of revision 7; revision 8 adds
+  BuildRequires: hicolor-icon-theme (the check runs against the build root,
+  so a runtime Requires does not satisfy it) and its result was NOT seen.
+  CHECK IT FIRST next session: osc results home:milnet:perch perch
+
+  Six real spec/tooling bugs were found and fixed by doing this, none of
+  which any local check could have caught -- rpmspec -P passed throughout:
+    1. obs.sh looked for ~/.oscrc; osc uses ~/.config/osc/oscrc, so the
+       script refused to run at all.
+    2. obs.sh targeted home:<user>/perch, not the subproject.
+    3. _service was unusable: obs_scm mode="manual" never ran server-side
+       ("no .obsinfo file found"), and ANY buildtime service pulls
+       obs-service-* into the build root, where Fedora could not resolve
+       wget. Deleted; obs.sh now uploads the release tarball instead.
+    4. BuildRequires: appstream-glib / libxml2-tools were unguarded
+       openSUSE names. Now %if-guarded (libappstream-glib on Fedora);
+       libxml2-tools dropped as unused. Requesting it by path was tried and
+       REVERTED -- OBS does not index /usr/bin file provides, and it broke
+       both targets.
+    5. %build carried a comment naming %pyproject_wheel unescaped. rpm
+       expands macros in scriptlet comments, so the comment CALLED the
+       macro with the sentence as arguments.
+    6. %{_metainfodir} is Fedora-only and undefined on openSUSE.
+
+  The Flathub PR is NOT open and must not be opened -- blocked by PERC-0036,
+  found by running the built Flatpak on this live KDE Wayland session.
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
@@ -139,6 +171,42 @@ Goal: anyone can install Perch without building from source.
   **Layman:** Pushing a documentation change currently runs every test, which is slow for no benefit.
   Kind: chore.
   Source: in-session-2026-08-27, prompted by the pre-push hook's own hint.
+
+- 📋 [PERC-0036] **Flatpak writes the KWin script inside the sandbox, so KWin never sees it.**
+  BLOCKS the Flathub submission (PERC-0002). Do not open that PR until this
+  is fixed.
+
+  Observed 2026-08-27 by running the built Flatpak on a live KDE Wayland
+  session. The script landed at
+  ~/.var/app/io.github.milnet01.Perch/data/kwin/scripts/org.milnet01.perch
+  and the host path ~/.local/share/kwin/scripts/org.milnet01.perch was
+  untouched (still dated 2026-04-21, from the native install).
+
+  Cause: inside a Flatpak, XDG_DATA_HOME is redirected to
+  ~/.var/app/<id>/data. KWinBackend derives the mirror target from
+  XDG_DATA_HOME, so it writes to the sandbox. KWin runs on the HOST and
+  cannot read that path -- which is the exact failure
+  docs/10-packaging.md § "KWin script delivery from Flatpak" says the
+  mirroring exists to avoid. The manifest's
+  --filesystem=xdg-data/kwin/scripts:create makes the HOST directory
+  writable, and the code never uses the host path, so the grant is
+  correct and unused.
+
+  Likely fix: detect Flatpak (/.flatpak-info exists) and resolve the
+  mirror target to Path.home()/".local/share/kwin/scripts" rather than
+  XDG_DATA_HOME. Needs a test that fails when the path resolves inside
+  the sandbox, and a re-run on a live Plasma session -- a headless build
+  cannot see this.
+
+  Related, same run, smaller: config also goes to the sandbox
+  (~/.var/app/.../config/perch), NOT ~/.config/perch. So
+  --filesystem=xdg-config/perch:create does not do what the manifest
+  comment claims (sharing one config with a native install) and should be
+  dropped -- flatpak-builder-lint already flags it as unnecessary, and
+  this run shows why it is right.
+  **Layman:** Installed as a Flatpak, Perch cannot control windows on KDE — the helper it gives KDE is saved somewhere KDE cannot read
+  Kind: fix.
+  Source: in-session-2026-08-27, live Plasma Wayland run of the built Flatpak.
 
 ## v1.1 — Onboarding & robustness
 
@@ -288,6 +356,33 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Two of our own documents describe the Export button differently, and neither can be trusted until we check the code.
   Kind: doc-fix.
   Source: adopt-project cold read 2026-08-26.
+
+- 📋 [PERC-0035] **Tray menu: a Donate item and a Report an issue item.**
+  Two entries near the existing About action in src/perch/ui/tray.py
+  (build_menu, around the About/Quit block).
+
+  "Report an issue" opens https://github.com/milnet01/perch/issues.
+
+  "Donate" offers the same destinations as .github/FUNDING.yml, which
+  today lists three: GitHub Sponsors (milnet01), Patreon
+  (AntsProjectsHub), and https://paybru.co.za/tip/ants-projects-hub.
+  Three destinations do not fit one menu item, so this needs a decision:
+  a submenu with one entry each, or a single item opening a chooser.
+  Prefer the submenu -- it is one click fewer and needs no new dialog.
+
+  FUNDING.yml is the source of truth for the list. Read it at build time
+  rather than hardcoding the three URLs, so adding a funding source stays
+  a one-file change; if that proves awkward, hardcode but add a test
+  asserting the menu matches FUNDING.yml, because a donate link that
+  404s is worse than no donate link.
+
+  Both open in the user's browser. Under Flatpak that must go through the
+  portal rather than a direct xdg-open, and the manifest currently grants
+  no network or browser access -- check what QDesktopServices.openUrl
+  needs inside the sandbox before assuming it works.
+  **Layman:** Two new entries in the tray menu — one to support the project, one to report a problem
+  Kind: feature.
+  Source: user-request-2026-08-27.
 
 ## v1.2 — Smarts
 

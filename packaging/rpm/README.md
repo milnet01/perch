@@ -10,14 +10,13 @@ names legitimately differ.
 | File | Purpose |
 |---|---|
 | `perch.spec` | Authoritative RPM spec. Single-source for the openSUSE and Fedora builds. |
-| `_service` | OBS source-service descriptor — clones `main`, tars it, rewrites `Version:` from the tag. |
 
 ## openSUSE OBS flow
 
 **One-shot submission:** `./packaging/submit/obs.sh`
 
 That script checks out `home:<user>/perch` (creating the package if
-absent), copies this directory's `perch.spec` + `_service`, stages,
+absent), copies this directory's `perch.spec` and the release tarball, stages,
 and commits — OBS runs the source service + build on its nodes.
 
 Prerequisites:
@@ -33,9 +32,15 @@ has user interest.
 its PySide6 is ≥ 6.8 (Leap 15.x ships 6.4 — too old, same story as
 Ubuntu 24.04).
 
-**Tag-driven rebuilds**: the `_service` file picks up new git tags
-automatically via `obs_scm`. Manual re-triggers via
-`osc service runall`.
+**New releases**: re-run `packaging/submit/obs.sh`, which fetches the
+tarball for the version in `pyproject.toml` and commits it.
+
+There is deliberately no OBS source service. The `_service` file this
+replaced could not work: its `obs_scm` entry was `mode="manual"`, so OBS
+never ran it and the build failed with `no .obsinfo file found`; and any
+buildtime service pulls the `obs-service-*` packages into the build root,
+where Fedora could not resolve `wget`. Uploading the tarball is what
+`Source0` always described.
 
 ## Fedora
 
@@ -86,5 +91,5 @@ the standard practice across projects packaged on both infrastructures
 
 - `perch.spec` `Version:` is bumped by `/bump`.
 - CHANGELOG entry for the release.
-- OBS rebuild fires automatically on tag (via `_service`).
+- OBS rebuild: re-run `packaging/submit/obs.sh`.
 - `docs/10-packaging.md` moves the OBS channel row to "live".

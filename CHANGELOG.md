@@ -23,6 +23,19 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **OBS submission targets the `home:milnet:perch` subproject and uploads a release tarball** (PERC-0002)
+  The subproject matches the convention already used for this account's
+  other projects, and gives Perch its own repository list (Tumbleweed and
+  Fedora, both x86_64). `packaging/rpm/_service` is deleted: its `obs_scm`
+  entry was `mode="manual"`, so OBS never ran it and the build died with
+  `no .obsinfo file found` — and having any buildtime service pulled the
+  `obs-service-*` packages into the build root, where Fedora could not
+  resolve `wget`. Two targets failing for two unrelated reasons, from one
+  mechanism nothing needed. `packaging/submit/obs.sh` now uploads the
+  GitHub release tarball, which is all `Source0` ever wanted; it also
+  looked for `~/.oscrc` when osc uses `~/.config/osc/oscrc`, so it refused
+  to run on a correctly configured machine.
+
 - **Live and planned work moved to ROADMAP.md at the repo root; docs/11-roadmap.md is now history**
   ROADMAP.md is a generated render of the roadmap store, and each item carries a
   PERC-NNNN id. docs/11-roadmap.md keeps its number and filename (the numbered
@@ -53,6 +66,17 @@ Sections under each release are populated on a best-effort basis — empty secti
   `packaging/rpm/COPR.md` that never existed.
 
 ### Fixed
+
+- **The RPM spec now builds on Fedora — five bugs no local check could catch** (PERC-0002)
+  Publishing to OBS for the first time found them all. `rpmspec -P` passed
+  throughout, because every one of them only fails inside a real build root:
+  openSUSE-only `BuildRequires` names (`appstream-glib`, `libxml2-tools`)
+  left Fedora unresolvable; a `%build` comment naming `%pyproject_wheel`
+  unescaped made rpm *call* the macro with the sentence as arguments;
+  `%{_metainfodir}` is Fedora-only and undefined on openSUSE; the build
+  selected a python flavor the build root did not ship; and the icon
+  directories were unowned. Fedora now produces
+  `perch-1.0.0-7.1.noarch.rpm`.
 
 - **The Flathub manifest now builds — it was based on the wrong Qt toolkit and could not be built by anyone** (PERC-0002)
   It based on `com.riverbankcomputing.PyQt.BaseApp`, the PyQt base app, for

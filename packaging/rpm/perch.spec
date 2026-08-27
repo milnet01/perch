@@ -13,6 +13,22 @@
 # Build invocation (OBS): driven by the _service file next to this spec.
 # ============================================================================
 
+# Build against the distribution's default python3 only.
+#
+# openSUSE's python-rpm-macros build once per configured flavor, and
+# Tumbleweed's build root selected python314 while shipping no
+# /usr/bin/python3.14 -- so %%pyproject_wheel died with "No such file or
+# directory" before compiling anything. Perch floors at 3.12 and has no
+# reason to ship a per-flavor package, so one flavor is both correct and
+# simpler. Fedora ignores this define.
+%define pythons python3
+
+# %%{_metainfodir} is a Fedora macro and is UNDEFINED on openSUSE, where it
+# expanded to nothing and rpm rejected the %%files entry with
+# `File must begin with "/"`. %%{_datadir}/metainfo is the same path and is
+# defined on both, so no %%if guard is needed.
+%define _metainfodir %{_datadir}/metainfo
+
 Name:           perch
 Version:        1.0.0
 Release:        0
@@ -30,10 +46,37 @@ BuildRequires:  python3-hatchling >= 1.24
 BuildRequires:  python3-wheel
 
 # %check + install-time linting.
+#
+# appstream-util ships as `appstream-glib` on openSUSE and
+# `libappstream-glib` on Fedora, so it needs the same %if guard the
+# PySide6 requirement below uses. The unguarded openSUSE name made the
+# Fedora build unresolvable on the first OBS push (2026-08-27).
+#
+# Requesting it by path (/usr/bin/appstream-util) was tried and reverted:
+# OBS's dependency resolver does not index /usr/bin file provides, so it
+# came back unresolvable on BOTH targets -- worse than the bug it was
+# fixing. Do not reach for a file dependency here again.
+#
+# libxml2-tools was dropped in the same change: it was requested but never
+# used -- nothing in this spec runs xmllint -- and it was the other name
+# Fedora could not resolve.
+%if 0%{?suse_version}
 BuildRequires:  appstream-glib
+%else
+BuildRequires:  libappstream-glib
+%endif
 BuildRequires:  desktop-file-utils
-BuildRequires:  libxml2-tools
+# Also a BuildRequires, not just a Requires. openSUSE's post-build
+# 50-check-filelist runs against the BUILD ROOT, so a runtime-only
+# dependency leaves /usr/share/icons/hicolor/** unowned there and fails
+# the build even though the produced RPM is correct.
+BuildRequires:  hicolor-icon-theme
 
+# Owns /usr/share/icons/hicolor/** , where Perch's tray and app icons go.
+# Without it openSUSE's post-build 50-check-filelist fails the build with
+# "directories not owned by a package" -- the RPM itself is fine, the
+# check is not. Fedora is laxer here but wants the dependency too.
+Requires:       hicolor-icon-theme
 Requires:       python3 >= 3.12
 Requires:       python3-qasync >= 0.28
 Requires:       python3-sdbus >= 0.14.2
@@ -69,8 +112,14 @@ Hyprland.
 %autosetup -n %{name}-%{version}
 
 %build
-# hatchling wheel build; %pyproject_wheel exists on both Fedora and
+# hatchling wheel build; %%pyproject_wheel exists on both Fedora and
 # openSUSE Tumbleweed via python-rpm-macros.
+#
+# The macro name is escaped as %%%% above ON PURPOSE. rpm expands macros
+# inside comments in a scriptlet, so writing it bare made the comment
+# CALL the macro, with the rest of the sentence as its arguments -- the
+# build log showed `myargs='exists on both Fedora and'`. Never write a
+# bare %%macro in a scriptlet comment.
 %pyproject_wheel
 
 %install
