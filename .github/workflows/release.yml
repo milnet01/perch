@@ -28,11 +28,11 @@ jobs:
       # (used to backfill an existing release), build the branch the workflow was
       # dispatched on — the AppImage recipe may be newer than the target tag,
       # and the app version comes from pyproject either way.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.release.tag_name || github.ref }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 

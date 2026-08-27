@@ -88,7 +88,7 @@ manifests (CI actions, the RPM spec, PKGBUILDs, base images) are governed by the
 | `sdbus>=0.14.2,<1` | runtime | sdbus 1.0 major | sdbus 1.0 ships |
 | `tomlkit>=0.13,<1` | runtime | tomlkit 1.0, expected to reshape the comment-preserving round-trip API (`docs/02-state-format.md` §Read / write split) | tomlkit 1.0 ships → retest the config round-trip contract |
 | `i3ipc>=2.2.1,<3` | `sway` extra | i3ipc 3.0 major | i3ipc 3.0 ships → retest the Sway backend |
-| `ruff>=0.15,<0.16` | dev | ruff's pre-1.0 minor-as-major cadence (0.16 can carry breaking lint/format changes) | ruff 0.16 ships → retest lint + format |
+| `ruff>=0.16,<0.17` | dev | ruff's pre-1.0 minor-as-major cadence (0.17 can carry breaking lint/format changes) | ruff 0.17 ships → retest lint |
 | `mypy>=1.20,<3` | dev | mypy 2 → 3 major (2.x vetted 2026-07-10, see below) | mypy 3.0 ships → retest `--strict` |
 | `pytest>=8.4,<10` | dev | pytest 10 (8.x–9.x allowed) | pytest 10 ships → retest the suite |
 | `pytest-qt>=4.5,<5` | dev | pytest-qt 5 major | pytest-qt 5.0 ships |
@@ -97,9 +97,19 @@ manifests (CI actions, the RPM spec, PKGBUILDs, base images) are governed by the
 `python-xlib` and `pytest-xvfb` carry a lower bound only — no ceiling, nothing
 to track here.
 
-As of 2026-07 — verified by a **manual** sweep (§3; there is no automated CI
+As of 2026-08-27 — verified by a **manual** sweep (§3; there is no automated CI
 currency job) — every runtime, dev, and `sway`-extra dependency sits at its
-latest stable release within these ceilings; none is behind latest.
+latest stable release within these ceilings; none is behind latest. The CI
+actions were bumped in the same sweep: `actions/checkout` and
+`actions/setup-python` were on v6 with v7 available.
+
+**ruff history** (context for the `<0.17` row above): `ruff` was capped `<0.16`
+while 0.16.4 was available. Retested 2026-08-27 under 0.16.4 — `ruff check .`
+clean across the tree with `local_CI.sh` green — so the ceiling moved to
+`<0.17`. The old row's trigger said "retest lint + format"; only lint was
+retested, because `ruff format` is not part of the gate and this project does
+not use it. The trigger now says lint alone rather than naming a check nobody
+runs.
 
 **mypy history** (context for the `<3` row above): `mypy` was capped `<2` while
 `2.2.0` was available — a behind-latest state. Retested 2026-07-10 under mypy
