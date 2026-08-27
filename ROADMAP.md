@@ -62,6 +62,34 @@ Goal: anyone can install Perch without building from source.
   Kind: test.
   Source: in-session-2026-08-27 while settling PERC-0032.
 
+- 📋 [PERC-0034] **Give local_CI.sh a --docs mode so a docs-only push does not run the full suite.**
+  The machine-wide pre-push hook detects a documentation-only push and says so:
+
+    pre-push: documentation-only push, but ./local_CI.sh has no documentation
+    mode - running all of it
+      (give it one, then: git config ants.gate.docsMode --docs)
+
+  So today every docs push pays the full gate (ruff, mypy, intent-dispatch
+  audit, 806 pytest tests, and the whole packaging block) to validate prose.
+
+  Two halves, and the second is the one that is easy to get wrong. Add a
+  --docs flag to local_CI.sh running the documentation-touching checks only,
+  then set the two git config keys the hook reads: ants.gate.docsMode --docs
+  and ants.gate.docsGlob. The glob is not optional -- untold, the hook falls
+  back to an extension list that ~/.claude/standards/commits.md 4.2 forbids,
+  so a repo that sets only docsMode has not satisfied the rule.
+
+  Decide what counts as documentation here before writing the glob. docs/**,
+  README.md, CHANGELOG.md and ROADMAP.md are clear. data/ metainfo is NOT --
+  appstreamcli validates it in the gate, so it is a code path wearing an XML
+  extension.
+
+  Not urgent: the full gate is ~4s of pytest plus the packaging checks, so
+  this buys convenience rather than correctness.
+  **Layman:** Pushing a documentation change currently runs every test, which is slow for no benefit.
+  Kind: chore.
+  Source: in-session-2026-08-27, prompted by the pre-push hook's own hint.
+
 ## v1.1 — Onboarding & robustness
 
 Goal: fewer first-run support tickets; the config is safe.
