@@ -149,6 +149,25 @@ Goal: anyone can install Perch without building from source.
 
   The Flathub PR is still not open and must not be opened before those
   checks.
+  Progress (2026-08-27, build refreshed again): rebuilt from HEAD after the
+  PERC-0003 / PERC-0004 wizard landed, so the installed local Flatpak carries
+  both that and the PERC-0037 autostart fix. Verified by finding
+  ui/onboarding.py in the installed site-packages; build + smoke green.
+
+  The manual pass is now THREE checks, not two, and one run covers all of
+  them. The setup wizard fires on the next Flatpak launch by itself: the
+  sandbox config has no onboarding_completed key, and an absent key parses as
+  false. So:
+    1. the wizard opens, its three rows read sensibly, and Finish does not
+       bring it back on the launch after;
+    2. a window's geometry is remembered across a close/reopen;
+    3. the config dialog opens and saves.
+  Ticking "start Perch at login" in the wizard is worth a fourth glance -- it
+  should now reach the Background portal and show a one-time permission
+  prompt -- but it gates nothing.
+
+  The Flathub PR is still not open and must not be opened before those
+  checks.
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
