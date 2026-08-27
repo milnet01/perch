@@ -110,6 +110,30 @@ Goal: anyone can install Perch without building from source.
   Channels remaining on this item: Flathub (blocked, PERC-0036), AUR
   (blocked on the maintainer's account), KDE Store (manual web listing,
   wants Flathub live first).
+  Progress (2026-08-27, OBS advertised): user decision -- announce the OBS
+  repo now rather than waiting for Flathub. README's "Download & run" now
+  carries an "openSUSE and Fedora: install the RPM" section with real
+  zypper / dnf commands.
+
+  Verified before advertising, so the README does not point at a dead
+  link: both repositories return HTTP 200 and serve
+  perch-1.0.0-8.1.noarch.rpm with repodata, and both .repo files fetch
+  clean. NOT used: the software.opensuse.org one-click download page --
+  it returns HTTP 403 even with a browser User-Agent, so the README links
+  the download.opensuse.org .repo files directly, which is what the
+  one-click page would have handed over anyway. Worth a look if that page
+  is meant to work for this project.
+
+  Also corrected in docs/10-packaging.md: the OBS project was recorded as
+  "home:milnet01/perch" in two places, wrong on both the account name and
+  the subproject shape. It is home:milnet:perch.
+
+  Flathub status: PERC-0036, PERC-0038, PERC-0039 and PERC-0040 are all
+  fixed and verified on a live Plasma Wayland session, so the tray icon,
+  its menu and the KWin script all work in the sandbox now. Of the manual
+  checks this item lists, two remain and both need a human at the screen:
+  geometry remembered across a close/reopen, and the config dialog opening
+  and saving. The PR is still not open.
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
@@ -283,7 +307,7 @@ Goal: anyone can install Perch without building from source.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the PERC-0036 Flatpak build.
 
-- 📋 [PERC-0038] **Flatpak has no talk-name for StatusNotifierWatcher, so the tray never registers.**
+- ✅ [PERC-0038] **Flatpak has no talk-name for StatusNotifierWatcher, so the tray never registers.**
   BLOCKS the Flathub submission (PERC-0002).
 
   Observed 2026-08-27, Flatpak on a live Plasma session:
@@ -308,11 +332,18 @@ Goal: anyone can install Perch without building from source.
   Re-run flatpak-builder-lint afterwards.
 
   Separate second cause of the same symptom: PERC-0039.
+  Resolved (2026-08-27). --talk-name=org.kde.StatusNotifierWatcher added
+  and justified in SUBMISSION.md and the PR body. Verified on a live
+  Plasma Wayland session with a LOCAL build: the watcher's
+  RegisteredStatusNotifierItems gained an entry while Perch ran, and that
+  item answers Id="perch", Status="Active", with its menu at /MenuBar
+  listing the real entries (Layouts, Snap focused window, Pause Perch,
+  Reapply rules now). Both startup warnings are gone.
   **Layman:** Installed as a Flatpak, Perch's tray icon never appears — and the tray is the whole interface
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
 
-- 📋 [PERC-0039] **Tray icons resolve to a dev-checkout path, so installed layouts get a null icon.**
+- ✅ [PERC-0039] **Tray icons resolve to a dev-checkout path, so installed layouts get a null icon.**
   BLOCKS the Flathub submission (PERC-0002), and is NOT Flatpak-specific.
 
   Observed 2026-08-27, Flatpak on a live Plasma session:
@@ -341,11 +372,25 @@ Goal: anyone can install Perch without building from source.
 
   Check the AppImage and the RPM for the same symptom before closing --
   the dev checkout is the only layout the current code gets right.
+  Resolved (2026-08-27), on the second attempt. The first fix used
+  sys.prefix and did NOT work: inside a Flatpak the interpreter comes from
+  the runtime, so sys.prefix is /usr while Perch's data is under /app --
+  measured in the sandbox, /usr/share/icons/hicolor/symbolic/status absent
+  and /app/share/... present. The lookup now walks XDG_DATA_DIRS plus
+  XDG_DATA_HOME, with the dev checkout last.
+  Verified in the sandbox: load_tray_icons() returns three non-null icons
+  resolved from /app/share/icons/hicolor/symbolic/status, and the
+  "QSystemTrayIcon::setVisible: No Icon set" warning is gone from a live
+  run. Regression test simulates the installed layout and was confirmed
+  failing without the fix.
+  Still worth checking, and NOT done here: whether the AppImage and the
+  RPM had the same symptom. The dev checkout was the only layout the old
+  code got right, so both are suspect.
   **Layman:** The tray icon file is looked for in a folder that only exists when running from the source code
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
 
-- 📋 [PERC-0040] **The SNI host probe opens the wrong bus, so it always fails under Flatpak.**
+- ✅ [PERC-0040] **The SNI host probe opens the wrong bus, so it always fails under Flatpak.**
   Found 2026-08-27 while fixing PERC-0038, by running perch.ui.sni_probe
   inside the sandbox:
 
@@ -370,6 +415,12 @@ Goal: anyone can install Perch without building from source.
   Note the broad except in sni_host_available is what hid this. It is
   correct to fail closed, but a transport failure and a genuine "no host"
   are not the same answer and only one of them should be quiet.
+  Resolved (2026-08-27). _sdbus_probe now calls sd_bus_open_user()
+  explicitly and passes that bus to the FreedesktopDbus helper and the
+  watcher proxy. Verified inside the sandbox: the old path raised
+  SdBusLibraryError (sd_bus_open -> ENOENT) while the explicit open
+  returns name_has_owner(org.kde.StatusNotifierWatcher)=True, and the
+  "no StatusNotifierHost detected" warning is gone from a live run.
   **Layman:** Perch wrongly decides the desktop has no system tray when it is installed as a Flatpak
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.

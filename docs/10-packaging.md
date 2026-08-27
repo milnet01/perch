@@ -51,7 +51,7 @@ The GitHub namespace (`milnet01`) is chosen as the project owner's stable identi
 |---|---|---|
 | **AppImage** | Anyone — download one file, run it, no install | recipe at `packaging/appimage/`; the self-contained download attached to each GitHub release (§ AppImage below). **The available download today.** |
 | **Flathub (Flatpak)** | Anyone — primary cross-distro store channel | manifest authored at `packaging/flathub/`; Flathub submission tracked as PERC-0002 in `ROADMAP.md` |
-| **openSUSE OBS** | openSUSE Tumbleweed & Leap users, and Fedora / RHEL clones | spec authored at `packaging/rpm/`; OBS builds both distro families from the one spec; OBS project `home:milnet01/perch` tracked under v1.0.1 |
+| **openSUSE OBS** | openSUSE Tumbleweed & Leap users, and Fedora / RHEL clones | spec authored at `packaging/rpm/`; OBS builds both distro families from the one spec; live at OBS project `home:milnet:perch`, building green on openSUSE_Tumbleweed and Fedora_44 |
 | **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs authored at `packaging/aur/`; AUR push tracked under v1.0.1 (user-maintained is acceptable) |
 | **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`; entry created when Flathub goes live |
 | **PyPI** | Python devs who want to `pipx install perch` | not v1 |
@@ -245,7 +245,12 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 ### OBS setup
 
-- Project: `home:milnet01` initially → promote to `X11:Utilities` or `KDE:Extra` if accepted.
+- Project: `home:milnet:perch` — a subproject, matching the convention used by
+  this maintainer's other OBS projects. Promote to `X11:Utilities` or
+  `KDE:Extra` if accepted.
+- Users install from
+  <https://software.opensuse.org/download.html?project=home%3Amilnet%3Aperch&package=perch>,
+  which the README links.
 - Multi-distro targets: Tumbleweed (primary), Leap 16 (if PySide6 is available), and Fedora — all built by OBS from the one spec.
 - `packaging/submit/obs.sh` uploads the release tarball; there is no OBS source service (see packaging/rpm/README.md for why).
 

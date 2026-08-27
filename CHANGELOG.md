@@ -10,6 +10,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **README install section for the openSUSE and Fedora RPM repository** (PERC-0002)
+  `home:milnet:perch` on OBS builds green for openSUSE Tumbleweed and Fedora
+  and is now advertised, with copy-paste zypper and dnf commands. Both
+  repositories were checked to be serving the RPM before the link went in.
+
 - **`local_CI.sh --docs` — a documentation-only push no longer runs the full suite** (PERC-0034)
   New `tools/docs_check.py` verifies every relative link in the docs set
   resolves and that no retired or forbidden string has crept outside the
@@ -73,11 +78,20 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **The tray-host probe no longer reports "no host" inside a Flatpak** (PERC-0040)
+  It let sdbus pick the default bus, which fails outright in a sandbox where
+  `DBUS_SESSION_BUS_ADDRESS` is `/run/flatpak/bus`; every failure is
+  classified as "no host", so the wrong answer was silent. On GNOME Wayland
+  that fired the "install the AppIndicator extension" dialog at users who
+  did not need it.
+
 - **Tray icons no longer come out null on an installed layout** (PERC-0039)
   The bundled-SVG fallback resolved a path relative to the source tree,
   which only exists in a dev checkout — under Flatpak it pointed at a
   directory that is not there, and the icon-theme lookup does not cover for
-  it. The install prefix (`/app`, `/usr`, or a venv) is now searched first.
+  it. The XDG data directories are now searched first, which name `/app`
+  inside a Flatpak and `/usr` under an RPM; `sys.prefix` does not, because
+  a Flatpak's interpreter comes from the runtime.
 
 - **Flatpak tray icon now appears — granted the StatusNotifierWatcher talk-name** (PERC-0038)
   The sandbox answered `ServiceUnknown` for `org.kde.StatusNotifierWatcher`,

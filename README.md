@@ -36,9 +36,34 @@ Perch appears in your system tray. Right-click the tray icon for everything —
 snap presets, layouts, and settings. To start it automatically at login, use
 the **General → Start at login** toggle in its settings.
 
-> **Coming soon:** one-command installs via Flathub, the AUR, and openSUSE —
+### openSUSE and Fedora: install the RPM
+
+Prefer a normal package that updates along with the rest of your system?
+Perch has a build repository, covering **openSUSE Tumbleweed** and **Fedora**
+from the same recipe in this repo.
+
+**openSUSE Tumbleweed**
+
+```bash
+sudo zypper addrepo https://download.opensuse.org/repositories/home:/milnet:/perch/openSUSE_Tumbleweed/home:milnet:perch.repo
+sudo zypper refresh
+sudo zypper install perch
+```
+
+**Fedora**
+
+```bash
+sudo dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:/milnet:/perch/Fedora_44/home:milnet:perch.repo
+sudo dnf install perch
+```
+
+Your package manager will ask you to trust the repository's signing key the
+first time — that's expected. Afterwards Perch updates with everything else.
+
+> **Coming soon:** one-command installs via Flathub and the AUR —
 > see the [roadmap](ROADMAP.md#v101--get-it-downloadable).
-> For now, the AppImage above is the easy button.
+> Until then, the AppImage above is the easy button and the RPM repository is
+> the tidy one.
 
 ---
 
