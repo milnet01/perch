@@ -44,7 +44,7 @@ This is the authoritative release sequence; the `/release` skill drives it end t
 3. **Commit** `release: vX.Y.Z`, then **tag** `vX.Y.Z` (templates in `bump.json` `post_bump`).
 4. **Push** (public repo — CI minutes free; gate on green `local_CI.sh` first, per [git-commit-standards.md](git-commit-standards.md)).
 5. **CI on release publish** — `.github/workflows/release.yml` builds the self-contained AppImage on GitHub's runners (`packaging/appimage/build.sh`) and attaches it, plus a `SHA256SUMS.txt`, to the GitHub release as the end-user download. It triggers on release publish and via `workflow_dispatch` with a tag input; it does **not** touch `ci.yml`, so the `local_CI.sh` lockstep is unaffected.
-6. Downstream channels (Flathub PR, OBS `_service`, COPR, AUR, KDE Store) follow as described in the packaging doc.
+6. Downstream channels (Flathub PR, OBS `_service`, AUR, KDE Store) follow as described in the packaging doc.
 
 The **`/release`** skill drives this checklist end to end (`/bump` → drift check → build → test → commit → push).
 

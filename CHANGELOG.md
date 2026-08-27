@@ -43,6 +43,15 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Removed
 
+- **Fedora COPR dropped as a distribution channel — OBS builds the Fedora RPM from the same spec** (PERC-0002)
+  It would have been a second build service producing one artefact from one
+  spec, with a second set of credentials and a second thing to keep current.
+  Fedora users are unaffected: OBS builds Fedora targets, and the
+  `%if 0%{?fedora}` guards in the spec stay, because package names differ
+  between the distro families regardless of who builds them.
+  `packaging/submit/copr.sh` is deleted. The spec also cited a
+  `packaging/rpm/COPR.md` that never existed.
+
 ### Fixed
 
 - **The Flathub manifest now builds — it was based on the wrong Qt toolkit and could not be built by anyone** (PERC-0002)

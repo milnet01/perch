@@ -36,8 +36,8 @@ Perch appears in your system tray. Right-click the tray icon for everything —
 snap presets, layouts, and settings. To start it automatically at login, use
 the **General → Start at login** toggle in its settings.
 
-> **Coming soon:** one-command installs via Flathub, the AUR, Fedora COPR, and
-> openSUSE — see the [roadmap](ROADMAP.md#v101--get-it-downloadable).
+> **Coming soon:** one-command installs via Flathub, the AUR, and openSUSE —
+> see the [roadmap](ROADMAP.md#v101--get-it-downloadable).
 > For now, the AppImage above is the easy button.
 
 ---

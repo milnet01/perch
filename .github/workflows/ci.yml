@@ -87,7 +87,7 @@ jobs:
   packaging:
     # Packaging-artefact validation: the metainfo + desktop entry + the
     # Flatpak manifest + the RPM spec all have to stay well-formed so a
-    # Flathub/OBS/COPR/AUR submission doesn't fail at the last step.
+    # Flathub/OBS/AUR submission doesn't fail at the last step.
     # Runs independent of the test matrix so validation failures surface
     # without blocking on the Python test grid.
     runs-on: ubuntu-24.04
@@ -125,7 +125,7 @@ jobs:
           yamllint -d "{extends: relaxed, rules: {line-length: disable}}" \
               packaging/flathub/io.github.milnet01.Perch.yml
 
-      - name: rpmspec parse (OBS/COPR spec)
+      - name: rpmspec parse (OBS spec)
         run: |
           # `rpmspec -P` expands macros and prints the parsed spec to
           # stdout; exit code is non-zero on syntax errors. We redirect

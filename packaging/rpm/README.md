@@ -1,7 +1,7 @@
 # Perch RPM packaging
 
-This directory carries the unified RPM spec that openSUSE OBS and Fedora
-COPR both consume. One spec, two distro targets, distinguished by the
+This directory carries the unified RPM spec that openSUSE OBS builds for
+both distro families. One spec, two distro targets, distinguished by the
 `%if 0%{?suse_version}` / `%if 0%{?fedora}` guards inline where package
 names legitimately differ.
 
@@ -9,8 +9,8 @@ names legitimately differ.
 
 | File | Purpose |
 |---|---|
-| `perch.spec` | Authoritative RPM spec. Single-source for OBS and COPR. |
-| `_service` | OBS source-service descriptor — clones `main`, tars it, rewrites `Version:` from the tag. Only read by OBS; COPR ignores it. |
+| `perch.spec` | Authoritative RPM spec. Single-source for the openSUSE and Fedora builds. |
+| `_service` | OBS source-service descriptor — clones `main`, tars it, rewrites `Version:` from the tag. |
 
 ## openSUSE OBS flow
 
@@ -37,28 +37,17 @@ Ubuntu 24.04).
 automatically via `obs_scm`. Manual re-triggers via
 `osc service runall`.
 
-## Fedora COPR flow
+## Fedora
 
-**One-shot submission:** `./packaging/submit/copr.sh`
+Fedora RPMs are built by OBS from this same spec — OBS builds for Fedora
+targets as well as openSUSE ones, so there is no second pipeline. Fedora
+COPR was considered and dropped for that reason (2026-08-27): it would
+have been a second build service producing one artefact from one spec,
+with two sets of credentials and two things to keep current.
 
-Creates the COPR project on first run; re-runs submit a new build
-from the current `pyproject.toml` version (which must match an
-existing upstream tag).
-
-Prerequisites:
-- `copr-cli` installed (`dnf install copr-cli` on Fedora;
-  `pip install --user copr-cli` elsewhere).
-- API token in `~/.config/copr` — get it at
-  <https://copr.fedorainfracloud.org/api/>.
-
-**Project**: `<user>/perch` on <https://copr.fedorainfracloud.org>.
-
-**Targets enabled**: Fedora latest, openSUSE Tumbleweed (default
-chroots in the submit script; override with `COPR_CHROOTS`).
-
-The submit script uses COPR's tarball-URL build source pointing at
-`https://github.com/milnet01/perch/archive/v${VERSION}/perch-${VERSION}.tar.gz`
-— no custom script needed.
+The `%if 0%{?fedora}` guards in the spec stay — they exist because
+package names differ between the distro families, which is unrelated to
+which service does the building.
 
 ## Local smoke build
 
@@ -98,5 +87,4 @@ the standard practice across projects packaged on both infrastructures
 - `perch.spec` `Version:` is bumped by `/bump`.
 - CHANGELOG entry for the release.
 - OBS rebuild fires automatically on tag (via `_service`).
-- COPR rebuild is triggered manually (or via webhook — see Fedora flow).
-- `docs/10-packaging.md` moves the OBS and COPR channel rows to "live".
+- `docs/10-packaging.md` moves the OBS channel row to "live".

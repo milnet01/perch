@@ -87,7 +87,7 @@ Upstream GNOME extension APIs break every major release:
 
 **Flatpak Perch cannot install the extension.** There is no portal for shell-extension installation, and a Flatpak can't write into `~/.local/share/gnome-shell/extensions/` in a way GNOME will trust. Three documented user paths:
 
-1. **Recommended**: ship the extension as a **separate distro package** — Fedora COPR / openSUSE OBS / AUR — or publish to extensions.gnome.org (EGO).
+1. **Recommended**: ship the extension as a **separate distro package** — openSUSE OBS / AUR — or publish to extensions.gnome.org (EGO).
 2. **Fallback**: ask the user to install it via `com.mattjakeman.ExtensionManager` from Flathub, which *can* write to `~/.local/share/gnome-shell/extensions/` because it runs with the right portal access.
 3. **Dev path**: Perch ships a script that drops the extension files into `~/.local/share/gnome-shell/extensions/perch@milnet01.github.io/` and prints instructions to run `gnome-extensions enable perch@milnet01.github.io` and log out / in.
 

@@ -44,8 +44,7 @@ Install options
 ---------------
 
 - Flatpak (Flathub) — cross-distro, sandboxed, recommended.
-- openSUSE OBS — `home:milnet01/perch` on Tumbleweed.
-- Fedora COPR — `milnet01/perch`.
+- openSUSE OBS — `home:milnet01/perch`, Tumbleweed and Fedora.
 - Arch Linux AUR — `perch` (stable) or `perch-git` (HEAD).
 
 Support

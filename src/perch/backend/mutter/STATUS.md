@@ -47,7 +47,7 @@ shell-extension installation, and a Flatpak can't write into
 
 Three user paths (order of preference):
 
-1. **Distro package** — Fedora COPR / openSUSE OBS / AUR ship the
+1. **Distro package** — openSUSE OBS / AUR ship the
    extension alongside Perch.
 2. **Extension Manager** — `com.mattjakeman.ExtensionManager` from
    Flathub can write to `~/.local/share/gnome-shell/extensions/`.

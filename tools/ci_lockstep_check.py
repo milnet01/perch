@@ -58,7 +58,7 @@ EQUIVALENT: dict[str, list[str]] = {
     "appstream-util validate (metainfo)": ["appstreamcli validate (metainfo)"],
     "desktop-file-validate": ["desktop-file-validate"],
     "yamllint (Flatpak manifest)": ["yamllint (Flatpak manifest)"],
-    "rpmspec parse (OBS/COPR spec)": ["rpmspec parse (OBS/COPR spec)"],
+    "rpmspec parse (OBS spec)": ["rpmspec parse (OBS spec)"],
     "PKGBUILD shell syntax (bash -n)": [
         "PKGBUILD bash -n (release)",
         "PKGBUILD bash -n (git)",

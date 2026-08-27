@@ -7,7 +7,7 @@ Authoritative packaging artefacts live under `packaging/`:
 | Path | Channel |
 |---|---|
 | `packaging/flathub/io.github.milnet01.Perch.yml` + `SUBMISSION.md` | Flathub |
-| `packaging/rpm/perch.spec` + `_service` + `README.md` | openSUSE OBS, Fedora COPR |
+| `packaging/rpm/perch.spec` + `_service` + `README.md` | openSUSE OBS (openSUSE and Fedora RPMs) |
 | `packaging/aur/PKGBUILD` + `.SRCINFO`, `packaging/aur/perch-git/PKGBUILD` + `.SRCINFO`, `README.md` | AUR |
 | `packaging/kde-store/LISTING.md` | KDE Store |
 
@@ -16,8 +16,7 @@ Submission runbooks live under `packaging/submit/`:
 | Channel | Runbook | Notes |
 |---|---|---|
 | Flathub | `packaging/submit/flathub.sh` | Needs `flatpak-builder`; stages by default, `--push` opens the PR. |
-| openSUSE OBS | `packaging/submit/obs.sh` | Needs `osc` + `~/.oscrc`. |
-| Fedora COPR | `packaging/submit/copr.sh` | Needs `copr-cli` + `~/.config/copr` API token. |
+| openSUSE OBS | `packaging/submit/obs.sh` | Needs `osc` + `~/.config/osc/oscrc`. Builds the Fedora RPM too. |
 | AUR | `packaging/submit/aur.sh <perch\|perch-git>` | Needs SSH key registered on AUR account. |
 | KDE Store | `packaging/submit/kde-store.md` | Web-only submission — runbook, not CLI. |
 
@@ -52,8 +51,7 @@ The GitHub namespace (`milnet01`) is chosen as the project owner's stable identi
 |---|---|---|
 | **AppImage** | Anyone — download one file, run it, no install | recipe at `packaging/appimage/`; the self-contained download attached to each GitHub release (§ AppImage below). **The available download today.** |
 | **Flathub (Flatpak)** | Anyone — primary cross-distro store channel | manifest authored at `packaging/flathub/`; Flathub submission tracked as PERC-0002 in `ROADMAP.md` |
-| **openSUSE OBS** | openSUSE Tumbleweed & Leap users | spec + `_service` authored at `packaging/rpm/`; OBS project `home:milnet01/perch` tracked under v1.0.1 |
-| **Fedora COPR** | Fedora / RHEL clones | same spec as OBS; COPR project tracked under v1.0.1 |
+| **openSUSE OBS** | openSUSE Tumbleweed & Leap users, and Fedora / RHEL clones | spec + `_service` authored at `packaging/rpm/`; OBS builds both distro families from the one spec; OBS project `home:milnet01/perch` tracked under v1.0.1 |
 | **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs authored at `packaging/aur/`; AUR push tracked under v1.0.1 (user-maintained is acceptable) |
 | **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`; entry created when Flathub goes live |
 | **PyPI** | Python devs who want to `pipx install perch` | not v1 |
@@ -156,7 +154,7 @@ Non-Flatpak installs don't need the copy — the RPM/PKGBUILD drops the script u
 Flatpak **cannot** install a GNOME Shell extension. There is no portal for shell-extension installation, and the sandbox cannot write trusted files into `~/.local/share/gnome-shell/extensions/`. For Flatpak Perch on GNOME:
 
 1. Flatpak ships Perch itself (the tray, core, Mutter backend *Python* glue).
-2. The extension is delivered separately: a distro package (COPR/OBS/AUR/Debian), or via extensions.gnome.org (EGO), or by asking the user to install `com.mattjakeman.ExtensionManager` from Flathub and point it at EGO.
+2. The extension is delivered separately: a distro package (OBS/AUR/Debian), or via extensions.gnome.org (EGO), or by asking the user to install `com.mattjakeman.ExtensionManager` from Flathub and point it at EGO.
 3. On first run, if the extension is absent, Perch's tray icon shows a warning state ("awaiting GNOME extension") and the config dialog surfaces install instructions.
 
 This is documented prominently in the README and the config dialog; it is not considered a regression because Perch's Mutter support is a stub (see [06-backend-stubs.md](06-backend-stubs.md)).
@@ -243,14 +241,14 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 ### OBS setup
 
 - Project: `home:milnet01` initially → promote to `X11:Utilities` or `KDE:Extra` if accepted.
-- Multi-distro targets: Tumbleweed (primary), Leap 16 (if PySide6 is available), Fedora via COPR (not OBS).
+- Multi-distro targets: Tumbleweed (primary), Leap 16 (if PySide6 is available), and Fedora — all built by OBS from the one spec.
 - Uses `_service` file to auto-pull new tags.
 
-## Fedora COPR
+## Fedora
 
-Same RPM spec, hosted at `copr.fedorainfracloud.org/coprs/milnet01/perch`. COPR builds on Fedora's infra and distributes via `dnf`. Targets: Fedora current + previous, CentOS Stream 10.
+Fedora RPMs come from OBS, built from the same spec as the openSUSE ones — OBS builds Fedora targets, so one project covers both distro families.
 
-The COPR spec is identical to the OBS one modulo package name differences (`python3-PySide6` vs `python3-pyside6` etc.); a small substitution header in the spec handles this.
+Fedora COPR was considered and dropped (2026-08-27): it would have been a second build service producing one artefact from one spec, with a second set of credentials and a second thing to keep current. The `%if 0%{?fedora}` guards in the spec stay, because package names differ between the families (`python3-PySide6` vs `python3-pyside6`); that is unrelated to which service builds them.
 
 ## AUR
 
@@ -402,7 +400,7 @@ a release is tagged.
   going-live work is PERC-0002, see [`ROADMAP.md`](../ROADMAP.md)):
   - Flathub: open/refresh the manifest PR against the Flathub repo.
   - openSUSE OBS: the `_service` picks up the tag once the OBS project exists.
-  - Fedora COPR: build triggered manually.
+
   - AUR: `perch` PKGBUILD `pkgver` bumped and pushed manually.
   - KDE Store: updated from the Flatpak artefact.
 

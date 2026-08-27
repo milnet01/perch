@@ -70,7 +70,7 @@ Every dependency — runtime library, dev/test tool, CI action, Python runtime, 
 - **Async glue:** `qasync` — one event loop drives both Qt and asyncio.
 - **D-Bus:** `sdbus-python` (async, C-backed via libsystemd). `dbus-next` was the initial pick but is effectively dormant upstream since 2022; swapped during Phase 2 research (see `docs/11-roadmap.md` findings log).
 - **X11:** `python-xlib` directly, with a small in-tree EWMH wrapper. `python-ewmh` was the initial pick but is unmaintained since 2017 and not packaged on Fedora/openSUSE.
-- **Packaging:** Hatchling build backend; Flatpak manifest for Flathub; RPM spec for openSUSE OBS + Fedora COPR; PKGBUILD for AUR.
+- **Packaging:** Hatchling build backend; Flatpak manifest for Flathub; RPM spec for openSUSE OBS, which builds the Fedora RPM too; PKGBUILD for AUR.
 
 ## Backend-plugin architecture
 

@@ -1,16 +1,16 @@
 # ============================================================================
 # RPM spec for Perch — persistent, compositor-aware window geometry manager.
 # ============================================================================
-# Single spec targets both openSUSE (OBS) and Fedora (COPR); distro splits
-# are handled with %%if 0%%{?suse_version} / %%if 0%%{?fedora} conditionals
-# where package names legitimately differ (PySide6 case, mainly).
+# Single spec targets both openSUSE and Fedora; distro splits are handled
+# with %%if 0%%{?suse_version} / %%if 0%%{?fedora} conditionals where package
+# names legitimately differ (PySide6 case, mainly). Both are built by OBS,
+# which builds Fedora RPMs as well as openSUSE ones -- Fedora COPR was
+# dropped as a channel because it was a second pipeline for one artefact.
 #
 # Build invocation (local smoke):
 #   rpmbuild -bb --define "_sourcedir $(pwd)" packaging/rpm/perch.spec
 #
 # Build invocation (OBS): driven by the _service file next to this spec.
-# Build invocation (COPR): COPR reads the spec + source from the srpm we
-#   upload; see packaging/rpm/COPR.md.
 # ============================================================================
 
 Name:           perch
@@ -42,7 +42,7 @@ Requires:       python3-tomlkit >= 0.13
 
 # PySide6 package name casing differs per distro. openSUSE ships
 # `python3-PySide6`; Fedora ships `python3-pyside6` (all lower). The
-# `%if` guards keep this spec consumable by both OBS and COPR.
+# `%if` guards keep this spec consumable on both distro families.
 %if 0%{?suse_version}
 Requires:       python3-PySide6 >= 6.8
 %else
@@ -145,6 +145,6 @@ python3 -c 'import json, sys; json.load(open("%{buildroot}%{_datadir}/perch/kwin
 
 %changelog
 # The RPM %changelog is deliberately empty. Perch's upstream changelog is
-# CHANGELOG.md; OBS/COPR auto-generate %changelog entries from git tags
-# via osc / tito conventions respectively. Keeping a hand-maintained
-# second changelog here is a documented anti-pattern.
+# CHANGELOG.md; OBS auto-generates %changelog entries from git tags via
+# the osc convention. Keeping a hand-maintained second changelog here is
+# a documented anti-pattern.

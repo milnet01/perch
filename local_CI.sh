@@ -153,7 +153,7 @@ need yamllint "zypper in python3-yamllint" \
        packaging/flathub/io.github.milnet01.Perch.yml
 
 need rpmspec "zypper in rpm-build" \
-  && run "rpmspec parse (OBS/COPR spec)" \
+  && run "rpmspec parse (OBS spec)" \
        bash -c 'rpmspec -P packaging/rpm/perch.spec > /dev/null'
 
 run "PKGBUILD bash -n (release)" bash -n packaging/aur/PKGBUILD
