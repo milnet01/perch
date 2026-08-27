@@ -134,6 +134,21 @@ Goal: anyone can install Perch without building from source.
   checks this item lists, two remain and both need a human at the screen:
   geometry remembered across a close/reopen, and the config dialog opening
   and saving. The PR is still not open.
+  Progress (2026-08-27, build refreshed): the installed local Flatpak was
+  rebuilt from HEAD after the PERC-0037 fix landed, so the manual checks
+  below now run against code that includes it. Verified by finding
+  _await_portal_response in the installed
+  files/lib/python3.13/site-packages/perch/autostart.py; build + smoke
+  green (perch --version, --check-config, sandbox imports).
+
+  The manual list is unchanged and still needs a human at the screen:
+  geometry remembered across a close/reopen, and the config dialog opening
+  and saving. Worth a third glance while there, though it gates nothing:
+  ticking "start Perch at login" now reaches the Background portal
+  correctly, and the portal shows a one-time permission prompt.
+
+  The Flathub PR is still not open and must not be opened before those
+  checks.
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
