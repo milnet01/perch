@@ -97,6 +97,19 @@ Goal: anyone can install Perch without building from source.
 
   The Flathub PR is NOT open and must not be opened -- blocked by PERC-0036,
   found by running the built Flatpak on this live KDE Wayland session.
+  Resolved for OBS (2026-08-27): BOTH targets build green at revision 8 --
+  perch-1.0.0-8.1.noarch.rpm on openSUSE_Tumbleweed AND Fedora_44. The
+  BuildRequires: hicolor-icon-theme was the last fix; the note above saying
+  Tumbleweed's result was unseen is superseded.
+
+  Not yet done for OBS: publishing the repository (the project builds but
+  has not been announced), and a README install section pointing at
+  https://software.opensuse.org//download.html?project=home%3Amilnet%3Aperch&package=perch
+  once the user is happy to advertise it.
+
+  Channels remaining on this item: Flathub (blocked, PERC-0036), AUR
+  (blocked on the maintainer's account), KDE Store (manual web listing,
+  wants Flathub live first).
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
