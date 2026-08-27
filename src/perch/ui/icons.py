@@ -6,16 +6,19 @@ Per :file:`docs/08-ui.md` §Tray icon the tray has three visual states:
 * warning  — ``perch-tray-warning-symbolic`` (backend disconnected, extension missing)
 * error    — ``perch-tray-error-symbolic`` (no compatible compositor)
 
-When Perch is installed into a system prefix the icon theme lookup via
-:meth:`QIcon.fromTheme` is authoritative; the panel recolours the
-symbolic glyph to match the user's theme. The bundled SVGs under
-``data/icons/hicolor/symbolic/status/`` ship as the last-resort fallback
-so a dev checkout still renders a sensible tray icon — Qt's SVG
+The icon theme lookup via :meth:`QIcon.fromTheme` is tried first, so the
+panel can recolour the symbolic glyph to match the user's theme. It is
+not relied on: measured on a live Plasma session with ``breeze-dark``,
+:meth:`QIcon.hasThemeIcon` returns ``False`` for all three names even
+where the SVGs are installed under ``share/icons/hicolor/symbolic/status/``.
+The bundled SVGs are therefore the load-bearing path, and they are looked
+for under the install prefix as well as in a dev checkout — Qt's SVG
 renderer handles every HiDPI scale factor without raster variants.
 """
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,34 +34,48 @@ class TrayIcons:
     error: QIcon
 
 
-def _bundled_icon_dir() -> Path:
-    """Return the dev-checkout path for the bundled status icons.
+#: Where the status SVGs sit under any icon-theme root.
+_ICON_SUBPATH = "share/icons/hicolor/symbolic/status"
 
-    The wheel ships ``data/`` alongside the package via Hatch's sdist
-    include list (see :file:`pyproject.toml`); the dev path here resolves
-    relative to the package root so tests and ``python -m perch`` pick
-    the same SVGs whether the project is installed or run in place.
-    """
+
+def _dev_icon_dir() -> Path:
+    """Dev-checkout path: ``src/perch/ui`` up to the repo root."""
     return (
         Path(__file__).resolve().parents[3]
         / "data/icons/hicolor/symbolic/status"
     )
 
 
+def _prefix_icon_dir() -> Path:
+    """Installed path — ``/app`` under Flatpak, ``/usr`` under an RPM.
+
+    Every packaging recipe installs the three SVGs here, so this is the
+    candidate that works once Perch is no longer being run from its
+    source tree.
+    """
+    return Path(sys.prefix) / _ICON_SUBPATH
+
+
+def _bundled_icon_dirs() -> tuple[Path, ...]:
+    """Fallback search order: installed first, dev checkout second."""
+    return (_prefix_icon_dir(), _dev_icon_dir())
+
+
 def _load_fallback(basename: str) -> QIcon:
-    path = _bundled_icon_dir() / f"{basename}.svg"
-    if path.is_file():
-        return QIcon(str(path))
+    for directory in _bundled_icon_dirs():
+        path = directory / f"{basename}.svg"
+        if path.is_file():
+            return QIcon(str(path))
     return QIcon()
 
 
 def load_tray_icons() -> TrayIcons:
     """Load the three tray-state icons with ``fromTheme`` → bundled fallback.
 
-    On packaged installs the theme lookup succeeds once the icons land at
-    ``<prefix>/share/icons/hicolor/symbolic/status/``. On a dev checkout
-    the ``fromTheme`` call returns a null ``QIcon`` (no theme entry) and
-    we fall through to the bundled SVG next to the source tree.
+    The theme lookup is best-effort and usually misses, so the bundled
+    SVG is what normally renders. It is searched for under the install
+    prefix first and the dev checkout second, which is what keeps the
+    tray icon from coming out null on a Flatpak or RPM install.
     """
     return TrayIcons(
         normal=QIcon.fromTheme(

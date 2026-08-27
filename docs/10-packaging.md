@@ -132,7 +132,10 @@ is the runbook. The decisions worth knowing without opening either:
   `sdbus` wheel covers.
 - **`finish-args` carries no `--socket=session-bus`.** Named `--talk-name`
   entries are how a sandboxed app reaches specific services; the blanket
-  socket makes them meaningless and Flathub's linter rejects it.
+  socket makes them meaningless and Flathub's linter rejects it. Each
+  service Perch needs must therefore be named — including
+  `org.kde.StatusNotifierWatcher`, without which the tray icon, and so the
+  whole interface, never appears.
 - **No `--device=dri`** — Perch renders no 3D surface, and the tray icon and
   dialogs work on llvmpipe.
 

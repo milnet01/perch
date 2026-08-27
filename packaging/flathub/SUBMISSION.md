@@ -127,6 +127,7 @@ body.
 | Entry | Why it stays |
 |---|---|
 | `--talk-name=org.kde.KWin` | Perch drives window placement through KWin's scripting interface. This is the core function on Plasma Wayland, and there is no portal equivalent. |
+| `--talk-name=org.kde.StatusNotifierWatcher` | Perch has no window — the tray icon is its entire interface. Without this the sandbox answers `ServiceUnknown`, so Perch can neither probe for a StatusNotifier host nor register its item, and nothing appears in the panel. |
 | `--filesystem=xdg-data/kwin/scripts:create` | KWin runs on the host and cannot read `/app`, so the bundled script is mirrored into the host's script directory at first run. Perch resolves that target from `$HOME`, not from the sandbox's `XDG_DATA_HOME`. |
 
 The rest were removed after the linter reported them, and should not be

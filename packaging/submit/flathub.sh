@@ -165,6 +165,9 @@ These finish-args entries need justification:
 - --talk-name=org.kde.KWin — Perch drives window placement through KWin's
   scripting D-Bus interface. This is the app's core function on Plasma
   Wayland; there is no portal equivalent.
+- --talk-name=org.kde.StatusNotifierWatcher — Perch has no window; the tray
+  icon is its entire interface. Without this the sandbox answers
+  ServiceUnknown and nothing appears in the panel.
 - --filesystem=xdg-data/kwin/scripts:create — KWin runs on the host and
   cannot read /app, so the bundled KWin script has to be mirrored into the
   host's script directory at first run.

@@ -283,6 +283,68 @@ Goal: anyone can install Perch without building from source.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the PERC-0036 Flatpak build.
 
+- 📋 [PERC-0038] **Flatpak has no talk-name for StatusNotifierWatcher, so the tray never registers.**
+  BLOCKS the Flathub submission (PERC-0002).
+
+  Observed 2026-08-27, Flatpak on a live Plasma session:
+    WARNING perch.app: no StatusNotifierHost detected; tray icon may be
+      invisible
+    WARNING perch.qt: KDE platform plugin is loaded but SNI unavailable
+
+  Proved from inside the sandbox -- a QDBusInterface call to
+  org.kde.StatusNotifierWatcher returns
+  org.freedesktop.DBus.Error.ServiceUnknown, while `busctl --user list`
+  on the host shows kded6 owning that exact name. The manifest grants
+  talk-names for org.kde.KWin, org.kde.kglobalaccel and
+  org.freedesktop.Notifications only, so xdg-dbus-proxy filters the
+  watcher out. Perch can neither probe for a host nor register its item.
+
+  A native run of the same code on the same session logs none of these
+  warnings, which rules out the session.
+
+  Fix: add --talk-name=org.kde.StatusNotifierWatcher to finish-args and
+  justify it in SUBMISSION.md -- for a tray-only application the tray is
+  the entire interface, so this is load-bearing rather than a preference.
+  Re-run flatpak-builder-lint afterwards.
+
+  Separate second cause of the same symptom: PERC-0039.
+  **Layman:** Installed as a Flatpak, Perch's tray icon never appears — and the tray is the whole interface
+  Kind: fix.
+  Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
+
+- 📋 [PERC-0039] **Tray icons resolve to a dev-checkout path, so installed layouts get a null icon.**
+  BLOCKS the Flathub submission (PERC-0002), and is NOT Flatpak-specific.
+
+  Observed 2026-08-27, Flatpak on a live Plasma session:
+    WARNING perch.qt: QSystemTrayIcon::setVisible: No Icon set
+
+  perch.ui.icons.load_tray_icons tries QIcon.fromTheme first and falls
+  back to _bundled_icon_dir(), which is
+  Path(__file__).resolve().parents[3] / "data/icons/hicolor/symbolic/status".
+  That arithmetic is correct for a dev checkout (src/perch/ui -> repo
+  root) and wrong for every installed layout: from
+  /app/lib/python3.13/site-packages/perch/ui it yields
+  /app/lib/python3.13/data/..., which does not exist.
+
+  Measured on this machine, both lookups fail in the Flatpak even though
+  the three SVGs ARE installed at
+  /app/share/icons/hicolor/symbolic/status/, so the theme lookup is not
+  covering for the broken fallback. QIcon.hasThemeIcon returns False for
+  all three names on a real Plasma session with breeze-dark, so
+  load_tray_icons()'s docstring claim that the theme lookup succeeds on
+  packaged installs is unverified at best.
+
+  Suggested fix: also try sys.prefix/share/icons/hicolor/symbolic/status,
+  which resolves under Flatpak (/app), an RPM (/usr) and a venv install,
+  keeping the existing dev-checkout path. Needs a test that fails when
+  the package is imported from a site-packages-shaped layout.
+
+  Check the AppImage and the RPM for the same symptom before closing --
+  the dev checkout is the only layout the current code gets right.
+  **Layman:** The tray icon file is looked for in a folder that only exists when running from the source code
+  Kind: fix.
+  Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
+
 ## v1.1 — Onboarding & robustness
 
 Goal: fewer first-run support tickets; the config is safe.

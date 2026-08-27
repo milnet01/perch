@@ -73,6 +73,18 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Tray icons no longer come out null on an installed layout** (PERC-0039)
+  The bundled-SVG fallback resolved a path relative to the source tree,
+  which only exists in a dev checkout — under Flatpak it pointed at a
+  directory that is not there, and the icon-theme lookup does not cover for
+  it. The install prefix (`/app`, `/usr`, or a venv) is now searched first.
+
+- **Flatpak tray icon now appears — granted the StatusNotifierWatcher talk-name** (PERC-0038)
+  The sandbox answered `ServiceUnknown` for `org.kde.StatusNotifierWatcher`,
+  so Perch could neither probe for a StatusNotifier host nor register its
+  item. Perch has no window, so this left the Flatpak with no interface at
+  all.
+
 - **KWin script now installs to the host path under Flatpak** (PERC-0036)
   Inside a Flatpak, `XDG_DATA_HOME` is redirected into the sandbox, so the
   bundled KWin script was mirrored to a path KWin — which runs on the host —

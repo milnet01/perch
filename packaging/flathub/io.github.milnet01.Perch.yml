@@ -57,6 +57,10 @@ finish-args:
   - --talk-name=org.kde.KWin                 # KWin scripting IPC
   - --talk-name=org.kde.kglobalaccel         # hotkey registration fallback
   - --talk-name=org.freedesktop.Notifications # backend_error balloons
+  # Without this the tray icon never appears: xdg-dbus-proxy answers
+  # ServiceUnknown, so Perch can neither probe for a StatusNotifier host
+  # nor register its item. Perch has no window -- the tray IS the app.
+  - --talk-name=org.kde.StatusNotifierWatcher
 
   # Filesystem access. KWin on the host cannot read /app, so the bundled
   # KWin script has to be mirrored into the host's script directory at
