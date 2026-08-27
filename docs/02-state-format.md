@@ -262,7 +262,7 @@ Three classes, named so the bar is falsifiable:
 - **Need not come across** — `state.json`: last-seen geometries, active profile, active layout. B restores nothing until it has observed a window itself. An imported machine that places no windows on first launch has succeeded, not failed.
 - **Comes across but may not fire** — anything keyed to hardware: a rule or layout naming `monitor = "HDMI-1"`, a profile `topology` string. The entry must be present and valid on B; it stays inert until B has an output of that name. Perch never rewrites output names on import, and an unmatched topology leaves B on "unknown topology" ([`09-layouts-profiles.md`](09-layouts-profiles.md)).
 
-Coverage: the import half is exercised by `tests/ui/test_import_export_pane.py` (validation, dry-run diff, atomic replace). The export half has no automated test that calls `ImportExportPage._on_export` — verifying it is manual until one exists.
+Coverage: both halves are exercised by `tests/ui/test_import_export_pane.py` — import through validation, dry-run diff and atomic replace; export by calling `ImportExportPage._on_export` with the file picker stubbed, and asserting the written file is byte-identical to `config.toml`.
 
 ## Log file
 

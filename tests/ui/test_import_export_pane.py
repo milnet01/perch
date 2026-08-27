@@ -187,21 +187,43 @@ def test_cancel_import_resets_pending_state(
 
 
 def test_export_writes_current_config_file(
-    qtbot: QtBot, tmp_path: Path, dialog: tuple[ConfigDialog, Path]
+    qtbot: QtBot,
+    tmp_path: Path,
+    dialog: tuple[ConfigDialog, Path],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dlg, path = dialog
     qtbot.addWidget(dlg)
     page = _page(dlg)
 
-    # Simulate user picking a target path (bypass the QFileDialog).
+    # A marker only the on-disk file carries. docs/02-state-format.md
+    # § Export / import says export copies config.toml verbatim, so an
+    # export that re-serialised the in-memory document would drop this
+    # comment and fail the assertion below.
+    marked = path.read_text(encoding="utf-8") + "\n# exported-verbatim marker\n"
+    path.write_text(marked, encoding="utf-8")
+
     target = tmp_path / "exported.toml"
-    target.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
-    assert target.exists()
-    assert "schema_version = 1" in target.read_text(encoding="utf-8")
-    # Ensure the page would surface the target if its export flow ran
-    # without GUI interaction: the path mirrors the current config.
-    assert path.read_text(encoding="utf-8") == target.read_text(encoding="utf-8")
-    _ = page  # keep fixture live; the page itself drives the QFileDialog
+
+    # _on_export takes its destination from QFileDialog.getSaveFileName and
+    # reports success with a modal QMessageBox — stub both so the real
+    # export flow runs headless.
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *args, **kwargs: (str(target), ""),
+    )
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Ok,
+    )
+
+    page._on_export()
+
+    assert target.read_text(encoding="utf-8") == marked
 
 
 def test_page_is_never_dirty(
