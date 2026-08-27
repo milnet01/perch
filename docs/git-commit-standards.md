@@ -54,7 +54,9 @@ One logical change per commit; the subject should describe it in full without an
 
 ## The push gate — green `local_CI.sh` before every push
 
-Hard rule: run `./local_CI.sh` and get `safe to push` **before every push**. It mirrors both jobs of `.github/workflows/ci.yml` on one interpreter (CI additionally runs a 3.12 / 3.13 / 3.14 matrix, so a version-specific failure can still slip past a green local run — that is the one gap the local gate cannot close). A red push wastes a CI run to report what the script catches in seconds.
+Hard rule: run `./local_CI.sh` and get `safe to push` **before every push**. It mirrors every job of `.github/workflows/ci.yml` on one interpreter (CI additionally runs a 3.12 / 3.13 / 3.14 matrix, so a version-specific failure can still slip past a green local run — that is the one gap the local gate cannot close). A red push wastes a CI run to report what the script catches in seconds.
+
+A documentation-only push runs `./local_CI.sh --docs`, which the pre-push hook selects on its own; [contributing-dev-setup.md](contributing-dev-setup.md) owns what counts as documentation and the two `git config` keys that configure it.
 
 ## Push cadence (public repo)
 

@@ -10,6 +10,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **`local_CI.sh --docs` — a documentation-only push no longer runs the full suite** (PERC-0034)
+  New `tools/docs_check.py` verifies every relative link in the docs set
+  resolves and that no retired or forbidden string has crept outside the
+  documents that record it. It runs as a third `ci.yml` job and, via
+  `--docs`, alone — the pre-push hook selects that for a documentation-only
+  push, turning roughly half a minute of gate into well under a second.
+  `docs/contributing-dev-setup.md` owns what counts as documentation.
+
 - **Self-contained AppImage — a single-file, zero-dependency Linux download**
   Download → chmod +x → run; no Python, PySide6, or system packages for the user to install. Bundles the interpreter, Qt, and the xcb platform libraries (verified self-contained on a bare container). Recipe at packaging/appimage/; built and attached to releases by .github/workflows/release.yml.
 

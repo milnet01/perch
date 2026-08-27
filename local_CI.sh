@@ -21,9 +21,26 @@
 #   - Live tests: the pytest step excludes the `x11`/`kwin` markers (see the
 #     note at that step). CI installs no compositor so those tests skip there;
 #     excluding them locally keeps the "green local ⟹ green CI" implication.
+#
+# --docs runs the documentation job ALONE, for a documentation-only push. The
+# machine-wide pre-push hook selects it through two git config keys this repo
+# sets (see docs/contributing-dev-setup.md):
+#   git config ants.gate.docsMode --docs
+#   git config ants.gate.docsGlob 'docs/*.md|*.md|LICENSE'
+# The glob is deliberately narrow: data/*.metainfo.xml is NOT documentation
+# here, because appstreamcli validates it in the packaging job -- it is a gate
+# input wearing an XML extension. A wrong guess here must cost time, never
+# coverage, so anything not listed takes the full gate.
 
 set -uo pipefail
 cd "$(dirname "$0")"
+
+DOCS_ONLY=false
+case "${1:-}" in
+  --docs) DOCS_ONLY=true ;;
+  "")     ;;
+  *)      printf 'usage: %s [--docs]\n' "$0" >&2; exit 2 ;;
+esac
 
 # Use the project's .venv (the documented dev environment, see
 # docs/contributing-dev-setup.md) if present, so python/ruff/mypy/pytest all
@@ -83,6 +100,28 @@ need() {  # need <tool> "<install hint>" — records a failure if the tool is ab
   fi
 }
 
+verdict() {  # verdict "<label>" -- print the summary and exit
+  local label="$1"
+  if ((${#FAILED[@]})); then
+    printf '%s\n' "${RED}${BOLD}${label} FAILED — ${#FAILED[@]} check(s) below. Fix before pushing.${RESET}"
+    for f in "${FAILED[@]}"; do printf '  %s- %s%s\n' "$RED" "$f" "$RESET"; done
+    exit 1
+  fi
+  printf '%s\n' "${GREEN}${BOLD}All ${label} checks passed — safe to push.${RESET}"
+  exit 0
+}
+
+# ==== job: docs (ci.yml) =====================================================
+# Every relative link in the docs set resolves, and no retired or forbidden
+# string has crept outside the documents that exist to record it. Stdlib-only,
+# so it needs neither the venv nor a system package -- which is what lets
+# --docs run it on its own. The wider drift scan (tense against the roadmap,
+# whether a swapped library in prose is history or a live claim) needs a reader
+# and stays in the /perch-docs-check skill.
+run "docs check (links + drift)" "$PYTHON" tools/docs_check.py
+
+$DOCS_ONLY && verdict "docs"
+
 # ==== job: test (ci.yml) =====================================================
 need ruff   "pipx install ruff (or pip install -e '.[dev]')"   && run "ruff"  ruff check .
 need mypy   "pip install -e '.[dev]'"                          && run "mypy"  mypy
@@ -120,9 +159,4 @@ run "KWin script metadata.json well-formedness" \
   "$PYTHON" -c 'import json; json.load(open("src/perch/backend/kwin/script/metadata.json"))'
 
 # ==== verdict ================================================================
-if ((${#FAILED[@]})); then
-  printf '%s\n' "${RED}${BOLD}CI FAILED — ${#FAILED[@]} check(s) below. Fix before pushing.${RESET}"
-  for f in "${FAILED[@]}"; do printf '  %s- %s%s\n' "$RED" "$f" "$RESET"; done
-  exit 1
-fi
-printf '%s\n' "${GREEN}${BOLD}All CI checks passed — safe to push.${RESET}"
+verdict "CI"

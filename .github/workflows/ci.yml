@@ -69,6 +69,18 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: pytest -ra
 
+  docs:
+    # Mechanical documentation checks: every relative link resolves, and no
+    # retired or forbidden string has crept outside the documents that exist
+    # to record it. Stdlib-only, so there is nothing to install. This is the
+    # same script `./local_CI.sh --docs` runs for a documentation-only push.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: docs check (links + drift)
+        run: python3 tools/docs_check.py
+
   packaging:
     # Packaging-artefact validation: the metainfo + desktop entry + the
     # Flatpak manifest + the RPM spec all have to stay well-formed so a

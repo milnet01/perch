@@ -42,7 +42,7 @@ Fresh-environment behaviour (no existing config) is that Perch writes a default 
 ## Checks CI runs
 
 **Before every push, run [`local_CI.sh`](../local_CI.sh)** — it runs the same
-checks as `.github/workflows/ci.yml` (both jobs) on a single interpreter, so a
+checks as `.github/workflows/ci.yml` (every job) on a single interpreter, so a
 failure surfaces locally in seconds instead of burning a CI run. (CI also runs
 the test job across a Python matrix; the script header explains how to match it
 locally.)
@@ -55,6 +55,33 @@ It auto-uses the project `.venv`, runs every check (rather than stopping at the
 first failure like CI does), and prints `safe to push` only when all pass. It
 must stay in lockstep with `ci.yml` — see the hard rule in
 [`CLAUDE.md`](../CLAUDE.md).
+
+### Documentation-only pushes
+
+`./local_CI.sh --docs` runs the docs job alone — `tools/docs_check.py`, which
+verifies every relative link in the docs set resolves and that no retired or
+forbidden string has crept outside the documents that record it. It is
+stdlib-only and finishes in well under a second, against roughly half a minute
+for the full gate.
+
+The pre-push hook selects it on its own. Two `git config` keys, set per clone,
+tell it how:
+
+```sh
+git config ants.gate.docsMode --docs
+git config ants.gate.docsGlob 'docs/*.md|*.md|LICENSE'
+```
+
+Both are required. Without the glob the hook falls back to deciding by file
+extension, which would let a lockfile or a workflow ride along as
+"documentation". The glob is narrow on purpose: `data/*.metainfo.xml` is **not**
+documentation here, because `appstreamcli` validates it in the packaging job.
+Anything the glob does not list takes the full gate — a wrong guess must cost
+time, never coverage.
+
+The check is the mechanical half of `/perch-docs-check`. That skill also reads
+tense against the roadmap and judges whether a swapped library named in prose
+is history or a live claim; both need a reader, so neither is in the gate.
 
 The individual test-job steps, if you want to run them by hand (same order as
 CI):
