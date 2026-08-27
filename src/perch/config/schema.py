@@ -48,6 +48,11 @@ class GeneralSettings:
     restore_on_open: bool = True
     notify_on_restore: bool = False
     theme: Theme = "auto"
+    # Not user-facing in the config dialog: the first-run wizard sets it on
+    # every exit so it never reappears unprompted. The default serves both
+    # audiences — a freshly-seeded config gets False, and an upgrading
+    # user's config simply lacks the key, which parses as False too.
+    onboarding_completed: bool = False
 
 
 @dataclass
@@ -76,7 +81,12 @@ def _parse_general(raw: Any) -> GeneralSettings:
     defaults = GeneralSettings()
     out = GeneralSettings()
 
-    for key in ("start_at_login", "restore_on_open", "notify_on_restore"):
+    for key in (
+        "start_at_login",
+        "restore_on_open",
+        "notify_on_restore",
+        "onboarding_completed",
+    ):
         if key in raw:
             setattr(out, key, _require_bool("general", key, raw[key]))
         else:
@@ -93,6 +103,7 @@ def _parse_general(raw: Any) -> GeneralSettings:
         "start_at_login",
         "restore_on_open",
         "notify_on_restore",
+        "onboarding_completed",
         "theme",
     }
     if unknown:

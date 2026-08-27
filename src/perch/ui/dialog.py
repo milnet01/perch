@@ -29,7 +29,7 @@ import contextlib
 import copy
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -87,7 +87,7 @@ from perch.config.edit import (
     reorder_rules,
     set_layout_description,
 )
-from perch.config.schema import VALID_THEMES
+from perch.config.schema import VALID_THEMES, GeneralSettings
 from perch.config.writer import load_document, write_document
 from perch.core.identity import compute_identity
 from perch.core.layouts import Layout, LayoutEntry
@@ -96,6 +96,7 @@ from perch.core.rules import Rule
 from perch.core.state_store import StateStore
 
 from .entry_editor import EntryEditorDialog, summarise_apply, summarise_match
+from .onboarding import run_setup_wizard
 from .rules_model import RulesModel
 from .widgets import HotkeyEdit
 from .windows_model import WindowsTableModel
@@ -164,7 +165,17 @@ class _DialogState:
 
 
 class GeneralPage(QWidget):
-    """The General section — four toggles and a theme combo."""
+    """The General section — four toggles, a theme combo and the wizard.
+
+    ``onboarding_completed`` has no checkbox here: it is not a user-facing
+    setting. The page carries the loaded value through :meth:`commit` so a
+    General save never rewrites it — miss that and every save re-triggers
+    the first-run wizard.
+    """
+
+    #: Emitted by "Run setup wizard again…". :class:`ConfigDialog` owns what
+    #: happens next; this page knows nothing of the wizard or the backend.
+    rerun_wizard_requested = Signal()
 
     def __init__(
         self, state: _DialogState, parent: QWidget | None = None
@@ -202,10 +213,16 @@ class GeneralPage(QWidget):
         self.theme.setCurrentText(state.config.general.theme)
         self.theme.currentIndexChanged.connect(self._mark_changed)
 
+        self.rerun_wizard = QPushButton(self.tr("Run setup wizard again…"))
+        self.rerun_wizard.clicked.connect(
+            lambda: self.rerun_wizard_requested.emit()
+        )
+
         layout.addRow(self.start_at_login)
         layout.addRow(self.restore_on_open)
         layout.addRow(self.notify_on_restore)
         layout.addRow(self.tr("Theme:"), self.theme)
+        layout.addRow(self.rerun_wizard)
 
     def _mark_changed(self, *_: Any) -> None:
         self._changed = True
@@ -213,14 +230,44 @@ class GeneralPage(QWidget):
     def is_dirty(self) -> bool:
         return self._changed
 
-    def commit(self) -> None:
-        """Apply the page's state into the ``[general]`` table."""
-        apply_general(
-            self._state.document,
+    def current_general(self) -> GeneralSettings:
+        """The ``[general]`` block as this page's widgets now express it.
+
+        One source of truth for :meth:`commit` and for the wizard hand-off,
+        so the two cannot map the widgets differently.
+        """
+        return GeneralSettings(
             start_at_login=self.start_at_login.isChecked(),
             restore_on_open=self.restore_on_open.isChecked(),
             notify_on_restore=self.notify_on_restore.isChecked(),
             theme=self.theme.currentData(),
+            onboarding_completed=self._state.config.general.onboarding_completed,
+        )
+
+    def reload(self, general: GeneralSettings) -> None:
+        """Re-seed the widgets from ``general`` and drop the dirty flag.
+
+        Used after the wizard writes config from underneath this page: a
+        stale checkbox would be committed back on the next OK and silently
+        revert what the wizard just saved.
+        """
+        self._state.config = replace(self._state.config, general=general)
+        self.start_at_login.setChecked(general.start_at_login)
+        self.restore_on_open.setChecked(general.restore_on_open)
+        self.notify_on_restore.setChecked(general.notify_on_restore)
+        self.theme.setCurrentText(general.theme)
+        self._changed = False
+
+    def commit(self) -> None:
+        """Apply the page's state into the ``[general]`` table."""
+        general = self.current_general()
+        apply_general(
+            self._state.document,
+            start_at_login=general.start_at_login,
+            restore_on_open=general.restore_on_open,
+            notify_on_restore=general.notify_on_restore,
+            theme=general.theme,
+            onboarding_completed=general.onboarding_completed,
         )
         self._changed = False
 
@@ -2388,8 +2435,10 @@ class ConfigDialog(QDialog):
         self._config_path = config_path
         self._backend = backend
         self._state_store = state_store
-        load_doc = load_document_callback or load_document
-        self._state = _DialogState(config=config, document=load_doc(config_path))
+        self._load_doc = load_document_callback or load_document
+        self._state = _DialogState(
+            config=config, document=self._load_doc(config_path)
+        )
         self._save = save_callback or write_document
 
         self._sidebar = QListWidget(self)
@@ -2404,6 +2453,11 @@ class ConfigDialog(QDialog):
             page = self._build_page(section)
             self._pages[section] = page
             self._stack.addWidget(page)
+            if isinstance(page, GeneralPage):
+                # Held typed so the wizard hand-off can reach the two
+                # methods ``_Page`` does not declare.
+                self._general_page = page
+                page.rerun_wizard_requested.connect(self._on_rerun_wizard)
 
         self._sidebar.currentRowChanged.connect(self._stack.setCurrentIndex)
         self._sidebar.setCurrentRow(0)
@@ -2468,6 +2522,33 @@ class ConfigDialog(QDialog):
 
     def _on_apply(self) -> None:
         self._commit_and_save()
+
+    def _on_rerun_wizard(self) -> None:
+        """Save the dialog, run the setup wizard, then re-seed the page.
+
+        Applying first matters both ways round: the wizard reads current
+        config rather than a stale value, and its Finish cannot overwrite
+        an unsaved dialog edit. Re-seeding afterwards matters because this
+        page also owns ``Start at login`` — a stale checkbox would be
+        committed back on the next OK and revert what the wizard saved.
+        """
+        if not self._commit_and_save():
+            return
+        config = replace(
+            self._state.config, general=self._general_page.current_general()
+        )
+        outcome = run_setup_wizard(
+            config,
+            self._backend,
+            self,
+            config_path=self._config_path,
+            load_document_callback=self._load_doc,
+            save_callback=self._save,
+        )
+        self._general_page.reload(outcome.config.general)
+        # The wizard wrote config behind the dialog's back; tell the app so
+        # the tray snapshot, autostart and theme reconcile as on any save.
+        self.saved.emit()
 
     def _on_ok(self) -> None:
         if self._commit_and_save():

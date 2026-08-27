@@ -41,6 +41,22 @@ def test_non_bool_toggle_rejected() -> None:
         validate({"general": {"start_at_login": "yes"}})
 
 
+def test_onboarding_completed_defaults_false_when_absent() -> None:
+    """An upgrading user's config lacks the key; it must parse, not raise.
+
+    Same default as a freshly-seeded config, so both audiences see the
+    first-run wizard exactly once.
+    """
+    config = validate({"general": {"start_at_login": True}})
+    assert config.general.onboarding_completed is False
+
+
+def test_onboarding_completed_is_read_back() -> None:
+    """Without this the wizard's write is never read and it shows every launch."""
+    config = validate({"general": {"onboarding_completed": True}})
+    assert config.general.onboarding_completed is True
+
+
 def test_unknown_general_key_rejected() -> None:
     with pytest.raises(SchemaError, match="unknown keys"):
         validate({"general": {"bogus": True}})

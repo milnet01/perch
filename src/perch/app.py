@@ -50,6 +50,7 @@ from .ui.intents import (
     SnapFocused,
     TogglePause,
 )
+from .ui.onboarding import appindicator_guidance, run_setup_wizard
 from .ui.sni_probe import is_gnome_wayland, sni_host_available
 from .ui.status import wire_backend_status
 from .ui.theming import apply_theme
@@ -73,14 +74,9 @@ def _maybe_show_appindicator_hint(parent: QCoreApplication | None) -> None:
         QCoreApplication.translate(ctx, "Perch — tray icon unavailable")
     )
     box.setIcon(QMessageBox.Icon.Information)
-    box.setText(
-        QCoreApplication.translate(
-            ctx,
-            "GNOME Wayland doesn't show tray icons by default. Please install "
-            "the <b>AppIndicator and KStatusNotifierItem Support</b> GNOME "
-            "extension to see Perch in your top bar.",
-        )
-    )
+    # Shared with the wizard's tray health-check row so the two cannot
+    # drift; the helper keeps this string's ``perch.app`` context.
+    box.setText(appindicator_guidance())
     box.setInformativeText(
         QCoreApplication.translate(
             ctx,
@@ -373,11 +369,31 @@ async def main(
     if not have_host:
         if gnome:
             awaiting_extension = True
-            _maybe_show_appindicator_hint(app)
         else:
             log.warning(
                 "no StatusNotifierHost detected; tray icon may be invisible"
             )
+
+    # Backend selection — probe the current session via ``select()`` and
+    # fall back to :class:`MockBackend` when no real transport is available
+    # (covers headless dev boxes and ``PERCH_BACKEND=mock``). It runs here,
+    # ahead of tray bring-up, because the wizard's Compositor row needs it.
+    backend = _select_backend()
+
+    # First run gets the setup wizard, on every desktop and independent of
+    # the tray condition above. Its tray health-check row already covers
+    # the no-tray case, so the standalone AppIndicator hint is skipped this
+    # launch — no double notification. Later launches keep that hint as the
+    # recurring safety net for a session that still has no tray host.
+    # See ``docs/08-ui.md`` §First-run setup wizard.
+    wizard_outcome = None
+    if not config.general.onboarding_completed:
+        wizard_outcome = run_setup_wizard(
+            config, backend, None, have_host=have_host, gnome=gnome
+        )
+        config = wizard_outcome.config
+    elif awaiting_extension:
+        _maybe_show_appindicator_hint(app)
 
     tray_state = _initial_tray_state(
         config, awaiting_extension=awaiting_extension
@@ -388,10 +404,6 @@ async def main(
     tray = TrayIcon(controller, icons=icons)
     tray.show()
 
-    # Backend selection — probe the current session via ``select()`` and
-    # fall back to :class:`MockBackend` if no real transport is available
-    # (covers headless dev boxes and ``PERCH_BACKEND=mock``).
-    backend = _select_backend()
     # Wire status signals before start() so a synchronous
     # backend_connected from start() still updates the tray.
     wire_backend_status(backend, controller, tray)
@@ -443,6 +455,11 @@ async def main(
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    # "Show me what else Perch can do" on the wizard's last page. Deferred
+    # to here because ``open_dialog`` does not exist while the wizard runs.
+    if wizard_outcome is not None and wizard_outcome.show_config_dialog:
+        open_dialog(None)
 
     controller.intent.connect(
         lambda intent: _handle_intent(

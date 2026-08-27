@@ -57,10 +57,16 @@ def apply_general(
     restore_on_open: bool,
     notify_on_restore: bool,
     theme: str,
+    onboarding_completed: bool,
 ) -> None:
-    """Mutate ``document`` so ``[general]`` reflects the four toggles.
+    """Mutate ``document`` so ``[general]`` reflects the toggles.
 
     Creates the ``[general]`` table if absent.
+
+    ``onboarding_completed`` is required rather than defaulted on purpose:
+    it is not user-facing, so a caller with no checkbox for it must pass
+    the current value through explicitly. A default would let any caller
+    silently clobber the flag and re-trigger the first-run wizard.
     """
     if theme not in VALID_THEMES:
         raise ConfigEditError(
@@ -74,6 +80,7 @@ def apply_general(
     general["start_at_login"] = start_at_login
     general["restore_on_open"] = restore_on_open
     general["notify_on_restore"] = notify_on_restore
+    general["onboarding_completed"] = onboarding_completed
     general["theme"] = theme
 
 

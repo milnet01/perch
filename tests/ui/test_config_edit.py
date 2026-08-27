@@ -53,6 +53,7 @@ def test_apply_general_flips_toggles_and_preserves_comments() -> None:
         restore_on_open=False,
         notify_on_restore=True,
         theme="light",
+        onboarding_completed=False,
     )
     out = tomlkit.dumps(doc)
     assert "Top-of-file comment — must survive round-trip." in out
@@ -73,6 +74,7 @@ def test_apply_general_rejects_unknown_theme() -> None:
             restore_on_open=True,
             notify_on_restore=False,
             theme="solarized",
+            onboarding_completed=False,
         )
 
 
@@ -84,6 +86,7 @@ def test_apply_general_creates_section_when_absent() -> None:
         restore_on_open=False,
         notify_on_restore=True,
         theme="dark",
+        onboarding_completed=True,
     )
     rendered = tomlkit.dumps(doc)
     assert "[general]" in rendered
@@ -179,6 +182,7 @@ def test_fixture_file_round_trips_after_edits() -> None:
         restore_on_open=True,
         notify_on_restore=False,
         theme="auto",
+        onboarding_completed=False,
     )
     delete_exclusion(doc, 0)
     out = tomlkit.dumps(doc)

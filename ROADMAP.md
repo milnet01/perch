@@ -468,21 +468,57 @@ Goal: anyone can install Perch without building from source.
 
 Goal: fewer first-run support tickets; the config is safe.
 
-- 📋 [PERC-0003] **First-run setup wizard.**
+- ✅ [PERC-0003] **First-run setup wizard.**
   Detect the compositor, verify the tray works (prompt to install the
   AppIndicator extension on GNOME Wayland, per the tray-visibility risk in
   `docs/11-roadmap.md`), confirm autostart. [M]
+  Started 2026-08-27. The design already exists and needed none written: docs/08-ui.md § First-run setup wizard specifies the three pages, the one-time `[general] onboarding_completed` flag, the five schema touch-points, the startup control flow and the re-run button. Its code claims were verified against the tree before starting -- `_select_backend` does run after `_maybe_show_appindicator_hint` (the documented reorder is needed), `apply_general` takes four keyword-only args with one production caller in `GeneralPage.commit` plus four test call-sites, `_GENERAL_BOOL_KEYS` is unused, and `sni_probe.is_gnome_wayland` exists. Scope confirmed with the user: PERC-0003 and PERC-0004 only; PERC-0005 stays a hook point.
+  Resolved (2026-08-27). Implemented exactly as docs/08-ui.md specified:
+  src/perch/ui/onboarding.py holds the three-page QWizard, the pure check_*()
+  badge functions and run_setup_wizard; the `[general] onboarding_completed`
+  key is carried at the five documented points; app.py selects the backend
+  ahead of tray bring-up and gates the wizard on the flag; Settings > General
+  gained a "Run setup wizard again..." button.
+
+  Two things the doc did not settle, decided here and written back into it.
+  The UI layer may not import perch.backend at runtime (see the package
+  docstring), so the compositor map keys on type(backend).__name__ and
+  BACKEND_LABELS is public, which lets a test assert one label per real
+  backend rather than reaching into a private. And the re-run button re-seeds
+  the General page after the wizard writes: that page owns the same "Start at
+  login" checkbox, and a stale one would be committed back on the next OK and
+  silently revert what the wizard saved.
+
+  Verified: 18 new tests, 821 passing (was 803), local_CI.sh green. Each new
+  assertion was proved non-vacuous by mutating one part of the behaviour at a
+  time -- writing the flag as false, letting Cancel keep the checkbox, dropping
+  a backend label, removing the key from the schema read loop, and clobbering
+  the flag on a General save. Each reddened exactly its own test and no other.
+  The AppIndicator extension URL was checked live (HTTP 200) before shipping.
+
+  Not covered by a test: the app.py startup gate itself. No test in this repo
+  imports perch.app, so covering it means building a harness for main() --
+  reported rather than absorbed. It is exercised by the first-run eyeball
+  check instead.
   **Layman:** A short guided setup the first time you run Perch, so it works before you touch any settings
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
-- 📋 [PERC-0004] **Zero-config first-run screen.**
+- ✅ [PERC-0004] **Zero-config first-run screen.**
   The wizard opens by stating the one thing that matters: just move your
   windows where you like them — Perch remembers, no rules or layouts required.
   Perch grew more capable than first envisioned (rules engine, layouts,
   per-monitor profiles, snap presets); this keeps that power opt-in rather than
   front-and-centre, so the complexity only surfaces for users who go looking
   for it. [S]
+  Started 2026-08-27. Delivered as page 1 of the PERC-0003 wizard -- docs/08-ui.md § First-run setup wizard makes the Welcome page the zero-config statement, with no controls beyond Next. Not a separate surface.
+  Resolved (2026-08-27). Shipped as page 1 of the PERC-0003 wizard, which is
+  what docs/08-ui.md specifies -- the Welcome page states "You don't need to
+  configure anything. Just move your windows where you like them -- Perch
+  remembers", and carries no controls beyond Next. The rules engine, layouts
+  and profiles stay opt-in and are reachable only via page 3's optional "Show
+  me what else Perch can do" tick-box, so the complexity surfaces for users
+  who go looking for it.
   **Layman:** The first thing Perch tells you is that you do not have to configure anything
   Kind: ux.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).

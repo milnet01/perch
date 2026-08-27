@@ -9,6 +9,7 @@ injected callback so tests never touch a real config.toml.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -135,6 +136,29 @@ def test_general_page_persists_toggles_on_ok(
     assert 'theme             = "light"' in saved_text or 'theme = "light"' in saved_text
     # Top-of-file comment survives the full round-trip through tomlkit.
     assert "Top-of-file comment — must survive round-trip." in saved_text
+
+
+def test_general_save_preserves_onboarding_completed(
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path,
+) -> None:
+    """The General page has no checkbox for the flag, so it must pass it
+    through. Miss this and every save re-triggers the first-run wizard.
+    """
+    dialog, path, _saves = _open_dialog(tmp_path, xdg_env)
+    qtbot.addWidget(dialog)
+
+    general = dialog._pages[SECTION_GENERAL]
+    assert isinstance(general, GeneralPage)
+    general._state.config = replace(
+        general._state.config,
+        general=replace(general._state.config.general, onboarding_completed=True),
+    )
+    general.notify_on_restore.setChecked(True)
+
+    dialog._on_ok()
+
+    saved = tomlkit.parse(path.read_text(encoding="utf-8"))
+    assert saved["general"]["onboarding_completed"] is True
 
 
 def test_cancel_does_not_save(

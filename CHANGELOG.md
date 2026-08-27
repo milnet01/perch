@@ -10,6 +10,28 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **First-run setup wizard, opening on the zero-config message** (PERC-0003)
+  `src/perch/ui/onboarding.py` adds the three-page `QWizard` specified in
+  `docs/08-ui.md`. Page 1 states the only thing that matters — you don't need
+  to configure anything, just move your windows and Perch remembers (that page
+  is PERC-0004). Page 2 checks the setup: tray visibility, start-at-login, and
+  which compositor was detected. Page 3 offers an optional route into the
+  config dialog. Badge logic for the two real checks lives in pure `check_*()`
+  functions, so it is tested without a live desktop; start-at-login is a
+  preference and renders on/off, never a warning.
+
+  Gated on a new `[general] onboarding_completed`, which defaults false and is
+  absent from the seeded config, so a fresh install and an upgrading config
+  both see the wizard exactly once. It is written on every exit — Finish,
+  Cancel and window-close — so it never reappears unprompted; Finish also
+  persists and applies the autostart choice, while Cancel changes no system
+  setting. Settings → General carries a **Run setup wizard again…** button,
+  which saves the dialog first and re-seeds the page afterwards so the two
+  cannot fight over `Start at login`.
+
+  The GNOME-Wayland AppIndicator guidance is now shared between the wizard's
+  tray row and the standalone hint in `perch.app`, so the two cannot drift.
+
 - **Tray menu: a Donate submenu and a Report an issue entry** (PERC-0035)
   Donate opens as a submenu with one entry per destination in
   `.github/FUNDING.yml`; Report an issue opens the GitHub issue tracker. Both
