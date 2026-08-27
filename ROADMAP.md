@@ -185,7 +185,7 @@ Goal: anyone can install Perch without building from source.
   Kind: chore.
   Source: in-session-2026-08-27, prompted by the pre-push hook's own hint.
 
-- 🚧 [PERC-0036] **Flatpak writes the KWin script inside the sandbox, so KWin never sees it.**
+- ✅ [PERC-0036] **Flatpak writes the KWin script inside the sandbox, so KWin never sees it.**
   BLOCKS the Flathub submission (PERC-0002). Do not open that PR until this
   is fixed.
 
@@ -232,9 +232,56 @@ Goal: anyone can install Perch without building from source.
   and confirm on a live Plasma Wayland session that the script appears at
   ~/.local/share/kwin/scripts/org.milnet01.perch and that KWin loads it.
   A headless run cannot see this. The Flathub PR stays shut until then.
+  Resolved (2026-08-27). Verified on a live Plasma Wayland session with a
+  LOCAL flatpak-build.sh build of commit c76db7e. Both paths were emptied
+  first so the mirror had to prove itself:
+    installing KWin script v1.1.2 to
+      /home/ants/.local/share/kwin/scripts/org.milnet01.perch
+    loaded KWin script org.milnet01.perch as id=0
+    KWin script ready (version='1.1.2')
+  KWin on the host loaded it, which is the end-to-end proof a headless
+  build cannot give. ~/.var/app/io.github.milnet01.Perch/data/kwin was
+  never recreated.
+  The config half shipped too: --filesystem=xdg-config/perch:create is
+  gone from the manifest, and SUBMISSION.md, submit/flathub.sh and
+  docs/02-state-format.md no longer claim the Flatpak shares a config
+  with a native install.
+  The same run surfaced an unrelated defect, filed as PERC-0037:
+  portal_set_autostart() treats RequestBackground's return as the result
+  dict when it is the Request object path, so Flatpak autostart raises.
+  It does not block the Flathub submission -- autostart simply does not
+  take effect.
   **Layman:** Installed as a Flatpak, Perch cannot control windows on KDE — the helper it gives KDE is saved somewhere KDE cannot read
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the built Flatpak.
+
+- 📋 [PERC-0037] **Flatpak autostart raises: RequestBackground's return is read as the result.**
+  Observed 2026-08-27 running the Flatpak on a live session:
+
+    Task exception was never retrieved
+    File ".../perch/autostart.py", line 170, in portal_set_autostart
+      granted = bool(result.get("autostart", False))
+    AttributeError: 'str' object has no attribute 'get'
+
+  org.freedesktop.portal.Background.RequestBackground returns the object
+  path of a Request handle, not the result. The result arrives later on
+  that Request's Response signal, as (uint32 response, a{sv} results).
+  portal_set_autostart treats the return value as the result dict, so
+  every Flatpak autostart call raises before it can read `autostart`.
+
+  The same file's hotkey sibling already does this correctly --
+  PortalGlobalShortcutsProvider correlates per-Request Response signals
+  (see the M8.e CHANGELOG entry) -- so the pattern to follow is in-tree.
+
+  Effect: autostart silently never takes effect under Flatpak, and the
+  task dies unretrieved rather than logging a warning. Does NOT block the
+  Flathub submission.
+
+  Needs a test that fails when the return value is treated as a mapping,
+  and a live re-run: the portal shows a permission prompt on first call.
+  **Layman:** Ticking "start Perch at login" does nothing in the Flatpak build
+  Kind: fix.
+  Source: in-session-2026-08-27, live Plasma Wayland run of the PERC-0036 Flatpak build.
 
 ## v1.1 — Onboarding & robustness
 
