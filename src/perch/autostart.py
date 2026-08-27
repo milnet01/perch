@@ -132,22 +132,54 @@ def xdg_disable() -> None:
 #: sdbus build we still want :func:`sync` to import without exploding.
 PortalFactory = Callable[[], Any]
 
+#: Builds a proxy for one ``org.freedesktop.portal.Request`` object from its
+#: path. Same laziness rationale as :data:`PortalFactory`.
+RequestFactory = Callable[[str], Any]
+
+#: Portal bus name and root object path — every portal interface lives on
+#: the same object.
+PORTAL_SERVICE = "org.freedesktop.portal.Desktop"
+PORTAL_OBJECT = "/org/freedesktop/portal/desktop"
+
+#: Success code of an ``org.freedesktop.portal.Request`` response.
+PORTAL_RESPONSE_SUCCESS = 0
+
+#: How long to wait for the Request's ``Response`` signal. The portal shows
+#: a permission dialog on the first call per install and the response only
+#: arrives once the user has answered, so this is deliberately generous —
+#: the call runs as a background task and blocks nothing.
+PORTAL_RESPONSE_TIMEOUT_S = 300.0
+
 
 async def portal_set_autostart(
-    enabled: bool, *, factory: PortalFactory | None = None
-) -> None:
+    enabled: bool,
+    *,
+    factory: PortalFactory | None = None,
+    request_factory: RequestFactory | None = None,
+    timeout_s: float = PORTAL_RESPONSE_TIMEOUT_S,
+) -> bool:
     """Ask the Background portal to enable/disable autostart for this app.
 
-    ``factory`` is an injection seam for tests: it's called to obtain an
-    already-proxied portal interface object so tests can hand in an
-    in-memory fake. Production callers leave it as ``None`` and the
-    function builds the real sdbus proxy.
+    Returns True when the portal reports autostart as granted, and False
+    for every other outcome — a refusal, a timeout, or no portal at all.
+
+    ``RequestBackground`` does not return the result. It returns the object
+    path of an ``org.freedesktop.portal.Request``, and the outcome arrives
+    later as that request's ``Response`` signal, carrying
+    ``(uint32 response, a{sv} results)``. The same correlation lives in
+    :class:`perch.backend.kwin.hotkeys.PortalGlobalShortcutsProvider`; it is
+    duplicated here rather than shared because this module keeps its sdbus
+    import lazy and that one does not.
+
+    ``factory`` and ``request_factory`` are injection seams for tests: each
+    is called to obtain an already-proxied object, so tests can hand in
+    in-memory fakes. Production callers leave both as ``None``.
 
     Note: on the first call per Flatpak install, the portal shows a
     permission prompt. Subsequent calls flip the flag silently. If the
-    user denies the prompt, ``RequestBackground`` returns
-    ``autostart=False`` and the portal won't autostart us; we log at
-    WARNING and treat that as "user said no" rather than as an error.
+    user denies the prompt, the response carries ``autostart=False`` and
+    the portal won't autostart us; we log at WARNING and treat that as
+    "user said no" rather than as an error.
     """
     portal = (factory or _build_portal_proxy)()
     options: dict[str, Any] = {
@@ -159,20 +191,64 @@ async def portal_set_autostart(
         # on $PATH inside the sandbox courtesy of the wheel's entry point.
         options["commandline"] = ("as", ["perch"])
     try:
-        result = await portal.request_background("", options)
+        request_path = await portal.request_background("", options)
+        response = await _await_portal_response(
+            request_path, request_factory=request_factory, timeout_s=timeout_s
+        )
     except Exception as exc:
         log.warning("portal RequestBackground failed: %s", exc)
-        return
-    # Portal returns a Request object handle; the outcome is delivered
-    # via that request's Response signal. The wrapper inside
-    # :class:`BackgroundPortalProxy` below subscribes to the response and
-    # resolves the awaitable to the final dict.
-    granted = bool(result.get("autostart", False))
+        return False
+    if response is None:
+        log.warning(
+            "portal RequestBackground: no Response within %.0fs", timeout_s
+        )
+        return False
+    status, results = response
+    if status != PORTAL_RESPONSE_SUCCESS:
+        log.warning("portal RequestBackground refused (response=%s)", status)
+        return False
+    granted = bool(results.get("autostart", False))
     log.info(
         "portal RequestBackground: autostart requested=%s granted=%s",
         enabled,
         granted,
     )
+    return granted
+
+
+async def _await_portal_response(
+    request_path: str,
+    *,
+    request_factory: RequestFactory | None = None,
+    timeout_s: float = PORTAL_RESPONSE_TIMEOUT_S,
+) -> tuple[int, dict[str, Any]] | None:
+    """Await the first ``Response`` signal on ``request_path``.
+
+    Returns ``(response_code, results)`` with the ``a{sv}`` variants
+    unwrapped, or ``None`` on timeout.
+    """
+    request = (request_factory or _build_request_proxy)(request_path)
+    iterator = request.response.catch()
+    try:
+        payload = await asyncio.wait_for(
+            iterator.__anext__(), timeout=timeout_s
+        )
+    except TimeoutError:
+        return None
+    status, results = payload
+    return int(status), {k: _unwrap_variant(v) for k, v in results.items()}
+
+
+def _unwrap_variant(value: Any) -> Any:
+    """Unwrap an sdbus variant tuple ``(signature, value)`` to its value.
+
+    A four-line twin of the helper in :mod:`perch.backend.kwin.hotkeys`;
+    copied for the lazy-import reason given in
+    :func:`portal_set_autostart`.
+    """
+    if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], str):
+        return value[1]
+    return value
 
 
 def _build_portal_proxy() -> Any:
@@ -194,17 +270,32 @@ def _build_portal_proxy() -> Any:
 
         @dbus_method_async(
             input_signature="sa{sv}",
-            result_signature="a{sv}",
+            result_signature="o",
             method_name="RequestBackground",
         )
         async def request_background(  # type: ignore[empty-body]
             self, parent_window: str, options: dict[str, Any]
-        ) -> dict[str, Any]: ...
+        ) -> str: ...
 
-    return BackgroundPortalProxy.new_proxy(
-        "org.freedesktop.portal.Desktop",
-        "/org/freedesktop/portal/desktop",
-    )
+    return BackgroundPortalProxy.new_proxy(PORTAL_SERVICE, PORTAL_OBJECT)
+
+
+def _build_request_proxy(path: str) -> Any:
+    """Construct the real sdbus proxy for one portal Request object."""
+    from sdbus import DbusInterfaceCommonAsync, dbus_signal_async
+
+    class RequestProxy(
+        DbusInterfaceCommonAsync,
+        interface_name="org.freedesktop.portal.Request",
+    ):
+        """Proxy for ``/org/freedesktop/portal/desktop/request/...``."""
+
+        @dbus_signal_async(signal_name="Response")
+        def response(  # type: ignore[empty-body]
+            self,
+        ) -> tuple[int, dict[str, tuple[str, Any]]]: ...
+
+    return RequestProxy.new_proxy(PORTAL_SERVICE, path)
 
 
 # ── Façade ──────────────────────────────────────────────────────────────────
@@ -215,6 +306,7 @@ def sync(
     *,
     flatpak: bool | None = None,
     portal_factory: PortalFactory | None = None,
+    portal_request_factory: RequestFactory | None = None,
 ) -> None:
     """Reconcile the system's autostart state with ``enabled``.
 
@@ -222,12 +314,17 @@ def sync(
     schedules the async portal call on the running loop if one exists;
     otherwise runs it to completion via :func:`asyncio.run`.
 
-    ``flatpak`` and ``portal_factory`` are injection seams for tests.
+    ``flatpak``, ``portal_factory`` and ``portal_request_factory`` are
+    injection seams for tests.
     """
     in_flatpak = is_flatpak() if flatpak is None else flatpak
     if in_flatpak:
         _run_portal_call(
-            portal_set_autostart(enabled, factory=portal_factory)
+            portal_set_autostart(
+                enabled,
+                factory=portal_factory,
+                request_factory=portal_request_factory,
+            )
         )
         return
     if enabled:
@@ -250,14 +347,14 @@ def _run_portal_call(coro: Any) -> None:
     except RuntimeError:
         asyncio.run(coro)
         return
-    task: asyncio.Task[None] = loop.create_task(coro)
+    task: asyncio.Task[bool] = loop.create_task(coro)
     # The set pattern mirrors :mod:`perch.app` — holds a strong ref so
     # the GC doesn't reclaim the task mid-flight.
     _portal_tasks.add(task)
     task.add_done_callback(_portal_tasks.discard)
 
 
-_portal_tasks: set[asyncio.Task[None]] = set()
+_portal_tasks: set[asyncio.Task[bool]] = set()
 
 
 def sync_from_config(config: Config) -> None:

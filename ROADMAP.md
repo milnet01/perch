@@ -279,7 +279,7 @@ Goal: anyone can install Perch without building from source.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the built Flatpak.
 
-- 📋 [PERC-0037] **Flatpak autostart raises: RequestBackground's return is read as the result.**
+- ✅ [PERC-0037] **Flatpak autostart raises: RequestBackground's return is read as the result.**
   Observed 2026-08-27 running the Flatpak on a live session:
 
     Task exception was never retrieved
@@ -303,6 +303,30 @@ Goal: anyone can install Perch without building from source.
 
   Needs a test that fails when the return value is treated as a mapping,
   and a live re-run: the portal shows a permission prompt on first call.
+  Resolved (2026-08-27). portal_set_autostart now takes the object path
+  RequestBackground returns, subscribes to that Request's Response signal
+  and reads `autostart` from the results dict, unwrapping the a{sv}
+  variants. It returns whether autostart was granted, and logs a warning
+  on a refusal, a non-zero response code or a timeout (300 s, generous
+  because the response only arrives once the user has answered the
+  permission dialog). The proxy's result signature was "a{sv}" and is now
+  "o", which is what the interface actually declares.
+
+  Pattern copied from PortalGlobalShortcutsProvider as planned; the
+  Response correlation and a four-line variant unwrapper are duplicated
+  rather than shared, because this module keeps its sdbus import lazy so
+  `sync` imports on a box with no sdbus build.
+
+  Verified: against the pre-fix source the same call raises
+  AttributeError: 'str' object has no attribute 'get' -- the traceback
+  this item recorded -- and 8 of the autostart tests fail; after the fix
+  all 20 pass and local_CI.sh is green (803 passed, 16 skipped). Four new
+  tests lock the behaviour: the Response is awaited on the path the portal
+  handed back, a denied grant, a non-zero response code, and a timeout.
+
+  Not done: the live re-run in the Flatpak. It needs a human to answer the
+  portal's permission prompt, so it is grouped with the two eyeball checks
+  PERC-0002 still lists.
   **Layman:** Ticking "start Perch at login" does nothing in the Flatpak build
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the PERC-0036 Flatpak build.

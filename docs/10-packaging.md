@@ -375,9 +375,13 @@ effect immediately without a restart:
   `X-GNOME-Autostart-enabled=true`. Atomic temp-and-rename so a
   half-written file never reaches the session manager.
 - **Flatpak**: calls `org.freedesktop.portal.Background.RequestBackground`
-  with `autostart=true` and `commandline=["perch"]`. The portal shows
-  a permission prompt on first use and silently flips the flag
-  thereafter. Exceptions from the portal are logged at WARNING and
+  with `autostart=true` and `commandline=["perch"]`. That method returns
+  the object path of an `org.freedesktop.portal.Request`, not the result —
+  the outcome arrives as that request's `Response` signal, carrying
+  `(uint32 response, a{sv} results)`, and `autostart` is read from there.
+  The portal shows a permission prompt on first use and silently flips the
+  flag thereafter, so the wait for the response is long. A refusal, a
+  timeout, or an exception from the portal is logged at WARNING and
   swallowed — a portal outage must not block a config save.
 
 Which path we pick is driven by `/.flatpak-info` — the canonical

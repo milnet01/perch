@@ -86,6 +86,17 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Flatpak autostart: read the portal's Response, not the Request path** (PERC-0037)
+  `org.freedesktop.portal.Background.RequestBackground` returns the object
+  path of an `org.freedesktop.portal.Request`; the outcome arrives later as
+  that request's `Response` signal. `portal_set_autostart` read the returned
+  path as the result dict, so every Flatpak autostart toggle raised
+  `AttributeError: 'str' object has no attribute 'get'` in a task nobody
+  retrieved — autostart silently never took effect and nothing was logged.
+  It now correlates the Response the way `PortalGlobalShortcutsProvider`
+  already did, returns whether autostart was granted, and logs a warning on
+  a refusal, a non-zero response code or a timeout.
+
 - **The tray-host probe no longer reports "no host" inside a Flatpak** (PERC-0040)
   It let sdbus pick the default bus, which fails outright in a sandbox where
   `DBUS_SESSION_BUS_ADDRESS` is `/run/flatpak/bus`; every failure is

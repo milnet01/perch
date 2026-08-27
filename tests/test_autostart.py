@@ -148,23 +148,62 @@ def test_is_flatpak_false_on_dev_host() -> None:
 # ── Portal path (mocked) ─────────────────────────────────────────────────────
 
 
-class _FakePortal:
-    """Records calls to RequestBackground and returns a scripted result."""
+class _FakeResponseSignal:
+    """Stands in for an sdbus signal descriptor: ``.catch()`` yields once."""
 
-    def __init__(self, *, granted: bool = True) -> None:
+    def __init__(self, payload: tuple[int, dict[str, Any]]) -> None:
+        self._payload = payload
+
+    def catch(self) -> Any:
+        async def _iter() -> Any:
+            yield self._payload
+
+        return _iter()
+
+
+class _FakePortal:
+    """Records RequestBackground calls and scripts the Request's Response.
+
+    Doubles as the ``request_factory``: calling the instance with a path
+    hands back the same object, so a test builds one fake, not two.
+    """
+
+    #: Shape the portal really uses — the value must never be treated as
+    #: the result dict, which is the defect PERC-0037 fixed.
+    REQUEST_PATH = "/org/freedesktop/portal/desktop/request/1_1/perch"
+
+    def __init__(self, *, granted: bool = True, response_code: int = 0) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.subscribed: list[str] = []
         self._granted = granted
+        self._response_code = response_code
 
     async def request_background(
         self, parent_window: str, options: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> str:
         self.calls.append((parent_window, options))
-        return {"autostart": self._granted}
+        return self.REQUEST_PATH
+
+    def __call__(self, path: str) -> _FakePortal:
+        self.subscribed.append(path)
+        return self
+
+    @property
+    def response(self) -> _FakeResponseSignal:
+        # a{sv} — the value arrives variant-wrapped, as it does on the bus.
+        return _FakeResponseSignal(
+            (self._response_code, {"autostart": ("b", self._granted)})
+        )
 
 
 def test_portal_set_autostart_enabled() -> None:
     fake = _FakePortal()
-    asyncio.run(autostart.portal_set_autostart(True, factory=lambda: fake))
+    granted = asyncio.run(
+        autostart.portal_set_autostart(
+            True, factory=lambda: fake, request_factory=fake
+        )
+    )
+    assert granted is True
     assert len(fake.calls) == 1
     _, options = fake.calls[0]
     assert options["autostart"] == ("b", True)
@@ -173,7 +212,11 @@ def test_portal_set_autostart_enabled() -> None:
 
 def test_portal_set_autostart_disabled_omits_commandline() -> None:
     fake = _FakePortal()
-    asyncio.run(autostart.portal_set_autostart(False, factory=lambda: fake))
+    asyncio.run(
+        autostart.portal_set_autostart(
+            False, factory=lambda: fake, request_factory=fake
+        )
+    )
     _, options = fake.calls[0]
     assert options["autostart"] == ("b", False)
     # commandline is only meaningful when enabling — disabling should not
@@ -185,17 +228,99 @@ def test_portal_swallows_exceptions() -> None:
     class _ExplodingPortal:
         async def request_background(
             self, parent_window: str, options: dict[str, Any]
-        ) -> dict[str, Any]:
+        ) -> str:
             raise RuntimeError("portal unreachable")
 
     # A failing portal call must not crash autostart.sync — the user's
     # config save should still succeed.
-    asyncio.run(
-        autostart.portal_set_autostart(True, factory=lambda: _ExplodingPortal())
+    assert (
+        asyncio.run(
+            autostart.portal_set_autostart(
+                True, factory=lambda: _ExplodingPortal()
+            )
+        )
+        is False
+    )
+
+
+def test_portal_reads_the_response_not_the_request_path() -> None:
+    """RequestBackground returns a Request path, not the result.
+
+    The outcome arrives on that Request's ``Response`` signal. Reading the
+    return value as a mapping raises ``AttributeError`` on a ``str`` — the
+    live-Flatpak failure PERC-0037 records.
+    """
+    fake = _FakePortal(granted=True)
+    granted = asyncio.run(
+        autostart.portal_set_autostart(
+            True, factory=lambda: fake, request_factory=fake
+        )
+    )
+    assert granted is True
+    # The Response was awaited on the path the portal handed back.
+    assert fake.subscribed == [_FakePortal.REQUEST_PATH]
+
+
+def test_portal_denied_response_is_not_granted() -> None:
+    fake = _FakePortal(granted=False)
+    assert (
+        asyncio.run(
+            autostart.portal_set_autostart(
+                True, factory=lambda: fake, request_factory=fake
+            )
+        )
+        is False
+    )
+
+
+def test_portal_cancelled_request_is_not_granted() -> None:
+    # response != 0 means the user dismissed the permission dialog; the
+    # results dict is not authoritative then.
+    fake = _FakePortal(granted=True, response_code=1)
+    assert (
+        asyncio.run(
+            autostart.portal_set_autostart(
+                True, factory=lambda: fake, request_factory=fake
+            )
+        )
+        is False
+    )
+
+
+def test_portal_response_timeout_is_not_granted() -> None:
+    class _SilentRequest:
+        @property
+        def response(self) -> Any:
+            class _Never:
+                def catch(self) -> Any:
+                    async def _iter() -> Any:
+                        await asyncio.Event().wait()
+                        yield (0, {})
+
+                    return _iter()
+
+            return _Never()
+
+    fake = _FakePortal()
+    assert (
+        asyncio.run(
+            autostart.portal_set_autostart(
+                True,
+                factory=lambda: fake,
+                request_factory=lambda _path: _SilentRequest(),
+                timeout_s=0.01,
+            )
+        )
+        is False
     )
 
 
 def test_sync_flatpak_routes_to_portal(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _FakePortal()
-    autostart.sync(True, flatpak=True, portal_factory=lambda: fake)
+    autostart.sync(
+        True,
+        flatpak=True,
+        portal_factory=lambda: fake,
+        portal_request_factory=fake,
+    )
     assert len(fake.calls) == 1
