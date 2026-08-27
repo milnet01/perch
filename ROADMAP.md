@@ -46,7 +46,7 @@ Goal: anyone can install Perch without building from source.
 
 ---
 
-- 📋 [PERC-0033] **test_export_writes_current_config_file never calls the export code.**
+- ✅ [PERC-0033] **test_export_writes_current_config_file never calls the export code.**
   tests/ui/test_import_export_pane.py::test_export_writes_current_config_file
   hand-copies config.toml to a target path and then asserts the copy equals the
   source. It never invokes ImportExportPage._on_export, so it cannot fail for any
@@ -58,6 +58,13 @@ Goal: anyone can install Perch without building from source.
 
   Until this lands, docs/02-state-format.md § Round-trip criterion states that the
   export half is manually verified only; fix that sentence in the same change.
+  Resolved (2026-08-27): the test stubs QFileDialog.getSaveFileName and
+  QMessageBox.information, calls _on_export, and asserts the written file
+  is byte-identical to the on-disk config -- a marker comment proves the
+  copy is verbatim rather than re-serialised. Confirmed falsifiable by
+  mutating the write in _on_export. docs/02-state-format.md
+  § Round-trip criterion's Coverage sentence updated in the same commit
+  (3612e1e).
   **Layman:** One of our tests claims to check the Export button but only copies a file itself, so the button could be broken and the test would still pass.
   Kind: test.
   Source: in-session-2026-08-27 while settling PERC-0032.
