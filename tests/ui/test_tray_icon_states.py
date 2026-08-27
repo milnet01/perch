@@ -103,7 +103,7 @@ def test_load_tray_icons_returns_non_null_bundle(qtbot: QtBot) -> None:
     assert not icons.error.isNull()
 
 
-def test_fallback_resolves_from_the_install_prefix(
+def test_fallback_resolves_from_the_xdg_data_dirs(
     qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """An installed layout has no repo root above the package.
@@ -111,18 +111,20 @@ def test_fallback_resolves_from_the_install_prefix(
     Under Flatpak the package lives at
     ``/app/lib/pythonX.Y/site-packages/perch/ui``, so walking up to a
     ``data/`` sibling of the source tree lands on a path that does not
-    exist and the tray icon comes out null. ``<prefix>/share/icons`` is
-    where every install mode actually puts them.
+    exist and the tray icon comes out null. ``XDG_DATA_DIRS`` is what
+    names the real location in every install mode — and it is not
+    ``sys.prefix``, which inside a Flatpak points at the runtime's
+    ``/usr`` while Perch's data sits under ``/app``.
     """
     del qtbot
-    prefix = tmp_path / "prefix"
-    installed = prefix / "share" / "icons" / "hicolor" / "symbolic" / "status"
+    installed = tmp_path / "app" / "share" / "icons" / "hicolor" / "symbolic" / "status"
     installed.mkdir(parents=True)
     (installed / "perch-tray-symbolic.svg").write_bytes(
         (icons_module._dev_icon_dir() / "perch-tray-symbolic.svg").read_bytes()
     )
+    monkeypatch.setenv("XDG_DATA_DIRS", f"{tmp_path / 'app' / 'share'}:/usr/share")
+    monkeypatch.setattr(sys, "prefix", "/usr")
     # Simulate the installed layout: the dev-checkout path is not there.
-    monkeypatch.setattr(sys, "prefix", str(prefix))
     monkeypatch.setattr(
         icons_module, "_dev_icon_dir", lambda: tmp_path / "no-such-checkout"
     )

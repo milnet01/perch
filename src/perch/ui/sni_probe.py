@@ -35,8 +35,16 @@ WATCHER_INTERFACE = "org.kde.StatusNotifierWatcher"
 
 
 def _sdbus_probe() -> bool:
-    """The real probe — talks to the session bus via sdbus-python."""
-    from sdbus import DbusInterfaceCommon, dbus_property
+    """The real probe — talks to the session bus via sdbus-python.
+
+    The session bus is opened explicitly rather than left to sdbus's
+    default. Inside a Flatpak the default open fails outright
+    (``sd_bus_open`` returns ENOENT), the probe is classified as a
+    transport failure, and Perch reports "no host" on a session that has
+    one — ``DBUS_SESSION_BUS_ADDRESS`` points at ``/run/flatpak/bus``,
+    which only the explicit user-bus open honours.
+    """
+    from sdbus import DbusInterfaceCommon, dbus_property, sd_bus_open_user
     from sdbus_block.dbus_daemon import FreedesktopDbus
 
     class _SNIWatcher(
@@ -51,10 +59,11 @@ def _sdbus_probe() -> bool:
         def is_status_notifier_host_registered(self) -> bool:
             return False
 
-    if not FreedesktopDbus().name_has_owner(WATCHER_BUS_NAME):
+    bus = sd_bus_open_user()
+    if not FreedesktopDbus(bus=bus).name_has_owner(WATCHER_BUS_NAME):
         log.debug("sni_probe: %s not owned", WATCHER_BUS_NAME)
         return False
-    watcher = _SNIWatcher(WATCHER_BUS_NAME, WATCHER_OBJECT_PATH)
+    watcher = _SNIWatcher(WATCHER_BUS_NAME, WATCHER_OBJECT_PATH, bus=bus)
     registered = bool(watcher.is_status_notifier_host_registered)
     log.debug(
         "sni_probe: watcher owned, IsStatusNotifierHostRegistered=%s",

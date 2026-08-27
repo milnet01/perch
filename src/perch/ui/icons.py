@@ -12,13 +12,13 @@ not relied on: measured on a live Plasma session with ``breeze-dark``,
 :meth:`QIcon.hasThemeIcon` returns ``False`` for all three names even
 where the SVGs are installed under ``share/icons/hicolor/symbolic/status/``.
 The bundled SVGs are therefore the load-bearing path, and they are looked
-for under the install prefix as well as in a dev checkout — Qt's SVG
-renderer handles every HiDPI scale factor without raster variants.
+for across the XDG data directories as well as in a dev checkout — Qt's
+SVG renderer handles every HiDPI scale factor without raster variants.
 """
 
 from __future__ import annotations
 
-import sys
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,8 +34,8 @@ class TrayIcons:
     error: QIcon
 
 
-#: Where the status SVGs sit under any icon-theme root.
-_ICON_SUBPATH = "share/icons/hicolor/symbolic/status"
+#: Where the status SVGs sit under any XDG data root.
+_ICON_SUBPATH = "icons/hicolor/symbolic/status"
 
 
 def _dev_icon_dir() -> Path:
@@ -46,19 +46,25 @@ def _dev_icon_dir() -> Path:
     )
 
 
-def _prefix_icon_dir() -> Path:
-    """Installed path — ``/app`` under Flatpak, ``/usr`` under an RPM.
+def _xdg_icon_dirs() -> tuple[Path, ...]:
+    """Installed paths, taken from the XDG data-directory search path.
 
-    Every packaging recipe installs the three SVGs here, so this is the
-    candidate that works once Perch is no longer being run from its
-    source tree.
+    This is where every packaging recipe puts the SVGs, and it is the one
+    lookup that is right in all of them. ``sys.prefix`` is not: inside a
+    Flatpak the interpreter comes from the runtime, so ``sys.prefix`` is
+    ``/usr`` while Perch's data is under ``/app`` — which
+    ``XDG_DATA_DIRS`` lists and ``sys.prefix`` cannot see.
     """
-    return Path(sys.prefix) / _ICON_SUBPATH
+    raw = os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share"
+    roots = [Path(entry) for entry in raw.split(":") if entry]
+    home = os.environ.get("XDG_DATA_HOME")
+    roots.insert(0, Path(home) if home else Path.home() / ".local" / "share")
+    return tuple(root / _ICON_SUBPATH for root in roots)
 
 
 def _bundled_icon_dirs() -> tuple[Path, ...]:
-    """Fallback search order: installed first, dev checkout second."""
-    return (_prefix_icon_dir(), _dev_icon_dir())
+    """Fallback search order: installed locations first, dev checkout last."""
+    return (*_xdg_icon_dirs(), _dev_icon_dir())
 
 
 def _load_fallback(basename: str) -> QIcon:

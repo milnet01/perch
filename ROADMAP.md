@@ -345,6 +345,35 @@ Goal: anyone can install Perch without building from source.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
 
+- 📋 [PERC-0040] **The SNI host probe opens the wrong bus, so it always fails under Flatpak.**
+  Found 2026-08-27 while fixing PERC-0038, by running perch.ui.sni_probe
+  inside the sandbox:
+
+    SdBusLibraryError: sd_bus_open(...) returned error number: 2
+
+  _sdbus_probe let sdbus pick the default bus. Inside a Flatpak
+  DBUS_SESSION_BUS_ADDRESS is unix:path=/run/flatpak/bus and the default
+  open returns ENOENT. sni_host_available catches every exception and
+  classifies it as "no host", so the failure is silent by design and
+  Perch reports no StatusNotifierHost on a session that has one --
+  IsStatusNotifierHostRegistered reads true on the host bus, and
+  sd_bus_open_user() inside the same sandbox reaches it fine.
+
+  Consequences, in order of severity: on GNOME Wayland the wrong branch
+  fires the "install the AppIndicator extension" first-run dialog at users
+  who need no such thing; everywhere else it is a spurious startup
+  warning, because app.py creates the tray regardless of a negative probe.
+
+  Fix: sd_bus_open_user() explicitly and pass the bus to both the
+  FreedesktopDbus helper and the watcher proxy.
+
+  Note the broad except in sni_host_available is what hid this. It is
+  correct to fail closed, but a transport failure and a genuine "no host"
+  are not the same answer and only one of them should be quiet.
+  **Layman:** Perch wrongly decides the desktop has no system tray when it is installed as a Flatpak
+  Kind: fix.
+  Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
+
 ## v1.1 — Onboarding & robustness
 
 Goal: fewer first-run support tickets; the config is safe.
