@@ -252,7 +252,17 @@ Every disk write follows the same recipe to survive crashes and power loss:
 - **Export**: writes `config.toml` as-is to a user-chosen path. Does *not* include `state.json` — last-seen geometries are machine-local and not worth shipping.
 - **Import**: reads a TOML file, validates its schema, offers a dry-run diff in the UI ("5 rules added, 2 layouts changed, 1 rule conflict"), and on confirmation replaces the current `config.toml` atomically.
 
-A separate "Include last-seen geometries" checkbox lets power users export state too, if they want to pre-seed a new machine.
+### Round-trip criterion
+
+Goal 8 of [`00-overview.md`](00-overview.md) — *"user config survives a reinstall or moves to a new machine"* — is met when exporting on machine A and importing on machine B leaves B's `config.toml` byte-identical to the exported file, and B's behaviour differs from A's only where the hardware does.
+
+Three classes, named so the bar is falsifiable:
+
+- **Must come across** — the whole of `config.toml`: `schema_version`, `[general]`, `[exclusions]`, `[snaps]`, every `[[rules]]`, every `[layouts.*]`, every `[[profiles]]`. Export copies the file verbatim and import replaces it atomically, so a partial transfer is a defect, not a design choice.
+- **Need not come across** — `state.json`: last-seen geometries, active profile, active layout. B restores nothing until it has observed a window itself. An imported machine that places no windows on first launch has succeeded, not failed.
+- **Comes across but may not fire** — anything keyed to hardware: a rule or layout naming `monitor = "HDMI-1"`, a profile `topology` string. The entry must be present and valid on B; it stays inert until B has an output of that name. Perch never rewrites output names on import, and an unmatched topology leaves B on "unknown topology" ([`09-layouts-profiles.md`](09-layouts-profiles.md)).
+
+Coverage: the import half is exercised by `tests/ui/test_import_export_pane.py` (validation, dry-run diff, atomic replace). The export half has no automated test that calls `ImportExportPage._on_export` — verifying it is manual until one exists.
 
 ## Log file
 

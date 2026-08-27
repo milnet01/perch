@@ -27,6 +27,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Docs no longer promise an "Include last-seen geometries" export checkbox that does not exist**
+  docs/02-state-format.md described an export checkbox for shipping state.json
+  alongside the config, contradicting its own Export bullet and docs/08-ui.md.
+  Export copies config.toml verbatim and has never included state.json. The
+  section now also states a round-trip criterion: what must survive an
+  export/import, what need not, and what travels but stays inert until the
+  target machine has matching monitors. (PERC-0031, PERC-0032)
+
 - **"Reapply rules now" is no longer a silent no-op**
   The tray "Reapply rules now" action was wired to recompute_topology(),
   whose topology-key early-return meant no window was re-evaluated unless the

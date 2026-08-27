@@ -46,6 +46,22 @@ Goal: anyone can install Perch without building from source.
 
 ---
 
+- 📋 [PERC-0033] **test_export_writes_current_config_file never calls the export code.**
+  tests/ui/test_import_export_pane.py::test_export_writes_current_config_file
+  hand-copies config.toml to a target path and then asserts the copy equals the
+  source. It never invokes ImportExportPage._on_export, so it cannot fail for any
+  defect in the export path -- a truism dressed as coverage.
+
+  _on_export takes its target from QFileDialog.getSaveFileName, so a test has to
+  monkeypatch that (the sibling import tests already monkeypatch QMessageBox the
+  same way) and then assert the written file matches the on-disk config.
+
+  Until this lands, docs/02-state-format.md § Round-trip criterion states that the
+  export half is manually verified only; fix that sentence in the same change.
+  **Layman:** One of our tests claims to check the Export button but only copies a file itself, so the button could be broken and the test would still pass.
+  Kind: test.
+  Source: in-session-2026-08-27 while settling PERC-0032.
+
 ## v1.1 — Onboarding & robustness
 
 Goal: fewer first-run support tickets; the config is safe.
@@ -154,7 +170,7 @@ Goal: fewer first-run support tickets; the config is safe.
 
 ---
 
-- 📋 [PERC-0031] **State what "your config survives a reinstall or a new machine" actually means.**
+- ✅ [PERC-0031] **State what "your config survives a reinstall or a new machine" actually means.**
   Found by an adopt-project cold read, 2026-08-26. Export / import is one of
   the nine v1 goals in docs/00-overview.md and is repeated in README.md, and it
   is the only one of them with no written sign of success anywhere in the docs.
@@ -169,11 +185,12 @@ Goal: fewer first-run support tickets; the config is safe.
   This is the single reason the project reads as workflow.md state 1 rather than
   state 2, despite v1.0.0 having shipped. Every other stated goal has a bar
   somewhere, several of them in docs/testing/*.md.
+  Resolved (2026-08-27): docs/02-state-format.md § Export / import gains a Round-trip criterion naming three classes -- what must come across (all of config.toml), what need not (state.json: last-seen geometries, active profile/layout), and what comes across but stays inert until the hardware matches (monitor names in rules/layouts, profile topology strings). Coverage is stated honestly: the import half has tests, the export half has none that call _on_export (filed as PERC-0033).
   **Layman:** Perch promises your settings survive moving to a new computer, but nowhere says what counts as having survived.
   Kind: doc.
   Source: adopt-project cold read 2026-08-26.
 
-- 📋 [PERC-0032] **docs/02-state-format.md and docs/08-ui.md disagree about what Export actually exports.**
+- ✅ [PERC-0032] **docs/02-state-format.md and docs/08-ui.md disagree about what Export actually exports.**
   Found by an adopt-project cold read, 2026-08-26. The two documents describe
   the same button differently, and the difference is the substantive one.
 
@@ -189,6 +206,7 @@ Goal: fewer first-run support tickets; the config is safe.
   against the shipped code and fix whichever document is wrong. Blocks the
   criterion in the sibling item, since that criterion has to say whether
   geometries are in scope.
+  Resolved (2026-08-27): settled against src/perch/ui/dialog.py ImportExportPage._on_export, which reads config.toml and writes it verbatim to the chosen path -- no checkbox, no state.json. docs/08-ui.md was correct; docs/02-state-format.md was wrong and internally contradictory (its Export bullet already said state.json is excluded). Removed the checkbox sentence.
   **Layman:** Two of our own documents describe the Export button differently, and neither can be trusted until we check the code.
   Kind: doc-fix.
   Source: adopt-project cold read 2026-08-26.
