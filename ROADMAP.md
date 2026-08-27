@@ -574,7 +574,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: doc-fix.
   Source: adopt-project cold read 2026-08-26.
 
-- 📋 [PERC-0035] **Tray menu: a Donate item and a Report an issue item.**
+- ✅ [PERC-0035] **Tray menu: a Donate item and a Report an issue item.**
   Two entries near the existing About action in src/perch/ui/tray.py
   (build_menu, around the About/Quit block).
 
@@ -597,6 +597,34 @@ Goal: fewer first-run support tickets; the config is safe.
   portal rather than a direct xdg-open, and the manifest currently grants
   no network or browser access -- check what QDesktopServices.openUrl
   needs inside the sandbox before assuming it works.
+  Resolved (2026-08-27). Shape decided by the user: a Donate SUBMENU with
+  one entry per destination, as this item recommended.
+
+  The two open questions in this item are both settled by measurement
+  rather than assumption. Reading FUNDING.yml at runtime is impossible:
+  `.github/` is not shipped in the wheel, the RPM or the Flatpak
+  (pyproject packages = ["src/perch"]), so there is nothing to read once
+  Perch is installed. Taking this item's own fallback, the destinations
+  are stated in the new src/perch/ui/links.py and tests/ui/test_links.py
+  asserts they match FUNDING.yml, expanding the github / patreon / custom
+  shorthands; a platform with no URL mapping fails loudly rather than
+  being skipped.
+
+  And QDesktopServices.openUrl needs NO new sandbox permission: the
+  org.freedesktop.portal.OpenURI interface is reachable from the running
+  Flatpak with the manifest as it stands, verified by introspecting the
+  portal inside the sandbox. The manifest is unchanged.
+
+  Both entries emit a new OpenUrl intent, handled in app.py beside
+  OpenConfigFolder. Four tests: the documented menu order (updated in
+  docs/08-ui.md in the same change), the FUNDING.yml parity check, the
+  submenu's labels, and one asserting each entry carries its OWN url --
+  that last one confirmed failing against a deliberately reintroduced
+  lambda late-binding bug, which is the defect that would otherwise send
+  every donor to the same page.
+
+  Not verified by a click: no headless way to press a tray menu item. The
+  menu is confirmed to EXPORT correctly over D-Bus.
   **Layman:** Two new entries in the tray menu — one to support the project, one to report a problem
   Kind: feature.
   Source: user-request-2026-08-27.

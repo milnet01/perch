@@ -10,6 +10,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **Tray menu: a Donate submenu and a Report an issue entry** (PERC-0035)
+  Donate opens as a submenu with one entry per destination in
+  `.github/FUNDING.yml`; Report an issue opens the GitHub issue tracker. Both
+  go through `QDesktopServices.openUrl`, which resolves to the OpenURI portal
+  under Flatpak and needs no extra sandbox permission. The destinations are
+  stated in `perch.ui.links` because `.github/` is not shipped in any package,
+  and a test asserts they match `FUNDING.yml`.
+
 - **README install section for the openSUSE and Fedora RPM repository** (PERC-0002)
   `home:milnet:perch` on OBS builds green for openSUSE Tumbleweed and Fedora
   and is now advertised, with copy-paste zypper and dnf commands. Both

@@ -728,12 +728,12 @@
 <context>
     <name>perch.app</name>
     <message>
-        <location filename="../src/perch/app.py" line="191"/>
+        <location filename="../src/perch/app.py" line="198"/>
         <source>About Perch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/app.py" line="196"/>
+        <location filename="../src/perch/app.py" line="203"/>
         <source>&lt;h3&gt;Perch {version}&lt;/h3&gt;&lt;p&gt;Persistent, compositor-aware window geometry manager for Linux desktops.&lt;/p&gt;&lt;p&gt;License: GPL-3.0-or-later&lt;br&gt;Home: &lt;a href=&quot;https://github.com/milnet01/perch&quot;&gt;github.com/milnet01/perch&lt;/a&gt;&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -772,117 +772,127 @@
 <context>
     <name>perch.ui.tray</name>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="89"/>
+        <location filename="../src/perch/ui/tray.py" line="91"/>
         <source>idle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="92"/>
+        <location filename="../src/perch/ui/tray.py" line="94"/>
         <source>no layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="110"/>
+        <location filename="../src/perch/ui/tray.py" line="112"/>
         <source>Perch — no compatible compositor detected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="114"/>
+        <location filename="../src/perch/ui/tray.py" line="116"/>
         <source>Perch — backend disconnected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="118"/>
+        <location filename="../src/perch/ui/tray.py" line="120"/>
         <source>Perch — install the GNOME Shell extension to enable window management</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="133"/>
+        <location filename="../src/perch/ui/tray.py" line="135"/>
         <source>Maximize on this monitor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="134"/>
+        <location filename="../src/perch/ui/tray.py" line="136"/>
         <source>Left half</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="135"/>
+        <location filename="../src/perch/ui/tray.py" line="137"/>
         <source>Right half</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="136"/>
+        <location filename="../src/perch/ui/tray.py" line="138"/>
         <source>Top-left quarter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="137"/>
+        <location filename="../src/perch/ui/tray.py" line="139"/>
         <source>Top-right quarter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="138"/>
+        <location filename="../src/perch/ui/tray.py" line="140"/>
         <source>Bottom-left quarter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="139"/>
+        <location filename="../src/perch/ui/tray.py" line="141"/>
         <source>Bottom-right quarter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="143"/>
+        <location filename="../src/perch/ui/tray.py" line="145"/>
         <source>Centre (keep size)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="144"/>
+        <location filename="../src/perch/ui/tray.py" line="146"/>
         <source>Centre (60%)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="205"/>
+        <location filename="../src/perch/ui/tray.py" line="207"/>
         <source>Layouts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="208"/>
+        <location filename="../src/perch/ui/tray.py" line="210"/>
         <source>(none)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="227"/>
+        <location filename="../src/perch/ui/tray.py" line="229"/>
         <source>Snap focused window</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="255"/>
+        <location filename="../src/perch/ui/tray.py" line="257"/>
         <source>Pause Perch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="264"/>
+        <location filename="../src/perch/ui/tray.py" line="266"/>
         <source>Reapply rules now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="274"/>
+        <location filename="../src/perch/ui/tray.py" line="276"/>
         <source>Configure Perch…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="280"/>
+        <location filename="../src/perch/ui/tray.py" line="282"/>
         <source>Open config folder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="289"/>
+        <location filename="../src/perch/ui/tray.py" line="292"/>
+        <source>Donate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/perch/ui/tray.py" line="303"/>
+        <source>Report an issue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/perch/ui/tray.py" line="310"/>
         <source>About Perch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/tray.py" line="295"/>
+        <location filename="../src/perch/ui/tray.py" line="316"/>
         <source>Quit Perch</source>
         <translation type="unfinished"></translation>
     </message>

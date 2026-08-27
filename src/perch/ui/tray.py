@@ -36,12 +36,14 @@ from .intents import (
     Intent,
     OpenConfigDialog,
     OpenConfigFolder,
+    OpenUrl,
     Quit,
     ReapplyRules,
     ShowAbout,
     SnapFocused,
     TogglePause,
 )
+from .links import FUNDING_LINKS, ISSUES_URL
 
 # ``pyside6-lupdate`` only extracts strings from literal
 # ``QCoreApplication.translate("…", "…")`` or ``self.tr(…)`` calls and
@@ -284,6 +286,25 @@ def build_tray_menu(
     )
 
     menu.addSeparator()
+
+    # Support + feedback ----------------------------------------------------
+    donate_menu = menu.addMenu(
+        QCoreApplication.translate("perch.ui.tray", "Donate")
+    )
+    for link in FUNDING_LINKS:
+        # Destination names are proper nouns, so they are not translated.
+        act = donate_menu.addAction(link.label)
+        act.triggered.connect(
+            lambda _checked=False, url=link.url: controller.emit_intent(
+                OpenUrl(url)
+            )
+        )
+    report = menu.addAction(
+        QCoreApplication.translate("perch.ui.tray", "Report an issue")
+    )
+    report.triggered.connect(
+        lambda _checked=False: controller.emit_intent(OpenUrl(ISSUES_URL))
+    )
 
     about = menu.addAction(
         QCoreApplication.translate("perch.ui.tray", "About Perch")

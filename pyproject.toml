@@ -43,6 +43,9 @@ dev = [
     # tools/ci_lockstep_check.py parses .github/workflows/ci.yml, and the
     # Flathub scripts under packaging/flathub/ read and rewrite manifests.
     "PyYAML>=6.0.3,<7",
+    # Stubs for the above, so mypy --strict can typecheck the tests that
+    # read .github/FUNDING.yml.
+    "types-PyYAML>=6.0.12,<7",
     # flatpak-pip-generator's own import, needed by
     # packaging/flathub/generate-pip-sources.sh.
     "requirements-parser>=0.13.1,<1",

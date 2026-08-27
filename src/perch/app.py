@@ -24,7 +24,8 @@ from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtCore import QCoreApplication, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import __version__, autostart, paths
@@ -42,6 +43,7 @@ from .ui.intents import (
     Intent,
     OpenConfigDialog,
     OpenConfigFolder,
+    OpenUrl,
     Quit,
     ReapplyRules,
     ShowAbout,
@@ -177,6 +179,11 @@ def _handle_intent(
                 log.info("open config dialog: section=%r (no dialog wired)", section)
         case OpenConfigFolder():
             _open_in_file_manager(paths.config_dir())
+        case OpenUrl(url):
+            # Under Flatpak Qt routes this through the OpenURI portal, so
+            # no network or browser permission is needed in the manifest.
+            if not QDesktopServices.openUrl(QUrl(url)):
+                log.warning("could not open %s in a browser", url)
         case ShowAbout():
             _show_about_dialog()
 

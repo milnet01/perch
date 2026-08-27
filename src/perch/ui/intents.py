@@ -56,6 +56,17 @@ class OpenConfigFolder:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenUrl:
+    """Open a URL in the user's browser.
+
+    Under Flatpak this resolves to the ``org.freedesktop.portal.OpenURI``
+    portal, which needs no extra manifest permission.
+    """
+
+    url: str
+
+
+@dataclass(frozen=True, slots=True)
 class ShowAbout:
     """Open the About dialog."""
 
@@ -72,6 +83,7 @@ Intent = (
     | ReapplyRules
     | OpenConfigDialog
     | OpenConfigFolder
+    | OpenUrl
     | ShowAbout
     | Quit
 )

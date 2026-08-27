@@ -18,12 +18,14 @@ from perch.ui.intents import (
     ActivateLayout,
     OpenConfigDialog,
     OpenConfigFolder,
+    OpenUrl,
     Quit,
     ReapplyRules,
     ShowAbout,
     SnapFocused,
     TogglePause,
 )
+from perch.ui.links import FUNDING_LINKS, ISSUES_URL
 from perch.ui.tray import (
     BUILTIN_SNAP_MENU_ITEMS,
     TrayController,
@@ -81,6 +83,8 @@ def test_build_menu_has_documented_top_level_entries(qtbot: QtBot) -> None:
         "Reapply rules now",
         "Configure Perch…",
         "Open config folder",
+        "Donate",
+        "Report an issue",
         "About Perch",
         "Quit Perch",
     ]
@@ -245,6 +249,47 @@ def test_about_action_emits_show_about(qtbot: QtBot) -> None:
     with qtbot.waitSignal(controller.intent, timeout=500) as blocker:
         _trigger(menu, "About Perch")
     assert isinstance(blocker.args[0], ShowAbout)
+
+
+def test_report_an_issue_emits_open_url_intent(qtbot: QtBot) -> None:
+    controller = TrayController(_empty_state())
+    menu = build_tray_menu(controller.state, controller)
+    qtbot.addWidget(menu)
+
+    with qtbot.waitSignal(controller.intent, timeout=500) as blocker:
+        _trigger(menu, "Report an issue")
+    intent = blocker.args[0]
+    assert isinstance(intent, OpenUrl)
+    assert intent.url == ISSUES_URL
+
+
+def test_donate_submenu_lists_every_funding_destination(qtbot: QtBot) -> None:
+    controller = TrayController(_empty_state())
+    menu = build_tray_menu(controller.state, controller)
+    qtbot.addWidget(menu)
+
+    donate = next(a for a in menu.actions() if a.text() == "Donate").menu()
+    assert isinstance(donate, QMenu)
+    assert _action_texts(donate) == [link.label for link in FUNDING_LINKS]
+
+
+def test_donate_entry_emits_its_own_url(qtbot: QtBot) -> None:
+    """Each entry must carry its own URL, not the last one bound.
+
+    A lambda closing over the loop variable would give every entry the
+    final destination — the classic late-binding bug, and one nobody
+    would notice until they clicked the wrong link.
+    """
+    controller = TrayController(_empty_state())
+    menu = build_tray_menu(controller.state, controller)
+    qtbot.addWidget(menu)
+
+    for link in FUNDING_LINKS:
+        with qtbot.waitSignal(controller.intent, timeout=500) as blocker:
+            _trigger_sub(menu, "Donate", link.label)
+        intent = blocker.args[0]
+        assert isinstance(intent, OpenUrl)
+        assert intent.url == link.url
 
 
 def test_layout_selection_emits_activate_layout_intent(qtbot: QtBot) -> None:
