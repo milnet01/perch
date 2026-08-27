@@ -185,7 +185,7 @@ Goal: anyone can install Perch without building from source.
   Kind: chore.
   Source: in-session-2026-08-27, prompted by the pre-push hook's own hint.
 
-- 📋 [PERC-0036] **Flatpak writes the KWin script inside the sandbox, so KWin never sees it.**
+- 🚧 [PERC-0036] **Flatpak writes the KWin script inside the sandbox, so KWin never sees it.**
   BLOCKS the Flathub submission (PERC-0002). Do not open that PR until this
   is fixed.
 
@@ -217,6 +217,21 @@ Goal: anyone can install Perch without building from source.
   comment claims (sharing one config with a native install) and should be
   dropped -- flatpak-builder-lint already flags it as unnecessary, and
   this run shows why it is right.
+  Progress (2026-08-27): fix written and unit-tested, live re-verify still
+  owed. target_dir() now resolves from $HOME when /.flatpak-info is
+  present, so the mirror lands on the host where KWin can read it; the
+  probe moved to perch.paths.is_flatpak() and autostart delegates to it.
+  Two tests in tests/backend/kwin/test_install.py cover it, the first
+  confirmed failing against the old resolution before the fix landed.
+  Docs updated in the same change (05-backend-kwin.md, 10-packaging.md,
+  02-state-format.md, the manifest, SUBMISSION.md, submit/flathub.sh).
+  The config half is done too: --filesystem=xdg-config/perch:create is
+  dropped, and every place that claimed it shared a config with a native
+  install now says the Flatpak keeps its own.
+  Outstanding, and the reason this is not shipped: rebuild the Flatpak
+  and confirm on a live Plasma Wayland session that the script appears at
+  ~/.local/share/kwin/scripts/org.milnet01.perch and that KWin loads it.
+  A headless run cannot see this. The Flathub PR stays shut until then.
   **Layman:** Installed as a Flatpak, Perch cannot control windows on KDE — the helper it gives KDE is saved somewhere KDE cannot read
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the built Flatpak.

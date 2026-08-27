@@ -1,4 +1,4 @@
-"""Install the bundled KWin script into ``$XDG_DATA_HOME/kwin/scripts/…``.
+"""Install the bundled KWin script into the host's ``kwin/scripts/`` directory.
 
 KWin on Wayland runs on the host and can only load scripts from its standard
 search path (``~/.local/share/kwin/scripts/`` and the system-wide equivalents
@@ -27,6 +27,7 @@ import os
 import shutil
 from pathlib import Path
 
+from ...paths import is_flatpak
 from . import BUNDLED_SCRIPT_DIR, BUNDLED_SCRIPT_VERSION, PLUGIN_ID
 
 log = logging.getLogger("perch.backend.kwin.install")
@@ -44,7 +45,18 @@ class ScriptVersionMismatch(RuntimeError):
         self.target = target
 
 
-def _xdg_data_home() -> Path:
+def _host_data_home() -> Path:
+    """Data directory KWin itself reads, which is not always ours.
+
+    Inside a Flatpak ``XDG_DATA_HOME`` is redirected to
+    ``~/.var/app/<id>/data``. KWin runs on the host and cannot read that,
+    so honouring the redirect puts the script where it will never be
+    loaded. The manifest's ``--filesystem=xdg-data/kwin/scripts:create``
+    mounts the *host* directory at its real path, so resolve from
+    ``$HOME`` and ignore the redirect.
+    """
+    if is_flatpak():
+        return Path.home() / ".local" / "share"
     raw = os.environ.get("XDG_DATA_HOME")
     if raw:
         return Path(raw)
@@ -54,14 +66,13 @@ def _xdg_data_home() -> Path:
 def target_dir() -> Path:
     """Location KWin will read the script from.
 
-    Overridable via ``PERCH_KWIN_SCRIPT_TARGET`` for tests / Flatpak /
-    custom installs. The override is intended for tests — Flatpak uses
-    the unchanged XDG path with ``--filesystem=xdg-data/kwin/scripts:create``.
+    Overridable via ``PERCH_KWIN_SCRIPT_TARGET`` for tests and custom
+    installs; the override wins everywhere, sandbox included.
     """
     override = os.environ.get("PERCH_KWIN_SCRIPT_TARGET")
     if override:
         return Path(override)
-    return _xdg_data_home() / "kwin" / "scripts" / PLUGIN_ID
+    return _host_data_home() / "kwin" / "scripts" / PLUGIN_ID
 
 
 def bundled_source() -> Path:

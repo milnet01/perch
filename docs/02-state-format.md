@@ -275,7 +275,9 @@ Coverage: both halves are exercised by `tests/ui/test_import_export_pane.py` —
 
 Under Flatpak, XDG paths resolve inside the sandbox. `~/.config/perch/` becomes `~/.var/app/io.github.milnet01.Perch/config/perch/`.
 
-That's fine for `state.json` but means `config.toml` lives somewhere users don't expect. Perch documents this location prominently in the config dialog's "Open config folder" button and in the manual. For users who want their config in `~/.config/`, the Flatpak manifest grants `--filesystem=xdg-config/perch:create` so the user can symlink — documented but not enforced.
+That's fine for `state.json` but means `config.toml` lives somewhere users don't expect. Perch documents this location prominently in the config dialog's "Open config folder" button and in the manual. The Flatpak keeps its own config there — the Flathub norm — and is not shared with a native install on the same machine.
+
+The KWin script is the one exception: it is written to the *host* path, because KWin has to read it. See [10-packaging.md](10-packaging.md).
 
 ## Schema reference
 

@@ -119,21 +119,24 @@ Flathub documents the full flow at <https://docs.flathub.org/docs/for-app-author
 
 ## Known linter exceptions
 
-`flatpak-builder-lint` reports three `finish-args` entries that Perch keeps
-because removing them removes the app's function. Each needs a written
+`flatpak-builder-lint` reports the `finish-args` entries below, which Perch
+keeps because removing them removes the app's function. Each needs a written
 justification in the PR; `packaging/submit/flathub.sh` puts them in the PR
 body.
 
 | Entry | Why it stays |
 |---|---|
 | `--talk-name=org.kde.KWin` | Perch drives window placement through KWin's scripting interface. This is the core function on Plasma Wayland, and there is no portal equivalent. |
-| `--filesystem=xdg-data/kwin/scripts:create` | KWin runs on the host and cannot read `/app`, so the bundled script is mirrored into the host's script directory at first run. |
-| `--filesystem=xdg-config/perch:create` | Shares one config file with a non-Flatpak install on the same machine. This is the one of the three that is a preference rather than a requirement — dropping it would leave Flatpak Perch with its own sandboxed config, which is the Flathub norm. |
+| `--filesystem=xdg-data/kwin/scripts:create` | KWin runs on the host and cannot read `/app`, so the bundled script is mirrored into the host's script directory at first run. Perch resolves that target from `$HOME`, not from the sandbox's `XDG_DATA_HOME`. |
 
-Three others were removed after the linter reported them, and should not
-be reinstated: `--socket=session-bus` (blanket bus access, which makes the
+The rest were removed after the linter reported them, and should not be
+reinstated: `--socket=session-bus` (blanket bus access, which makes the
 named `--talk-name` grants meaningless), `--own-name=io.github.milnet01.Perch`
-and `--talk-name=org.freedesktop.portal.Desktop` (both granted by default).
+and `--talk-name=org.freedesktop.portal.Desktop` (both granted by default),
+and `--filesystem=xdg-config/perch:create` — it was justified as sharing one
+config with a native install, which it never did: the sandbox redirects
+`XDG_CONFIG_HOME`, so Perch's config stays inside the sandbox and the host
+grant went unused.
 
 ## History — why we held the PR until v1.0.0
 

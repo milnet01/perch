@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import Config
+from .paths import is_flatpak as _is_flatpak
 
 log = logging.getLogger(__name__)
 
@@ -48,13 +49,9 @@ AUTOSTART_BASENAME = "io.github.milnet01.Perch.desktop"
 def is_flatpak() -> bool:
     """Return True when Perch is running inside a Flatpak sandbox.
 
-    The presence of ``/.flatpak-info`` is the canonical marker — it's
-    mounted read-only into every Flatpak sandbox and never appears on a
-    host system. ``FLATPAK_ID`` is also a signal but less reliable
-    (scripts sometimes unset it in tests); the file check is
-    authoritative.
+    Re-exported from :func:`perch.paths.is_flatpak`, which owns the probe.
     """
-    return Path("/.flatpak-info").is_file()
+    return _is_flatpak()
 
 
 def autostart_dir() -> Path:

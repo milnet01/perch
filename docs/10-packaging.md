@@ -28,7 +28,7 @@ regressions surface on every PR.
 
 This doc was updated during Phase 2 research. Notable changes:
 
-- Flatpak **cannot** load a KWin script from `/app/share/...` — KWin runs on the host and cannot see Flatpak's internal paths. Corrected strategy: copy the script to `$XDG_DATA_HOME/kwin/scripts/` on first run.
+- Flatpak **cannot** load a KWin script from `/app/share/...` — KWin runs on the host and cannot see Flatpak's internal paths. Corrected strategy: copy the script to the host's `~/.local/share/kwin/scripts/` on first run.
 - Flatpak **cannot** install a GNOME Shell extension — that backend is an explicit two-step install.
 - Ubuntu 24.04 LTS ships PySide6 6.4 (too old) — documented caveat and PyPI-wheel fallback.
 - D-Bus and X11 dependency lines updated to match the revised stack (`sdbus-python`, `python-xlib`).
@@ -143,7 +143,9 @@ which builds offline exactly as Flathub does.
 
 Phase 2 research (see `11-roadmap.md` log) invalidated the original assumption that KWin could `loadScript("/app/share/perch/kwin")` directly. KWin runs on the host, the Flatpak `/app/` tree is only visible inside the sandbox, so the host path resolution fails.
 
-**Corrected strategy**: on first run, `KWinBackend` copies the bundled script from `/app/share/perch/kwin/` to `$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/`. Both paths are host-visible via the Flatpak `xdg-data/kwin/scripts` filesystem permission. `loadScript()` is then called with the host-side path.
+**Corrected strategy**: on first run, `KWinBackend` copies the bundled script from `/app/share/perch/kwin/` to the host's `~/.local/share/kwin/scripts/org.milnet01.perch/`, made writable by the `xdg-data/kwin/scripts` filesystem permission. `loadScript()` is then called with the host-side path.
+
+The destination is resolved from `$HOME`, **not** from `$XDG_DATA_HOME`: inside a Flatpak that variable points at `~/.var/app/io.github.milnet01.Perch/data`, which KWin cannot read, so honouring it would silently disable the whole backend.
 
 The copy is idempotent, checksummed against the bundled source, and re-done whenever Perch's version (or the bundled script's version) changes. This keeps the user's host state aligned with the installed Flatpak automatically.
 
@@ -306,7 +308,7 @@ Every channel installs the same four shared-data files:
 1. `/usr/share/applications/io.github.milnet01.Perch.desktop`
 2. `/usr/share/metainfo/io.github.milnet01.Perch.metainfo.xml`
 3. `/usr/share/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg`
-4. `/usr/share/perch/kwin/...` (the KWin script, staged here; copied to `$XDG_DATA_HOME/kwin/scripts/` at runtime by the KWin backend on both Flatpak and non-Flatpak installs for uniformity)
+4. `/usr/share/perch/kwin/...` (the KWin script, staged here; copied to the user's `kwin/scripts/` directory at runtime by the KWin backend on both Flatpak and non-Flatpak installs for uniformity)
 
 `data/` in the repo is the canonical source of the first three.
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from perch.backend.kwin import BUNDLED_SCRIPT_VERSION, PLUGIN_ID
+from perch.backend.kwin import BUNDLED_SCRIPT_VERSION, PLUGIN_ID, install
 from perch.backend.kwin.install import (
     ScriptVersionMismatch,
     bundled_source,
@@ -47,6 +47,35 @@ def test_target_dir_defaults_to_local_share_when_xdg_unset(
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     assert target_dir() == tmp_path / ".local" / "share" / "kwin" / "scripts" / PLUGIN_ID
+
+
+def test_target_dir_ignores_sandbox_xdg_data_home_under_flatpak(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Under Flatpak the target must resolve on the host, not in the sandbox.
+
+    ``XDG_DATA_HOME`` inside the sandbox points at ``~/.var/app/<id>/data``,
+    which KWin -- running on the host -- cannot read. The manifest grants
+    ``--filesystem=xdg-data/kwin/scripts:create``, which mounts the host
+    directory at its real path, so resolution must come from ``$HOME``.
+    """
+    monkeypatch.delenv("PERCH_KWIN_SCRIPT_TARGET", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    sandbox = tmp_path / ".var" / "app" / "io.github.milnet01.Perch" / "data"
+    monkeypatch.setenv("XDG_DATA_HOME", str(sandbox))
+    monkeypatch.setattr(install, "is_flatpak", lambda: True)
+
+    resolved = target_dir()
+
+    assert sandbox not in resolved.parents
+    assert resolved == tmp_path / ".local" / "share" / "kwin" / "scripts" / PLUGIN_ID
+
+
+def test_target_dir_env_override_wins_under_flatpak(
+    fake_target: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(install, "is_flatpak", lambda: True)
+    assert target_dir() == fake_target
 
 
 # ── first-install path ─────────────────────────────────────────────────────

@@ -36,13 +36,16 @@ build-options:
     BASEAPP_DISABLE_NUMPY: '1'
 
 # Every entry is checked by flatpak-builder-lint, which Flathub runs on the
-# submission. Three entries were removed after that linter reported them:
+# submission. These were removed after that linter reported them:
 # --socket=session-bus (finish-args-arbitrary-dbus-access -- the named
 # --talk-name grants below are how a sandboxed app reaches specific
 # services, and the blanket socket makes them meaningless),
 # --own-name=io.github.milnet01.Perch and
 # --talk-name=org.freedesktop.portal.Desktop, both of which flatpak grants
-# by default. Do not reinstate them without re-running the linter.
+# by default, and --filesystem=xdg-config/perch:create, which never did
+# what it claimed -- the sandbox redirects XDG_CONFIG_HOME, so Perch
+# writes its config inside the sandbox and the host grant went unused.
+# Do not reinstate them without re-running the linter.
 finish-args:
   # Display + input
   - --share=ipc
@@ -57,9 +60,8 @@ finish-args:
 
   # Filesystem access. KWin on the host cannot read /app, so the bundled
   # KWin script has to be mirrored into the host's script directory at
-  # first run; xdg-config/perch keeps one config file shared with a
-  # non-Flatpak install of Perch on the same machine.
-  - --filesystem=xdg-config/perch:create
+  # first run. Perch resolves that target from $HOME rather than from the
+  # sandbox's XDG_DATA_HOME, which points somewhere KWin cannot read.
   - --filesystem=xdg-data/kwin/scripts:create
 
 cleanup:

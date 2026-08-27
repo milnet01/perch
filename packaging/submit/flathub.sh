@@ -160,7 +160,7 @@ wheels in python3-deps.yaml, generated from pyproject.toml, so the build is
 network-free. flathub.json restricts the buildbot to x86_64, which is the
 arch the pinned sdbus wheel covers.
 
-Three finish-args entries need justification:
+These finish-args entries need justification:
 
 - --talk-name=org.kde.KWin — Perch drives window placement through KWin's
   scripting D-Bus interface. This is the app's core function on Plasma
@@ -168,8 +168,6 @@ Three finish-args entries need justification:
 - --filesystem=xdg-data/kwin/scripts:create — KWin runs on the host and
   cannot read /app, so the bundled KWin script has to be mirrored into the
   host's script directory at first run.
-- --filesystem=xdg-config/perch:create — keeps one config file shared with
-  a non-Flatpak install of Perch on the same machine.
 
 Happy to address review feedback; I'll iterate on this branch.
 PRBODY

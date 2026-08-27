@@ -14,6 +14,20 @@ from pathlib import Path
 APP_NAME = "perch"
 
 
+def is_flatpak() -> bool:
+    """Return True when Perch is running inside a Flatpak sandbox.
+
+    ``/.flatpak-info`` is mounted read-only into every Flatpak sandbox and
+    never appears on a host. ``FLATPAK_ID`` is a weaker signal (scripts
+    unset it); the file is authoritative.
+
+    It lives here because the answer changes how paths resolve: inside the
+    sandbox ``XDG_DATA_HOME`` and friends point at ``~/.var/app/<id>/``,
+    which host processes such as KWin cannot read.
+    """
+    return Path("/.flatpak-info").is_file()
+
+
 def _xdg_dir(env_var: str, fallback_relative: str) -> Path:
     raw = os.environ.get(env_var)
     if raw:

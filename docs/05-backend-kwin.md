@@ -129,7 +129,7 @@ Uses **`sdbus-python`** for D-Bus. The backend owns the `io.github.milnet01.Perc
    a. Probe `$KDE_SESSION_VERSION` ≥ 6 and `$XDG_SESSION_TYPE` ≥ `wayland`. Refuse older Plasmas (Plasma 5 support is out of v1 scope; see [11-roadmap.md](11-roadmap.md)).
    b. Acquire the bus name `io.github.milnet01.Perch` (release it in `stop`).
    c. Install the bundled script:
-      - For Flatpak installs, ensure the script is copied to `$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/` (see [10-packaging.md](10-packaging.md)). KWin runs on the host and cannot read Flatpak's `/app/` path.
+      - For Flatpak installs, ensure the script is copied to the host's `~/.local/share/kwin/scripts/org.milnet01.perch/` (see [10-packaging.md](10-packaging.md)). KWin runs on the host and cannot read Flatpak's `/app/` path — or its sandboxed `$XDG_DATA_HOME`.
       - Call `org.kde.KWin.Scripting.loadScript(path, pluginId)` → `run()`. The two-argument form is required so `unloadScript(pluginId)` later works; the single-argument form loads anonymously and cannot be unloaded cleanly.
    d. Wait up to 2 s for the first `WindowAdded` or `OutputsChanged` to confirm the script is alive and wired.
    e. Emit `backend_connected`.
@@ -156,11 +156,16 @@ Inbound ordering: `stop()` must call `invalidate_polls()` *before* `unloadScript
 ### Script installation strategy
 
 All install modes mirror the bundled script into the same destination:
-`$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/` (default
-`~/.local/share/kwin/scripts/org.milnet01.perch/`). KWin on Wayland runs
+`$XDG_DATA_HOME/kwin/scripts/org.milnet01.perch/`, which defaults to
+`~/.local/share/kwin/scripts/org.milnet01.perch/`. KWin on Wayland runs
 on the host and only reads scripts from the standard search path — so a
 dev checkout in the repo, a Flatpak container's `/app/` path, and an RPM's
 `/usr/share/` path all need the same copy-out step.
+
+Inside a Flatpak, `$XDG_DATA_HOME` is redirected into the sandbox and is
+**not** honoured: the target is resolved from `$HOME` so it lands on the
+host, where KWin can read it. `PERCH_KWIN_SCRIPT_TARGET` overrides the
+whole resolution, sandbox included.
 
 Only the *source* differs:
 

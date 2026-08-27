@@ -23,6 +23,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **Dropped `--filesystem=xdg-config/perch:create` from the Flatpak manifest** (PERC-0036)
+  It was justified as sharing one config file with a native install, which it
+  never did: the sandbox redirects `XDG_CONFIG_HOME`, so Perch's config stays
+  inside the sandbox and the host grant went unused. Flatpak Perch keeps its
+  own config, which is the Flathub norm.
+
 - **OBS submission targets the `home:milnet:perch` subproject and uploads a release tarball** (PERC-0002)
   The subproject matches the convention already used for this account's
   other projects, and gives Perch its own repository list (Tumbleweed and
@@ -66,6 +72,13 @@ Sections under each release are populated on a best-effort basis — empty secti
   `packaging/rpm/COPR.md` that never existed.
 
 ### Fixed
+
+- **KWin script now installs to the host path under Flatpak** (PERC-0036)
+  Inside a Flatpak, `XDG_DATA_HOME` is redirected into the sandbox, so the
+  bundled KWin script was mirrored to a path KWin — which runs on the host —
+  cannot read, leaving the KWin backend unable to drive anything. The target
+  is now resolved from `$HOME` when sandboxed. `PERCH_KWIN_SCRIPT_TARGET`
+  still overrides everything.
 
 - **The RPM spec now builds on Fedora — five bugs no local check could catch** (PERC-0002)
   Publishing to OBS for the first time found them all. `rpmspec -P` passed
