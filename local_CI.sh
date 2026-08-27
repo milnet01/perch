@@ -126,6 +126,10 @@ $DOCS_ONLY && verdict "docs"
 need ruff   "pipx install ruff (or pip install -e '.[dev]')"   && run "ruff"  ruff check .
 need mypy   "pip install -e '.[dev]'"                          && run "mypy"  mypy
 run "intent-dispatch audit" "$PYTHON" tools/intent_dispatch_audit.py
+# The hard rule above says this script and ci.yml must never drift. This is
+# what enforces it: until it existed, a check added to ci.yml alone still let
+# this script print "safe to push".
+run "CI/local lockstep" "$PYTHON" tools/ci_lockstep_check.py
 # The `x11` / `kwin` markers gate LIVE integration tests that spawn a real
 # Xvfb+openbox / kwin_wayland session. CI installs neither compositor, so those
 # tests skip there — but this dev box has openbox installed, so they would run

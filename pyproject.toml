@@ -40,6 +40,12 @@ dev = [
     "pytest-qt>=4.5,<5",
     "pytest-asyncio>=1.3,<2",
     "pytest-xvfb>=3",
+    # tools/ci_lockstep_check.py parses .github/workflows/ci.yml, and the
+    # Flathub scripts under packaging/flathub/ read and rewrite manifests.
+    "PyYAML>=6.0.3,<7",
+    # flatpak-pip-generator's own import, needed by
+    # packaging/flathub/generate-pip-sources.sh.
+    "requirements-parser>=0.13.1,<1",
 ]
 # Optional backend extras (M6 stubs). These gate the Python-side transport
 # bindings that are only meaningful when the matching compositor is the

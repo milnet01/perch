@@ -64,6 +64,9 @@ jobs:
         # the "shipped stub" class of bug; exit code is finding count.
         run: python tools/intent_dispatch_audit.py
 
+      - name: CI/local lockstep
+        run: python tools/ci_lockstep_check.py
+
       - name: pytest
         env:
           QT_QPA_PLATFORM: offscreen

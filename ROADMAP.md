@@ -40,6 +40,31 @@ Goal: anyone can install Perch without building from source.
   to load on the AUR site. The `packaging/aur/` PKGBUILDs stay CI-validated and
   ready; only the `git push` to the AUR remote waits. Flathub and KDE Store are
   unaffected.
+  Progress (2026-08-27): Flathub is now submission-ready and nothing has
+  been submitted. The manifest could not be built by anyone before this --
+  it based on the PyQt base app for a PySide6 application, pinned a KDE
+  runtime eight months stale, and shipped its dependency includes commented
+  out and uncommitted. Now io.qt.PySide.BaseApp//6.11 on
+  org.kde.Platform//6.11, with the closure sha256-pinned and committed;
+  verified by a real offline build of the submission manifest (commit
+  e1de021). flatpak-builder-lint: 6 finish-args errors down to 3, and the
+  3 survivors are load-bearing (KWin talk-name, the two filesystem paths)
+  and carry written justifications in the PR body.
+
+  REMAINING before the Flathub PR: (1) the manual live-Plasma checks a
+  headless build cannot make -- tray icon, KWin script mirroring to
+  ~/.local/share/kwin/scripts/ at first run, geometry restore, config
+  dialog; (2) open the flathub/flathub PR against the new-pr branch, an
+  outward-facing action awaiting user go-ahead.
+
+  Scope decision (user, 2026-08-27): Fedora COPR is DROPPED -- OBS builds
+  Fedora RPMs from the same spec, so COPR was a second pipeline for one
+  artefact.
+
+  Other channels unchanged: OBS is ready and the osc account is
+  authenticated but nothing has been pushed; AUR stays blocked on the
+  maintainer's account confirmation; KDE Store is a manual web listing that
+  wants the Flathub build to be public first.
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
