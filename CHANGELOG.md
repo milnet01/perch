@@ -45,6 +45,24 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **The Flathub manifest now builds — it was based on the wrong Qt toolkit and could not be built by anyone** (PERC-0002)
+  It based on `com.riverbankcomputing.PyQt.BaseApp`, the PyQt base app, for
+  an application built on PySide6; it targeted a KDE runtime eight months
+  stale; and its Python dependency includes were commented out and
+  deliberately not committed, to be generated at submission time — so a
+  fresh clone could not build it at all. It now uses
+  `io.qt.PySide.BaseApp//6.11` on `org.kde.Platform//6.11`, with the
+  dependency closure sha256-pinned and committed as `python3-deps.yaml`,
+  which is what Flathub's network-free builders require. Verified by a real
+  offline build of the submission manifest.
+
+  New alongside it: `generate-pip-sources.sh` regenerates the closure from
+  `pyproject.toml`, `flatpak-build.sh` reproduces Flathub's build locally
+  and smoke-tests the result, and `flathub.json` restricts the buildbot to
+  the arch the pinned wheels cover. `packaging/submit/flathub.sh` no longer
+  does the work itself; it also no longer targets the wrong base branch —
+  a new app is PR'd against `new-pr`, not `master`.
+
 - **Docs no longer promise an "Include last-seen geometries" export checkbox that does not exist**
   docs/02-state-format.md described an export checkbox for shipping state.json
   alongside the config, contradicting its own Export bullet and docs/08-ui.md.

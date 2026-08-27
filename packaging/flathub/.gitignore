@@ -1,0 +1,6 @@
+# flatpak-builder working directories and the generator cache.
+.build/
+.repo/
+.flatpak-builder/
+.local-manifest.yml
+.flatpak-pip-generator.py

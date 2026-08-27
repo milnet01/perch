@@ -14,8 +14,8 @@ when the action is hard to reverse (Flathub PR, AUR first-push).
 
 | Channel | Script | Platform auth | CLI tool |
 |---|---|---|---|
-| **Flathub** | `flathub.sh` | GitHub token on `gh` (have it) | `flatpak-builder`, `flatpak-pip-generator` |
-| **openSUSE OBS** | `obs.sh` | `~/.oscrc` with openSUSE account | `osc` |
+| **Flathub** | `flathub.sh` | GitHub token on `gh` (have it) | `flatpak-builder`, `org.flatpak.Builder` |
+| **openSUSE OBS** | `obs.sh` | `~/.config/osc/oscrc` with an openSUSE account | `osc` |
 | **Fedora COPR** | `copr.sh` | `~/.config/copr` API token | `copr-cli` |
 | **AUR (stable)** | `aur.sh perch` | SSH key registered with AUR account | `git` only |
 | **AUR (-git)** | `aur.sh perch-git` | same | `git` only |

@@ -113,51 +113,33 @@ build — the fetch is reliable there.
 
 ## Flatpak (primary)
 
-### Manifest outline
+### Manifest
 
-```yaml
-# io.github.milnet01.Perch.yml
-app-id: io.github.milnet01.Perch
-runtime: org.kde.Platform
-runtime-version: "6.8"
-sdk: org.kde.Sdk
-base: com.riverbankcomputing.PyQt.BaseApp
-base-version: "6.8"
-command: perch
+The manifest is [`packaging/flathub/io.github.milnet01.Perch.yml`](../packaging/flathub/io.github.milnet01.Perch.yml)
+and is the only copy — it is what gets submitted, so a second copy here
+would be a second thing to keep true. [`packaging/flathub/SUBMISSION.md`](../packaging/flathub/SUBMISSION.md)
+is the runbook. The decisions worth knowing without opening either:
 
-finish-args:
-  - --share=ipc
-  - --socket=x11                       # X11 fallback; required for XWayland
-  - --socket=wayland
-  - --socket=fallback-x11
-  - --socket=session-bus               # D-Bus: KWin, GlobalShortcuts portal, notifications
-  - --device=dri                        # may be needed for Qt; audit at M8
-  - --talk-name=org.kde.KWin
-  - --talk-name=org.kde.kglobalaccel    # non-Flatpak Plasma fallback path only (see 05)
-  - --talk-name=org.freedesktop.Notifications
-  - --talk-name=org.freedesktop.portal.Desktop   # for GlobalShortcuts portal
-  - --own-name=io.github.milnet01.Perch          # Perch's own D-Bus service (incl. KWin1 iface)
-  - --filesystem=xdg-config/perch:create         # so users can symlink their config
-  - --filesystem=xdg-data/kwin/scripts:create    # so we can install the KWin script host-side
-  - --metadata=X-DConf=migrate-path=/io/github/milnet01/Perch/
+- **`org.kde.Platform//6.11`**, with **`io.qt.PySide.BaseApp//6.11`**
+  supplying PySide6 and Qt. The BaseApp is built against that same runtime
+  and ships python 3.13, which is the ABI the pinned wheels target. Perch
+  is a Plasma application, so the KDE runtime is the right base rather than
+  freedesktop.
+- **The remaining dependencies are sha256-pinned and committed** in
+  `packaging/flathub/python3-deps.yaml`, generated from `pyproject.toml` by
+  `generate-pip-sources.sh`. Flathub's builders have no network, so nothing
+  may be resolved at build time — including the `hatchling` build backend,
+  which is why it is in the closure too.
+- **`flathub.json` restricts the buildbot to x86_64**, the arch the pinned
+  `sdbus` wheel covers.
+- **`finish-args` carries no `--socket=session-bus`.** Named `--talk-name`
+  entries are how a sandboxed app reaches specific services; the blanket
+  socket makes them meaningless and Flathub's linter rejects it.
+- **No `--device=dri`** — Perch renders no 3D surface, and the tray icon and
+  dialogs work on llvmpipe.
 
-modules:
-  - name: perch
-    buildsystem: simple
-    build-commands:
-      - pip3 install --prefix=/app .
-      - install -Dm644 data/io.github.milnet01.Perch.desktop    /app/share/applications/
-      - install -Dm644 data/io.github.milnet01.Perch.metainfo.xml /app/share/metainfo/
-      - install -Dm644 data/icons/hicolor/scalable/apps/io.github.milnet01.Perch.svg /app/share/icons/hicolor/scalable/apps/
-      # The KWin script is shipped here, but is copied to ~/.local/share/kwin/scripts/
-      # at first run by KWinBackend (see docs/05-backend-kwin.md) — KWin runs on the host
-      # and cannot read /app/share/.
-      - install -Dm644 src/perch/backend/kwin/script/metadata.json  /app/share/perch/kwin/metadata.json
-      - install -Dm644 src/perch/backend/kwin/script/contents/code/main.js /app/share/perch/kwin/contents/code/main.js
-    sources:
-      - type: dir
-        path: .
-```
+Build it locally with [`packaging/flathub/flatpak-build.sh`](../packaging/flathub/flatpak-build.sh),
+which builds offline exactly as Flathub does.
 
 ### KWin script delivery from Flatpak — the critical detail
 
@@ -336,7 +318,7 @@ Ubuntu 24.04 "Noble" ships Python **3.12** (OK) but **PySide6 6.4** (too old; we
 
 Workarounds, in preference order:
 
-1. **Use the Flatpak** — the `org.kde.Platform` 6.8 runtime ships a current PySide6 and is self-contained.
+1. **Use the Flatpak** — the `org.kde.Platform` runtime plus the PySide BaseApp ship a current PySide6, and the bundle is self-contained.
 2. **`pipx install perch`** — pipx resolves Perch's pins and installs `PySide6>=6.8` from PyPI into its own venv, independent of the distro package.
 3. **Snap** (if we ever ship one) — bundles its own Qt.
 
