@@ -69,7 +69,7 @@ Goal: anyone can install Perch without building from source.
   Kind: test.
   Source: in-session-2026-08-27 while settling PERC-0032.
 
-- 📋 [PERC-0034] **Give local_CI.sh a --docs mode so a docs-only push does not run the full suite.**
+- ✅ [PERC-0034] **Give local_CI.sh a --docs mode so a docs-only push does not run the full suite.**
   The machine-wide pre-push hook detects a documentation-only push and says so:
 
     pre-push: documentation-only push, but ./local_CI.sh has no documentation
@@ -93,6 +93,24 @@ Goal: anyone can install Perch without building from source.
 
   Not urgent: the full gate is ~4s of pytest plus the packaging checks, so
   this buys convenience rather than correctness.
+  Resolved (2026-08-27): local_CI.sh gained --docs, ci.yml gained a third
+  "docs" job, and both git config keys are set (docsMode --docs, docsGlob
+  'docs/*.md|*.md|LICENSE'). A docs push now costs ~0.07s against ~25s.
+
+  The item's premise needed correcting: nothing in the gate read a docs
+  path, so "the documentation-touching checks only" was an empty set. The
+  new tools/docs_check.py supplies the content -- relative links and
+  #anchors resolve, and retired or forbidden strings stay inside the
+  documents that record them. Both checks confirmed falsifiable by seeding
+  a broken link, a bad anchor and a retired symbol.
+
+  Two of /perch-docs-check's greps were deliberately not ported: the
+  future-tense scan needs the roadmap's milestone state, and the
+  swapped-library grep matches eight files here, all of them correct
+  rationale -- allow-listing them would leave a check that cannot fail.
+  Both stay in the skill, which the gate now names as its wider half.
+
+  Commit 419b660.
   **Layman:** Pushing a documentation change currently runs every test, which is slow for no benefit.
   Kind: chore.
   Source: in-session-2026-08-27, prompted by the pre-push hook's own hint.
