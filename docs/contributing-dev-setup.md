@@ -42,19 +42,32 @@ Fresh-environment behaviour (no existing config) is that Perch writes a default 
 ## Checks CI runs
 
 **Before every push, run [`local_CI.sh`](../local_CI.sh)** — it runs the same
-checks as `.github/workflows/ci.yml` (every job) on a single interpreter, so a
-failure surfaces locally in seconds instead of burning a CI run. (CI also runs
-the test job across a Python matrix; the script header explains how to match it
-locally.)
+checks as `.github/workflows/ci.yml` (every job), so a failure surfaces locally
+in a few minutes instead of burning a CI run.
 
 ```sh
 ./local_CI.sh
 ```
 
-It auto-uses the project `.venv`, runs every check (rather than stopping at the
-first failure like CI does), and prints `safe to push` only when all pass. It
-must stay in lockstep with `ci.yml` — see the hard rule in
-[`CLAUDE.md`](../CLAUDE.md).
+It runs every check rather than stopping at the first failure like CI does, and
+prints `safe to push` only when all pass. It must stay in lockstep with
+`ci.yml` — see the hard rule in [`CLAUDE.md`](../CLAUDE.md), which
+`tools/ci_lockstep_check.py` enforces mechanically.
+
+**The test job runs once per interpreter in `ci.yml`'s matrix**, as CI does —
+the versions are read out of `ci.yml`, so adding one there cannot leave the
+gate testing the old set. Each gets a `uv`-managed environment under
+`.venvs/py<version>` (gitignored, built on first use, and holding the same
+`-e ".[dev]"` install CI performs), so the first run after a matrix change
+takes a few minutes to populate and later ones do not. A version CI tests that
+this machine cannot build is reported as a **failure**, never skipped quietly:
+a matrix entry that silently drops is exactly the hole that let a 3.14-only
+failure through a green 3.13 run (CI run 33145715623). This needs
+[`uv`](https://docs.astral.sh/uv/) on `PATH`; it fetches the interpreters
+itself.
+
+The project `.venv` is still the environment to point an editor at — the gate
+does not use it for the test job.
 
 ### Documentation-only pushes
 

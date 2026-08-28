@@ -61,7 +61,7 @@ Every dependency — runtime library, dev/test tool, CI action, Python runtime, 
 
 ## Never push without a green `local_CI.sh` (hard rule)
 
-`./local_CI.sh` runs the same test, docs and packaging checks as `.github/workflows/ci.yml` (every job), on a single interpreter — CI additionally runs the test job across a 3.12 / 3.13 / 3.14 matrix, so a version-specific failure can still slip past a green local run. Run it and get `safe to push` **before every push** — a red push burns a CI run to tell us what the script would have caught in seconds. If you edit `ci.yml`, edit `local_CI.sh` in the same commit; they must never drift. Fuller dev-setup detail: [`docs/contributing-dev-setup.md`](docs/contributing-dev-setup.md).
+`./local_CI.sh` runs the same test, docs and packaging checks as `.github/workflows/ci.yml` (every job), including the test job once per interpreter in CI's matrix — it reads the versions out of `ci.yml` and builds a `uv`-managed environment per version under `.venvs/`, so a version-specific failure cannot slip past a green local run. A matrix entry this machine cannot build fails the gate rather than being skipped. Run it and get `safe to push` **before every push** — a red push burns a CI run to tell us what the script would have caught in seconds. If you edit `ci.yml`, edit `local_CI.sh` in the same commit; they must never drift. Fuller dev-setup detail: [`docs/contributing-dev-setup.md`](docs/contributing-dev-setup.md).
 
 ## Tech stack
 

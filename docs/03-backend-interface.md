@@ -154,7 +154,9 @@ class WindowBackend(QObject):
     # names that would have confused mypy and readers.
     async def start(self) -> None: ...
         # Open the transport, subscribe to events, emit backend_connected.
-        # Raises BackendUnavailable if the transport is missing.
+        # Raises BackendUnavailable if the transport is missing, or if
+        # it goes away before start() completes — nothing connected,
+        # so that is not a BackendDisconnected.
 
     async def stop(self) -> None: ...
 

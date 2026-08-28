@@ -14,10 +14,15 @@
 # at the end, so a single local run tells you everything to fix rather than one
 # thing at a time. The pass/fail verdict (exit status) is identical to CI.
 #
-# Two deliberate deviations, both so the local verdict matches CI's:
-#   - Matrix: CI runs the test job on Python 3.12, 3.13 and 3.14. This script
-#     uses whatever `python`/`ruff`/`mypy`/`pytest` resolve to on your PATH; for
-#     full matrix parity, run it once under each interpreter.
+# The test job runs once per interpreter in ci.yml's matrix, exactly as CI
+# does. The versions are READ from ci.yml rather than listed here, so the two
+# cannot drift; each gets a uv-managed venv under .venvs/py<version> holding
+# the same `-e .[dev]` install CI performs. A version CI tests and this box
+# cannot build is a FAILURE, never a silent skip -- a matrix entry that
+# quietly drops is the hole this closes (CI run 33145715623: a green local run
+# under 3.13 preceded a 3.14-only failure).
+#
+# One deliberate deviation remains:
 #   - Live tests: the pytest step excludes the `x11`/`kwin` markers (see the
 #     note at that step). CI installs no compositor so those tests skip there;
 #     excluding them locally keeps the "green local ⟹ green CI" implication.
@@ -123,20 +128,56 @@ run "docs check (links + drift)" "$PYTHON" tools/docs_check.py
 $DOCS_ONLY && verdict "docs"
 
 # ==== job: test (ci.yml) =====================================================
-need ruff   "pipx install ruff (or pip install -e '.[dev]')"   && run "ruff"  ruff check .
-need mypy   "pip install -e '.[dev]'"                          && run "mypy"  mypy
-run "intent-dispatch audit" "$PYTHON" tools/intent_dispatch_audit.py
-# The hard rule above says this script and ci.yml must never drift. This is
-# what enforces it: until it existed, a check added to ci.yml alone still let
-# this script print "safe to push".
-run "CI/local lockstep" "$PYTHON" tools/ci_lockstep_check.py
-# The `x11` / `kwin` markers gate LIVE integration tests that spawn a real
-# Xvfb+openbox / kwin_wayland session. CI installs neither compositor, so those
-# tests skip there — but this dev box has openbox installed, so they would run
-# (and they are live + flaky). Exclude them so a green local_CI implies a green
-# CI (the whole point of the gate); run them deliberately with `pytest -m x11`.
-need pytest "pip install -e '.[dev]'" \
-  && run "pytest" env QT_QPA_PLATFORM=offscreen pytest -ra -m "not x11 and not kwin"
+# CI runs this job once per entry in its `python-version` matrix. Read those
+# versions out of ci.yml so adding one to the matrix cannot leave this script
+# testing the old set.
+mapfile -t MATRIX < <(
+  sed -n '/python-version:/p' .github/workflows/ci.yml |
+    grep -o '[0-9]\+\.[0-9]\+' | sort -u -V
+)
+if ((${#MATRIX[@]} == 0)); then
+  printf '%s\n\n' "${RED}   could not read the python-version matrix from .github/workflows/ci.yml${RESET}"
+  FAILED+=("matrix:unreadable")
+fi
+
+# Each matrix interpreter gets its own venv holding the same `-e .[dev]`
+# install CI does. They live beside the main worktree's .venv (never inside a
+# detached pre-push worktree, which is thrown away) and are gitignored.
+GATE_ROOT="${VENV_DIR:-$PWD}"; GATE_ROOT="${GATE_ROOT%/.venv}"
+
+matrix_bin() {  # matrix_bin <version> — print its venv's bin dir, building it if needed
+  local ver="$1" dir="$GATE_ROOT/.venvs/py$ver"
+  if [[ ! -x $dir/bin/python ]]; then
+    uv venv --python "$ver" "$dir" >/dev/null 2>&1 || return 1
+  fi
+  # Cheap when already satisfied; this is the local `pip install -e ".[dev]"`.
+  uv pip install --quiet --python "$dir/bin/python" -e '.[dev]' >/dev/null || return 1
+  printf '%s/bin' "$dir"
+}
+
+need uv "curl -LsSf https://astral.sh/uv/install.sh | sh"
+for ver in "${MATRIX[@]}"; do
+  if ! BIN=$(matrix_bin "$ver"); then
+    printf '%s\n\n' "${RED}   MATRIX ${ver}: could not build .venvs/py${ver} — CI tests this version and this run did not${RESET}"
+    FAILED+=("matrix:${ver}")
+    continue
+  fi
+  run "ruff ($ver)"                 env PATH="$BIN:$PATH" ruff check .
+  run "mypy ($ver)"                 env PATH="$BIN:$PATH" mypy
+  run "intent-dispatch audit ($ver)" "$BIN/python" tools/intent_dispatch_audit.py
+  # The hard rule above says this script and ci.yml must never drift. This is
+  # what enforces it: until it existed, a check added to ci.yml alone still let
+  # this script print "safe to push".
+  run "CI/local lockstep ($ver)"    "$BIN/python" tools/ci_lockstep_check.py
+  # The `x11` / `kwin` markers gate LIVE integration tests that spawn a real
+  # Xvfb+openbox / kwin_wayland session. CI installs neither compositor, so
+  # those tests skip there — but this dev box has openbox installed, so they
+  # would run (and they are live + flaky). Exclude them so a green local_CI
+  # implies a green CI (the whole point of the gate); run them deliberately
+  # with `pytest -m x11`.
+  run "pytest ($ver)" env PATH="$BIN:$PATH" QT_QPA_PLATFORM=offscreen \
+    pytest -ra -m "not x11 and not kwin"
+done
 
 # ==== job: packaging (ci.yml) ================================================
 need appstreamcli "zypper in appstream" \

@@ -15,6 +15,8 @@ pip-wheel-metadata/
 # Virtual environments
 .venv/
 venv/
+# One venv per interpreter in ci.yml's matrix, built by local_CI.sh.
+.venvs/
 env/
 ENV/
 

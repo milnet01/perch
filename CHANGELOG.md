@@ -108,6 +108,17 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **X11 backend: a display that goes away during `start()` no longer crashes Perch**
+  An X server can accept the connection and then reset it mid-handshake — a
+  session ending as Perch starts, or a freshly launched `Xvfb`. python-xlib
+  wraps that in `Xlib.error.ConnectionClosedError`, which subclasses
+  `Exception` alone and so escaped `start()`'s `OSError` / `ConnectionError`
+  handler as a raw traceback. It is now named at all three points it can
+  fire (the `Display()` constructor, the subscription handshake, the first
+  cache-priming round-trips) and raises the documented `BackendUnavailable`,
+  tearing the half-open display down first, so the core takes its UI-only
+  fallback path instead. Caught by CI run 33145715623.
+
 - **Flatpak autostart: read the portal's Response, not the Request path** (PERC-0037)
   `org.freedesktop.portal.Background.RequestBackground` returns the object
   path of an `org.freedesktop.portal.Request`; the outcome arrives later as

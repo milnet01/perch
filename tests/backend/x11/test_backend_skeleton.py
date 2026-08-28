@@ -122,3 +122,62 @@ def test_stop_on_never_started_is_a_noop() -> None:
         await backend.stop()  # must not raise
 
     asyncio.run(go())
+
+
+# ── Connection reset during start() ──────────────────────────────────────────
+# python-xlib wraps a ConnectionResetError from the setup handshake in
+# Xlib.error.ConnectionClosedError, which subclasses Exception alone — NOT
+# OSError — so it is not covered by start()'s ConnectionError/OSError arms and
+# has to be named. Real trigger: an X session ending as Perch starts. Caught in
+# CI run 33145715623, where a just-launched Xvfb reset the connection and the
+# raw Xlib traceback escaped start() instead of the documented
+# BackendUnavailable (docs/03-backend-interface.md §Errors).
+
+
+def test_connection_reset_during_setup_is_backend_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from Xlib import display as xdisplay
+    from Xlib import error as xerror
+
+    def _reset(_name: str | None) -> object:
+        raise xerror.ConnectionClosedError("server")
+
+    # X11Backend holds this very module as ``_display``, so patching the
+    # attribute here is what its ``_display.Display(...)`` call resolves.
+    monkeypatch.setattr(xdisplay, "Display", _reset)
+    backend = X11Backend(display_name=":0")
+    import asyncio
+
+    async def go() -> None:
+        with pytest.raises(BackendUnavailable):
+            await backend.start()
+
+    asyncio.run(go())
+
+
+def test_display_lost_mid_handshake_tears_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A drop *after* the socket opens must not leave a half-open backend."""
+    from unittest.mock import MagicMock
+
+    from Xlib import display as xdisplay
+    from Xlib import error as xerror
+
+    fake = MagicMock()
+    fake.screen.side_effect = xerror.ConnectionClosedError("server")
+    monkeypatch.setattr(xdisplay, "Display", lambda _name: fake)
+    backend = X11Backend(display_name=":0")
+    import asyncio
+
+    async def go() -> None:
+        with pytest.raises(BackendUnavailable):
+            await backend.start()
+
+    asyncio.run(go())
+    # The display is released and the backend reports itself disconnected,
+    # so the next start() attempt begins from a clean slate.
+    fake.close.assert_called_once()
+    with pytest.raises(BackendDisconnected):
+        asyncio.run(backend.list_outputs())

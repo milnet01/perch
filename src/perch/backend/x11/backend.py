@@ -162,6 +162,7 @@ class X11Backend(WindowBackend):
             self._d = _display.Display(self._display_name)
         except (
             _xerror.DisplayError,
+            _xerror.ConnectionClosedError,
             ConnectionError,
             OSError,
             OverflowError,
@@ -170,12 +171,51 @@ class X11Backend(WindowBackend):
             # Xlib.error.DisplayError; OSError covers "no such file" when the
             # X socket is missing entirely; OverflowError surfaces when a
             # malformed display number overflows python-xlib's TCP-port math
-            # (``:99999`` → port 105999, which does not fit). All three mean
+            # (``:99999`` → port 105999, which does not fit). All four mean
             # "no usable transport." BackendUnavailable is the public surface
             # the core watches for to trigger the UI-only fallback path
             # (see docs/03-backend-interface.md §Backend selection).
+            #
+            # ConnectionClosedError is the server accepting the socket and
+            # then resetting it *during* the setup handshake — a session
+            # ending as Perch starts, or a just-launched Xvfb. It subclasses
+            # Exception alone, NOT OSError, so it is not covered by any of
+            # the others and has to be named: python-xlib wraps the
+            # underlying ConnectionResetError in it and re-raises.
             raise BackendUnavailable(f"cannot open display: {exc!s}") from exc
 
+        try:
+            self._connect_handshake()
+        except (_xerror.ConnectionClosedError, OSError) as exc:
+            # Same failure, a few milliseconds later: the connection opened
+            # and dropped before the handshake finished. The backend never
+            # came up, so this is BackendUnavailable rather than
+            # BackendDisconnected — but a half-open display, notifier and
+            # timer would be left behind, so tear them down first.
+            self._teardown()
+            raise BackendUnavailable(f"display went away: {exc!s}") from exc
+
+        self._connected = True
+        try:
+            # Prime the caches so the first live event can diff against
+            # something. These are the first round-trips on the new
+            # connection and can hit the same reset.
+            infos = await self.list_windows()
+            outs = await self.list_outputs()
+        except (_xerror.ConnectionClosedError, OSError) as exc:
+            self._teardown()
+            raise BackendUnavailable(f"display went away: {exc!s}") from exc
+        self._info_cache = {i.id: i for i in infos}
+        self._outputs_cache = {o.name: o for o in outs}
+        self.backend_connected.emit()
+
+    def _connect_handshake(self) -> None:
+        """Subscribe to the events we need and wire the socket to Qt.
+
+        Split out of :meth:`start` so the whole handshake sits under one
+        connection-loss handler.
+        """
+        assert self._d is not None
         self._atoms = AtomTable(self._d)
         # Subscribe to the root-level changes: SubstructureNotify for window
         # lifecycle (Create/Map/Unmap/Destroy reparented under root),
@@ -216,17 +256,19 @@ class X11Backend(WindowBackend):
         self._randr_debounce.setTimerType(Qt.TimerType.CoarseTimer)
         self._randr_debounce.timeout.connect(self._on_randr_debounce_fired)
 
-        self._connected = True
-        # Prime the caches so the first live event can diff against something.
-        infos = await self.list_windows()
-        self._info_cache = {i.id: i for i in infos}
-        outs = await self.list_outputs()
-        self._outputs_cache = {o.name: o for o in outs}
-        self.backend_connected.emit()
-
     async def stop(self) -> None:
         if not self._connected:
             return
+        self._teardown()
+        self.backend_disconnected.emit("x11 stop")
+
+    def _teardown(self) -> None:
+        """Release the display, the notifier and the timer.
+
+        Shared by :meth:`stop` and by :meth:`start`'s connection-loss
+        handlers, which have the same state to release but must not emit
+        ``backend_disconnected`` — nothing ever connected.
+        """
         self._connected = False
         if self._notifier is not None:
             self._notifier.setEnabled(False)
@@ -238,15 +280,15 @@ class X11Backend(WindowBackend):
             self._randr_debounce = None
         if self._d is not None:
             # Display.close() can raise OSError on a socket already torn down
-            # by the server (pathological shutdown race). Nothing actionable;
-            # stop() must not throw during app shutdown.
-            with contextlib.suppress(OSError):
+            # by the server (pathological shutdown race), and
+            # ConnectionClosedError when it was the server that dropped it.
+            # Neither is actionable; teardown must not throw.
+            with contextlib.suppress(OSError, _xerror.ConnectionClosedError):
                 self._d.close()
             self._d = None
         self._atoms = None
         self._info_cache.clear()
         self._outputs_cache.clear()
-        self.backend_disconnected.emit("x11 stop")
 
     @property
     def capabilities(self) -> Capabilities:
