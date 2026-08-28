@@ -91,15 +91,29 @@
   <screenshots>
     <screenshot type="default">
       <caption>The tray menu showing active profile and snap presets</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.0.0/docs/screenshots/tray-menu.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.1.0/docs/screenshots/tray-menu.png</image>
     </screenshot>
     <screenshot>
       <caption>The rules editor matching windows by class and title</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.0.0/docs/screenshots/rules-editor.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.1.0/docs/screenshots/rules-editor.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release version="1.1.0" date="2026-08-28" type="stable">
+      <url type="details">https://github.com/milnet01/perch/blob/v1.1.0/CHANGELOG.md#110--2026-08-28</url>
+      <description>
+        <p>Onboarding, a single-file download, and a Flatpak that works properly on Plasma Wayland.</p>
+        <ul>
+          <li>A first-run setup wizard opens on first launch: it explains that no configuration is needed, checks tray visibility and start-at-login, and names the compositor it detected. It can be reopened from Settings.</li>
+          <li>Perch now ships as a self-contained AppImage — one file to download and run, with no Python or Qt to install.</li>
+          <li>An openSUSE and Fedora RPM repository is live, with copy-paste zypper and dnf commands in the README.</li>
+          <li>The tray menu gains a Donate submenu and a Report an issue entry.</li>
+          <li>Under Flatpak the tray icon now appears, its menu resolves icons correctly, the KWin script reaches KWin, and start-at-login reaches the Background portal instead of raising.</li>
+          <li>Tray "Pause restore" is now "Pause Perch", a full panic switch.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-04-21" type="stable">
       <url type="details">https://github.com/milnet01/perch/blob/v1.0.0/CHANGELOG.md#100--2026-04-21</url>
       <description>

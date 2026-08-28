@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "perch"
-version = "1.0.0"
+version = "1.1.0"
 description = "Persistent, compositor-aware window geometry manager with a system-tray UI."
 readme = "README.md"
 requires-python = ">=3.12"

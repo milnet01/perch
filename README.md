@@ -10,7 +10,7 @@ editor and it lands on the left half of your second monitor, like it always
 does. Reconnect your laptop to your desk and everything shuffles back to where
 it belongs.
 
-**Status:** v1.0.0 · Linux · free & open source (GPL-3.0). See
+**Status:** v1.1.0 · Linux · free & open source (GPL-3.0). See
 [`CHANGELOG.md`](CHANGELOG.md) for what's new.
 
 ---
@@ -21,15 +21,15 @@ Perch ships as an **AppImage** — a single file you download and run. **No
 installing, no dependencies, no Python to set up.** It works on any modern Linux
 desktop (Ubuntu 20.04+, Debian, Fedora, openSUSE, Arch, and more).
 
-1. Download `Perch-1.0.0-x86_64.AppImage` from the
+1. Download `Perch-1.1.0-x86_64.AppImage` from the
    [**Releases page**](https://github.com/milnet01/perch/releases/latest).
 2. Make it runnable (once):
    ```bash
-   chmod +x Perch-1.0.0-x86_64.AppImage
+   chmod +x Perch-1.1.0-x86_64.AppImage
    ```
 3. Run it:
    ```bash
-   ./Perch-1.0.0-x86_64.AppImage
+   ./Perch-1.1.0-x86_64.AppImage
    ```
 
 Perch appears in your system tray. Right-click the tray icon for everything —

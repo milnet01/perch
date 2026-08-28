@@ -11,8 +11,8 @@ packages to install. Everything the GUI needs is bundled inside.
 ## What the user gets
 
 ```bash
-chmod +x Perch-1.0.0-x86_64.AppImage
-./Perch-1.0.0-x86_64.AppImage
+chmod +x Perch-1.1.0-x86_64.AppImage
+./Perch-1.1.0-x86_64.AppImage
 ```
 
 Runs on any glibc ≥ 2.28 desktop (Ubuntu 20.04+, Debian 10+, Fedora, openSUSE,

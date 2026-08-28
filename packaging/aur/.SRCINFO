@@ -1,6 +1,6 @@
 pkgbase = perch
 	pkgdesc = Persistent, compositor-aware window geometry manager (tray app, X11 + KWin/Plasma Wayland)
-	pkgver = 1.0.0
+	pkgver = 1.1.0
 	pkgrel = 1
 	url = https://github.com/milnet01/perch
 	arch = any
@@ -20,7 +20,7 @@ pkgbase = perch
 	optdepends = xdg-desktop-portal: GlobalShortcuts + Background portal (Flatpak and modern Plasma)
 	optdepends = xdg-desktop-portal-kde: preferred portal impl on Plasma 6
 	optdepends = python-i3ipc: Sway backend (optional; Perch degrades gracefully without it)
-	source = perch-1.0.0.tar.gz::https://github.com/milnet01/perch/archive/v1.0.0.tar.gz
+	source = perch-1.1.0.tar.gz::https://github.com/milnet01/perch/archive/v1.1.0.tar.gz
 	sha256sums = SKIP
 
 pkgname = perch

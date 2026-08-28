@@ -122,5 +122,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/milnet01/perch.git
-        tag: v1.0.0
+        tag: v1.1.0
         commit: 1f9f33bd6a4b792b76103d345f374428d538836f

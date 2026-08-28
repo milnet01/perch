@@ -6,7 +6,7 @@
 # the AUR repos are write-mirrors of packaging/aur/.
 
 pkgname=perch
-pkgver=1.0.0
+pkgver=1.1.0
 pkgrel=1
 pkgdesc='Persistent, compositor-aware window geometry manager (tray app, X11 + KWin/Plasma Wayland)'
 arch=('any')
