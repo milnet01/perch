@@ -32,6 +32,7 @@ from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
+    QHBoxLayout,
     QLabel,
     QVBoxLayout,
     QWizard,
@@ -242,13 +243,17 @@ class _HealthPage(QWizardPage):
         self.tray_result = check_tray(have_host=have_host, gnome=gnome)
         layout.addWidget(_row_widget(self.tray_result))
 
+        # The checkbox carries this row's title, so the badge is the glyph
+        # alone: rendering ``result.title`` beside it printed the same
+        # sentence twice, once as the checkbox label and once as the badge.
         self.start_at_login = QCheckBox(self.tr("Start Perch at login"))
         self.start_at_login.setChecked(config.general.start_at_login)
         self._autostart_badge = QLabel()
         self.start_at_login.toggled.connect(self._refresh_autostart_badge)
-        row = QVBoxLayout()
-        row.addWidget(self.start_at_login)
+        row = QHBoxLayout()
         row.addWidget(self._autostart_badge)
+        row.addWidget(self.start_at_login)
+        row.addStretch(1)
         layout.addLayout(row)
         self._refresh_autostart_badge(self.start_at_login.isChecked())
 
@@ -258,9 +263,7 @@ class _HealthPage(QWizardPage):
 
     def _refresh_autostart_badge(self, enabled: bool) -> None:
         result = check_autostart(enabled=enabled)
-        self._autostart_badge.setText(
-            f"{badge_glyph(result.badge)} {result.title}"
-        )
+        self._autostart_badge.setText(badge_glyph(result.badge))
 
 
 class _DonePage(QWizardPage):
