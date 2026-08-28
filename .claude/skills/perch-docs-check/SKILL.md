@@ -96,7 +96,7 @@ If there are **no** actionable findings, say so in one sentence: *"docs/ is clea
 ## When to invoke
 
 - After any non-trivial doc change, before declaring the turn done.
-- Before running `/release`.
+- Before running `cut-release`.
 - At the start of a new Perch session, as a sanity check that nothing drifted since last commit.
 
 Do NOT invoke from inside another skill/hook — this is for interactive use.

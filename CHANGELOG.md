@@ -8,6 +8,8 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-08-28
+
 ### Added
 
 - **First-run setup wizard, opening on the zero-config message** (PERC-0003)
@@ -40,7 +42,7 @@ Sections under each release are populated on a best-effort basis — empty secti
   stated in `perch.ui.links` because `.github/` is not shipped in any package,
   and a test asserts they match `FUNDING.yml`.
 
-- **README install section for the openSUSE and Fedora RPM repository** (PERC-0002)
+- **README install section for the openSUSE and Fedora RPM repository** (PERC-0041)
   `home:milnet:perch` on OBS builds green for openSUSE Tumbleweed and Fedora
   and is now advertised, with copy-paste zypper and dnf commands. Both
   repositories were checked to be serving the RPM before the link went in.
@@ -64,7 +66,7 @@ Sections under each release are populated on a best-effort basis — empty secti
   inside the sandbox and the host grant went unused. Flatpak Perch keeps its
   own config, which is the Flathub norm.
 
-- **OBS submission targets the `home:milnet:perch` subproject and uploads a release tarball** (PERC-0002)
+- **OBS submission targets the `home:milnet:perch` subproject and uploads a release tarball** (PERC-0041)
   The subproject matches the convention already used for this account's
   other projects, and gives Perch its own repository list (Tumbleweed and
   Fedora, both x86_64). `packaging/rpm/_service` is deleted: its `obs_scm`
@@ -93,11 +95,9 @@ Sections under each release are populated on a best-effort basis — empty secti
   moved while paused. Manual "Snap focused" still applies. Renamed the
   TogglePauseRestore intent to TogglePause. See docs/08-ui.md §Menu structure.
 
-### Deprecated
-
 ### Removed
 
-- **Fedora COPR dropped as a distribution channel — OBS builds the Fedora RPM from the same spec** (PERC-0002)
+- **Fedora COPR dropped as a distribution channel — OBS builds the Fedora RPM from the same spec** (PERC-0041)
   It would have been a second build service producing one artefact from one
   spec, with a second set of credentials and a second thing to keep current.
   Fedora users are unaffected: OBS builds Fedora targets, and the
@@ -158,7 +158,7 @@ Sections under each release are populated on a best-effort basis — empty secti
   is now resolved from `$HOME` when sandboxed. `PERCH_KWIN_SCRIPT_TARGET`
   still overrides everything.
 
-- **The RPM spec now builds on Fedora — five bugs no local check could catch** (PERC-0002)
+- **The RPM spec now builds on Fedora — five bugs no local check could catch** (PERC-0041)
   Publishing to OBS for the first time found them all. `rpmspec -P` passed
   throughout, because every one of them only fails inside a real build root:
   openSUSE-only `BuildRequires` names (`appstream-glib`, `libxml2-tools`)
@@ -169,7 +169,7 @@ Sections under each release are populated on a best-effort basis — empty secti
   directories were unowned. Fedora now produces
   `perch-1.0.0-7.1.noarch.rpm`.
 
-- **The Flathub manifest now builds — it was based on the wrong Qt toolkit and could not be built by anyone** (PERC-0002)
+- **The Flathub manifest now builds — it was based on the wrong Qt toolkit and could not be built by anyone** (PERC-0042)
   It based on `com.riverbankcomputing.PyQt.BaseApp`, the PyQt base app, for
   an application built on PySide6; it targeted a KDE runtime eight months
   stale; and its Python dependency includes were commented out and
@@ -209,8 +209,6 @@ Sections under each release are populated on a best-effort basis — empty secti
   the tray menu. They now use QT_TRANSLATE_NOOP("perch.ui.tray", …) and
   translations/perch_en.ts was regenerated (also picking up strings added
   since M3 that had never been re-extracted).
-
-### Security
 
 ## [1.0.0] — 2026-04-21
 
@@ -299,5 +297,6 @@ First stable release. Perch is a persistent, compositor-aware window geometry ma
 
 ### Security
 
-[Unreleased]: https://github.com/milnet01/perch/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/milnet01/perch/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/milnet01/perch/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/milnet01/perch/releases/tag/v1.0.0

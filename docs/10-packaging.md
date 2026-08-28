@@ -399,7 +399,7 @@ schema migration.
 
 ## Release mechanics
 
-The authoritative release sequence (content → `/bump` → tag → CI builds and
+The authoritative release sequence (content → `cut-release` → tag → CI builds and
 attaches the AppImage) and the versioning policy live in
 [versioning-release-standards.md](versioning-release-standards.md) §Release flow
 — that is the single source; it is not restated here. This section covers only
@@ -418,7 +418,7 @@ a release is tagged.
   - AUR: `perch` PKGBUILD `pkgver` bumped and pushed manually.
   - KDE Store: updated from the Flatpak artefact.
 
-The `/release` skill drives the full sequence; see CLAUDE.md for skill wiring.
+The `cut-release` skill drives the full sequence; see CLAUDE.md for skill wiring.
 
 ## Signed binaries / reproducible builds
 

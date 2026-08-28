@@ -131,7 +131,7 @@ The repo ships with a small amount of Claude-Code-specific tooling at `.claude/`
 
 **Project-local skill:**
 
-- `/perch-docs-check` — on-demand drift scan across `docs/`. Grep-based, read-only, no subagents. Invoke after non-trivial doc changes and before `/release`.
+- `/perch-docs-check` — on-demand drift scan across `docs/`. Grep-based, read-only, no subagents. Invoke after non-trivial doc changes and before `cut-release`.
 
 **Built-in skills and subagents to prefer over bespoke work:**
 
@@ -139,7 +139,7 @@ The repo ships with a small amount of Claude-Code-specific tooling at `.claude/`
 - `/feature-test` → scaffolds a regression test (spec.md + test file + CMake/pytest wiring) via the `feature-test-writer` subagent. Use after every bug fix.
 - `/triage` → locate the subsystem responsible for a vague bug report; proposes a fix plan. Use when a bug report doesn't pin a file.
 - `/simplify`, `/review`, `/security-review` — quality passes on changed code.
-- `/bump`, `/release` — once `.claude/bump.json` is populated at M8/M9, these run the release flow.
+- `cut-release` — drives the release flow end to end (pre-flight → bump → build/test → `local_CI.sh` → commit → tag → push → publish), wired to `.claude/bump.json`. `cut-release --check` is the read-only readiness report and the cheapest way to ask "can we ship?".
 - `general-purpose` subagent — for web research (e.g. the Phase 2 / 2.5 research dispatches). Isolates the research round-trip from the main context window.
 - `Explore` subagent — for broad codebase surveys.
 - `Plan` subagent — for design-intensive planning that shouldn't pollute the main context.

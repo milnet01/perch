@@ -11,7 +11,7 @@ Two subject-line shapes coexist in the history, chosen by what the commit is:
 - **Conventional `type(scope): summary`** for standalone changes outside a milestone.
   Types seen in the log: `fix`, `docs`, `build`, `chore`, `test`, `content`, and `release`. Scope is optional and names the touched area: `fix(local_CI): …`, `docs(changelog): …`, `test(conftest): …`, `fix(ci): …`, `chore(audit): …`. Scope-less forms (`build: lift mypy cap to <3`, `docs: add dependency-currency standard`) are equally valid.
 
-`release: v<X.Y.Z>` is the fixed subject for a version bump (see [versioning-release-standards.md](versioning-release-standards.md)); it is set by `.claude/bump.json`'s `commit_message_template`.
+`release: v<X.Y.Z>` is the fixed subject for a version bump (see [versioning-release-standards.md](versioning-release-standards.md)). It is Perch's own convention and this document is what sets it — `.claude/bump.json` carries no commit-message template, and where the `cut-release` skill's generic `<X.Y.Z>: <theme>` subject disagrees, this project's form wins.
 
 ### Subject line rules
 

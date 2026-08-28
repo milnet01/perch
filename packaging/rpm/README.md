@@ -89,7 +89,7 @@ the standard practice across projects packaged on both infrastructures
 
 ## What happens at v1.0.0
 
-- `perch.spec` `Version:` is bumped by `/bump`.
+- `perch.spec` `Version:` is bumped by `cut-release`.
 - CHANGELOG entry for the release.
 - OBS rebuild: re-run `packaging/submit/obs.sh`.
 - `docs/10-packaging.md` moves the OBS channel row to "live".

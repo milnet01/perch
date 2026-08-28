@@ -1,35 +1,85 @@
 {
-  "$comment": "Recipe for the /bump skill. Every file whose version must follow the Perch release version goes here. The KWin bundled-script version (src/perch/backend/kwin/__init__.py BUNDLED_SCRIPT_VERSION) is NOT listed — it's independently versioned, per docs/05-backend-kwin.md §\"Script installation strategy\".",
+  "$comment": "Release recipe for the cut-release skill. Every file whose version must follow the Perch release version goes here; docs/versioning-release-standards.md carries the same list as prose. `pattern` is a LITERAL string (not a regex) with {OLD} substituted; `replace` is literal with {OLD}/{NEW}/{TODAY} substituted. `version_pattern` is the one regex in the file.",
+
+  "$comment_absent": "Version lines deliberately NOT listed, per docs/versioning-release-standards.md §SemVer policy: BUNDLED_SCRIPT_VERSION in src/perch/backend/kwin/__init__.py (the bundled KWin script is independently versioned, per docs/05-backend-kwin.md); the config/state schema version (docs/02-state-format.md); the GNOME extension's own version in src/perch/backend/mutter/extension/extension.js. CHANGELOG.md headings and the metainfo <release> blocks record what happened once — bumping them would make them false, so the metainfo entry is a todo below, not a files entry. docs/10-packaging.md's spec and PKGBUILD excerpts are illustrative sketches, not machine-read fields.",
+
+  "version_source": "pyproject.toml",
+  "version_pattern": "^version = \"([0-9]+\\.[0-9]+\\.[0-9]+)\"$",
+
   "files": [
     {
+      "$comment": "Unique: target-version and python_version on other lines carry different values.",
       "path": "pyproject.toml",
-      "pattern": "^version = \"(?P<version>[^\"]+)\"$",
-      "format": "version = \"{version}\""
+      "pattern": "version = \"{OLD}\"",
+      "replace": "version = \"{NEW}\""
     },
     {
       "path": "src/perch/__init__.py",
-      "pattern": "^__version__ = \"(?P<version>[^\"]+)\"$",
-      "format": "__version__ = \"{version}\""
+      "pattern": "__version__ = \"{OLD}\"",
+      "replace": "__version__ = \"{NEW}\""
     },
     {
+      "$comment": "Eight spaces after the colon, matching the spec's column alignment.",
       "path": "packaging/rpm/perch.spec",
-      "pattern": "^Version:\\s+(?P<version>\\S+)$",
-      "format": "Version:        {version}"
+      "pattern": "Version:        {OLD}",
+      "replace": "Version:        {NEW}"
     },
     {
       "path": "packaging/aur/PKGBUILD",
-      "pattern": "^pkgver=(?P<version>\\S+)$",
-      "format": "pkgver={version}"
+      "pattern": "pkgver={OLD}",
+      "replace": "pkgver={NEW}"
     },
     {
+      "$comment": ".SRCINFO is what the AUR reads directly; it is generated from PKGBUILD but committed, so it must be bumped alongside it. Leading character is a TAB.",
+      "path": "packaging/aur/.SRCINFO",
+      "pattern": "\tpkgver = {OLD}",
+      "replace": "\tpkgver = {NEW}"
+    },
+    {
+      "$comment": "Leading TAB. Carries the version twice — in the tarball name and in the archive URL.",
+      "path": "packaging/aur/.SRCINFO",
+      "pattern": "\tsource = perch-{OLD}.tar.gz::https://github.com/milnet01/perch/archive/v{OLD}.tar.gz",
+      "replace": "\tsource = perch-{NEW}.tar.gz::https://github.com/milnet01/perch/archive/v{NEW}.tar.gz"
+    },
+    {
+      "$comment": "Eight leading spaces inside the manifest's source block.",
       "path": "packaging/flathub/io.github.milnet01.Perch.yml",
-      "pattern": "^\\s*tag: v(?P<version>\\S+)",
-      "format": "        tag: v{version}"
+      "pattern": "        tag: v{OLD}",
+      "replace": "        tag: v{NEW}"
+    },
+    {
+      "path": "README.md",
+      "pattern": "**Status:** v{OLD}",
+      "replace": "**Status:** v{NEW}"
+    },
+    {
+      "$comment": "Three occurrences: the download instruction, the chmod line and the run line. packaging/appimage/build.sh derives this filename from pyproject.toml, so it must follow the release or the README names a file the release does not carry.",
+      "path": "README.md",
+      "pattern": "Perch-{OLD}-x86_64.AppImage",
+      "replace": "Perch-{NEW}-x86_64.AppImage",
+      "replace_all": true
+    },
+    {
+      "$comment": "Two occurrences, same filename as README.md above.",
+      "path": "packaging/appimage/README.md",
+      "pattern": "Perch-{OLD}-x86_64.AppImage",
+      "replace": "Perch-{NEW}-x86_64.AppImage",
+      "replace_all": true
+    },
+    {
+      "$comment": "Two screenshot URLs pinned to the release tag. These show the CURRENT app in the software centre, so they follow the release rather than recording the past; the tag resolves once Phase 5 pushes it.",
+      "path": "data/io.github.milnet01.Perch.metainfo.xml",
+      "pattern": "perch/v{OLD}/docs/screenshots/",
+      "replace": "perch/v{NEW}/docs/screenshots/",
+      "replace_all": true
     }
   ],
-  "post_bump": {
-    "$comment": "Steps /release runs after /bump. The CHANGELOG release-header rewrite and the metainfo <release> entry are outside bump.json because they're content changes, not a single regex sub. They're handled by the changelog-writer subagent per the /release skill.",
-    "commit_message_template": "release: v{version}",
-    "tag_template": "v{version}"
-  }
+
+  "tag": "v{NEW}",
+
+  "todos": [
+    "Prepend a <release version=\"{NEW}\" date=\"{TODAY}\" type=\"stable\"> block to data/io.github.milnet01.Perch.metainfo.xml, above the existing <release> entries, with a <url type=\"details\"> pointing at the CHANGELOG anchor for {NEW}. Its body mirrors the CHANGELOG section for {NEW}. Mechanical: dispatch the changelog-writer subagent in mode A (translate the existing section), never mode B."
+  ],
+
+  "post_check": "python3 tools/version_lockstep_check.py"
 }

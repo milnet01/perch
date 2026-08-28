@@ -168,6 +168,21 @@ Goal: anyone can install Perch without building from source.
 
   The Flathub PR is still not open and must not be opened before those
   checks.
+  Progress (2026-08-28, 1.1.0 release cut): two pieces of shipped work were
+  split out of this item so the 1.1.0 CHANGELOG could cite closed ids
+  rather than claiming this one had shipped. PERC-0041 takes the OBS /
+  RPM channel (live and advertised for openSUSE Tumbleweed and Fedora);
+  PERC-0042 takes the Flathub manifest (builds offline, submission-ready).
+
+  This item stays PLANNED and is now scoped to the SUBMISSIONS alone:
+  the Flathub PR (still blocked on the three manual live-Plasma checks),
+  AUR (blocked on the maintainer's account confirmation) and the KDE
+  Store (manual web listing, wants Flathub live first).
+
+  The three manual checks are unchanged and still need a human at the
+  screen: the setup wizard opens and does not reappear after Finish, a
+  window's geometry survives a close/reopen, and the config dialog opens
+  and saves.
   **Layman:** Getting Perch listed in the places people normally install Linux software from
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
@@ -482,6 +497,55 @@ Goal: anyone can install Perch without building from source.
   **Layman:** Perch wrongly decides the desktop has no system tray when it is installed as a Flatpak
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
+
+- ✅ [PERC-0041] **OBS repository live for openSUSE Tumbleweed and Fedora, and advertised.**
+  Split out of PERC-0002 so the channel that actually shipped carries a
+  closed record while its parent stays open for Flathub, AUR and the KDE
+  Store. The CHANGELOG for 1.1.0 cites this id rather than PERC-0002,
+  which is still planned.
+
+  Shipped: home:milnet:perch on OBS builds green at revision 8 for both
+  openSUSE_Tumbleweed and Fedora_44 (perch-1.0.0-8.1.noarch.rpm), and
+  README's "Download &amp; run" carries an "openSUSE and Fedora: install the
+  RPM" section with real zypper / dnf commands. Both repositories were
+  verified serving the RPM with repodata, and both .repo files fetched
+  clean, before the link went in.
+
+  Not used: the software.opensuse.org one-click download page, which
+  returns HTTP 403 even with a browser User-Agent; the README links the
+  download.opensuse.org .repo files directly instead.
+  **Layman:** openSUSE and Fedora users can install Perch with a normal package command
+  Kind: package.
+  Source: split from PERC-0002 at the 1.1.0 release cut (in-session-2026-08-28).
+
+- ✅ [PERC-0042] **The Flathub manifest builds offline and is submission-ready.**
+  Split out of PERC-0002 alongside PERC-0041, on the same grounds: the
+  manifest work shipped and is verifiable, while the Flathub PR it enables
+  has not been opened. PERC-0002 stays open for that submission, for AUR
+  and for the KDE Store.
+
+  Shipped: the manifest was based on com.riverbankcomputing.PyQt.BaseApp
+  for a PySide6 application, targeted a KDE runtime eight months stale, and
+  shipped its dependency includes commented out and uncommitted, so a fresh
+  clone could not build it at all. It is now io.qt.PySide.BaseApp//6.11 on
+  org.kde.Platform//6.11 with the closure sha256-pinned and committed as
+  python3-deps.yaml. Verified by a real offline build (commit e1de021).
+
+  Alongside it: generate-pip-sources.sh regenerates the closure from
+  pyproject.toml, flatpak-build.sh reproduces Flathub's build locally and
+  smoke-tests the result, flathub.json restricts the buildbot to the arch
+  the pinned wheels cover, and packaging/submit/flathub.sh targets the
+  new-pr branch rather than master.
+
+  flatpak-builder-lint is down from 6 finish-args errors to 3, and the 3
+  survivors are load-bearing (the KWin talk-name and the two filesystem
+  paths) with written justifications ready for the PR body.
+
+  NOT shipped, and tracked by PERC-0002: the three manual live-Plasma
+  checks and the flathub/flathub PR itself.
+  **Layman:** The Flatpak recipe now actually builds, which it never did before
+  Kind: package.
+  Source: split from PERC-0002 at the 1.1.0 release cut (in-session-2026-08-28).
 
 ## v1.1 — Onboarding & robustness
 

@@ -19,17 +19,46 @@ Two version lines are **independent** of the app version and never move with it:
 
 ## Version-bearing files (must stay in lockstep)
 
-`/bump` rewrites exactly these five files, wired in `.claude/bump.json`. They must all carry the same version at every release:
+`cut-release` rewrites these nine files, wired as eleven entries in
+`.claude/bump.json` (`.SRCINFO` and `README.md` each carry the version in two
+distinct shapes). They must all carry the same version at every release:
 
-| File | Field |
-|---|---|
-| `pyproject.toml` | `version = "X.Y.Z"` |
-| `src/perch/__init__.py` | `__version__ = "X.Y.Z"` |
-| `packaging/rpm/perch.spec` | `Version:        X.Y.Z` |
-| `packaging/aur/PKGBUILD` | `pkgver=X.Y.Z` |
-| `packaging/flathub/io.github.milnet01.Perch.yml` | `tag: vX.Y.Z` |
+| File | Field | Occurrences |
+|---|---|---|
+| `pyproject.toml` | `version = "X.Y.Z"` — the canonical source the rest are checked against | 1 |
+| `src/perch/__init__.py` | `__version__ = "X.Y.Z"` | 1 |
+| `packaging/rpm/perch.spec` | `Version:        X.Y.Z` | 1 |
+| `packaging/aur/PKGBUILD` | `pkgver=X.Y.Z` | 1 |
+| `packaging/aur/.SRCINFO` | `pkgver = X.Y.Z`, and `source =` (tarball name + archive URL) | 2 |
+| `packaging/flathub/io.github.milnet01.Perch.yml` | `tag: vX.Y.Z` | 1 |
+| `README.md` | `**Status:** vX.Y.Z`, and the AppImage download filename | 1 + 3 |
+| `packaging/appimage/README.md` | the AppImage download filename | 2 |
+| `data/io.github.milnet01.Perch.metainfo.xml` | the two screenshot URLs pinned to the release tag | 2 |
 
-Do not hand-edit these individually — `/bump <version>` edits all five and runs its post-check to verify lockstep. Editing one and forgetting another is the failure this recipe exists to prevent.
+The last three are not packaging metadata but are machine-consequential all the
+same: `packaging/appimage/build.sh` derives the AppImage filename from
+`pyproject.toml`, so a README left behind names a file the release does not
+carry; and the metainfo screenshot URLs are what software centres display for
+the *current* version.
+
+Do not hand-edit these individually — `cut-release <version>` edits all eleven
+entries and runs `tools/version_lockstep_check.py` to verify lockstep. Editing
+one and forgetting another is the failure this recipe exists to prevent.
+
+`tools/version_lockstep_check.py` reads the file list out of `.claude/bump.json`
+rather than repeating it, so adding a file to the recipe is enough to put it
+under the check. It asks two questions per entry: whether the new text is there
+at all, and whether *every* line of that shape carries the canonical version —
+the second being what catches a partial rewrite of a filename the README names
+three times.
+
+**Not listed, deliberately** — beyond the two independent version lines above,
+the GNOME extension's own version in
+`src/perch/backend/mutter/extension/extension.js`; CHANGELOG headings and the
+metainfo `<release>` blocks, which record what happened once and would be made
+false by a bump; and the spec and PKGBUILD excerpts in
+[10-packaging.md](10-packaging.md), which are illustrative sketches rather than
+machine-read fields.
 
 ## CHANGELOG
 
@@ -37,16 +66,16 @@ Do not hand-edit these individually — `/bump <version>` edits all five and run
 
 ## Release flow
 
-This is the authoritative release sequence; the `/release` skill drives it end to end. [10-packaging.md](10-packaging.md) §Release mechanics covers the per-channel packaging specifics (what CI builds, how each downstream channel updates), not a competing sequence.
+This is the authoritative release sequence; the `cut-release` skill drives it end to end. [10-packaging.md](10-packaging.md) §Release mechanics covers the per-channel packaging specifics (what CI builds, how each downstream channel updates), not a competing sequence.
 
-1. **Content first** — promote `[Unreleased]` in `CHANGELOG.md` to a dated `## [X.Y.Z]` header, and add the matching `<release>` entry to `data/io.github.milnet01.Perch.metainfo.xml` (its body mirrors the CHANGELOG). These are content changes, so they sit outside `bump.json` and are drafted by the changelog-writer subagent.
-2. **`/bump <X.Y.Z>`** — rewrites the five version-bearing files above; verifies lockstep.
-3. **Commit** `release: vX.Y.Z`, then **tag** `vX.Y.Z` (templates in `bump.json` `post_bump`).
-4. **Push** (public repo — CI minutes free; gate on green `local_CI.sh` first, per [git-commit-standards.md](git-commit-standards.md)).
-5. **CI on release publish** — `.github/workflows/release.yml` builds the self-contained AppImage on GitHub's runners (`packaging/appimage/build.sh`) and attaches it, plus a `SHA256SUMS.txt`, to the GitHub release as the end-user download. It triggers on release publish and via `workflow_dispatch` with a tag input; it does **not** touch `ci.yml`, so the `local_CI.sh` lockstep is unaffected.
-6. Downstream channels (Flathub PR, OBS `_service`, AUR, KDE Store) follow as described in the packaging doc.
-
-The **`/release`** skill drives this checklist end to end (`/bump` → drift check → build → test → commit → push).
+1. **Content first** — promote `[Unreleased]` in `CHANGELOG.md` to a dated `## [X.Y.Z] — YYYY-MM-DD` header (em dash, matching §CHANGELOG above). `cut-release` checks this section exists and refuses to run without it; it never drafts one from `git log`. Confirm every roadmap ID the section cites is already ✅ in the roadmap store — an ID still 📋 stops the release.
+2. **`cut-release <X.Y.Z>`** — rewrites the version-bearing files above, runs `tools/version_lockstep_check.py` to verify lockstep, then prepends the matching `<release>` entry to `data/io.github.milnet01.Perch.metainfo.xml` (a recipe todo; its body mirrors the CHANGELOG and is drafted by the changelog-writer subagent in mode A).
+3. **Build and test the bumped tree**, then run `./local_CI.sh` — on the bumped tree, before the commit, not before the push. A failure found here costs an edit; found after the tag it costs a moved tag, which [10-packaging.md](10-packaging.md) forbids once anyone has fetched it.
+4. **Commit** `release: vX.Y.Z`, then **tag** `vX.Y.Z` (annotated, its body the CHANGELOG section — the `tag` template is in `bump.json`).
+5. **Push** (public repo — CI minutes free; a release push goes without asking, per [git-commit-standards.md](git-commit-standards.md)).
+6. **Publish** the GitHub release, notes verbatim from the CHANGELOG section.
+7. **CI on release publish** — `.github/workflows/release.yml` builds the self-contained AppImage on GitHub's runners (`packaging/appimage/build.sh`) and attaches it, plus a `SHA256SUMS.txt`, to the GitHub release as the end-user download. It triggers on release publish and via `workflow_dispatch` with a tag input; it does **not** touch `ci.yml`, so the `local_CI.sh` lockstep is unaffected. The release therefore carries no assets until this run finishes.
+8. Downstream channels (Flathub PR, OBS, AUR, KDE Store) follow as described in the packaging doc. OBS builds from an uploaded release tarball — there is no `_service` file, and one must not be reinstated (see [10-packaging.md](10-packaging.md)).
 
 ## Integrity
 

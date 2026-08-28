@@ -38,7 +38,8 @@ stage without pushing.
 ### Manual flow (when you need to deviate)
 
 1. Keep this directory in sync with release reality. When we tag
-   `v1.2.3`, `/bump` rewrites `pkgver=` in the stable PKGBUILD. The
+   `v1.2.3`, `cut-release` rewrites `pkgver=` in the stable PKGBUILD and the
+   matching `pkgver`/`source` lines in `.SRCINFO`. The
    `-git` PKGBUILD doesn't need editing — its `pkgver()` function
    derives from `git describe` on each build.
 2. Regenerate `.SRCINFO` next to each PKGBUILD **before** pushing to
@@ -86,10 +87,13 @@ are deprecated and `makepkg` on current Arch warns on them.
 
 ## Known gotchas
 
-- **`sha256sums=('SKIP')` in the pre-v1.0.0 scaffold** — correct for an
-  unreleased project. `/bump` rewrites this to the tarball's real
-  SHA-256 when we ship `v1.0.0`. Leaving SKIP after the first tagged
-  release would fail `namcap` / `aurpublish` lint.
+- **`sha256sums=('SKIP')`** — still SKIP, and **nothing rewrites it
+  automatically**: it is not a version-bearing field, so it is not in
+  `.claude/bump.json` and `cut-release` never touches it. It must be
+  replaced by hand with the release tarball's real SHA-256 before the
+  first push to the AUR, or `namcap` / `aurpublish` lint will fail. AUR
+  submission is still blocked on maintainer account setup (PERC-0002),
+  so this has not yet bitten.
 - **PySide6 version float**: Arch rolls PySide6 current; `pyside6>=6.8`
   is mostly a no-op but guards against a hypothetical downgrade.
 - **`python-i3ipc` is an optdepends**, not a depends — Perch on Arch
