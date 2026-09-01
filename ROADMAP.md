@@ -795,6 +795,17 @@ Goal: fewer first-run support tickets; the config is safe.
   compositor (TrayIconState.ERROR and its icon ship, and nothing ever sets
   compositor_missing); and the Rules dry-run toggle and trace panel, which
   docs/07-rules-engine.md:116 makes the gate for a documented engine mode.
+  Note (2026-09-01): the full per-lane findings from the 2026-08-31 sweep,
+  including the ~130 LOW/INFO items these bullets only summarise, are at
+  `.audit/review-code-2026-08-31-findings.md` (905 lines). That path is
+  GITIGNORED, so it survives on this machine only — if it matters elsewhere,
+  track it or fold the tail into these bodies before it is lost. Line numbers
+  there are as at e336950, before the tranche-1 fixes.
+
+  Sequencing: run `verify-delivery` AFTER this item, not before. It works by
+  running a feature against the promise made for it, and the four features here
+  are documented-but-absent — so a run today would spend a full pass
+  rediscovering exactly this bullet.
   **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
