@@ -836,14 +836,26 @@ Goal: fewer first-run support tickets; the config is safe.
   Source: review-code 2026-08-31 (lane compositor-scripts); check-code 2026-08-31 tool gap.
 
 - 📋 [PERC-0047] **Close the remaining X11 EWMH and ICCCM defects.**
-  Four survive the 2026-09-01 fix pass, which took the unmap-as-close and
+  Eight survive the 2026-09-01 fix pass, which took the unmap-as-close and
   the negative-coordinate OverflowError. ScrollLock is missing from the
   modifier-mask permutations, so a hotkey silently dies with ScrollLock on;
   a server without RandR raises AttributeError out of start() rather than
   degrading, and the except BadAccess written for it cannot execute; every
   KeyPress refires the hotkey with no repeat filter; and the disjoint
   branch of outputs._intersect returns a zero-size rect that becomes an
-  output's work area.
+  output's work area. close_window calls d.kill_client, which closes the
+  client's whole connection and every window it owns with no save prompt,
+  where docs/03:190 documents only WM_DELETE_WINDOW. There is no de-iconify
+  path at all -- _NET_ACTIVE_WINDOW is interned and never used -- so
+  can_set_state=True over-claims. None of the seven files imports logging
+  or defines a module logger, against coding-standards.md:74, so a Perch
+  that has stopped seeing windows produces no evidence at all. And the
+  accelerator parser splits on "+", making the legal PortableText "Ctrl++"
+  unregisterable. Two doc-side items belong with these and are carried by
+  the documentation item instead: docs/04 Reading geometry describes a
+  _NET_FRAME_EXTENTS subtraction the code correctly does not do, and
+  docs/04:32 bans d.sync() absolutely while docs/04:117 requires catching
+  an asynchronous BadAccess, which needs it.
   **Layman:** Several X11 corner cases where a hotkey stops working or Perch fails to start.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-x11).
@@ -884,6 +896,16 @@ Goal: fewer first-run support tickets; the config is safe.
   built from an unvalidated instance signature; the config temp file is
   opened without O_NOFOLLOW; and XDG directories are created 0755 where the
   spec requires 0700, which does expose to other users on a shared machine.
+  Two more calibrated UP rather than down and belong here. A user-authored
+  `title` regex is compiled and run with re.search against window titles --
+  attacker-controlled by any application the user runs -- with no length
+  cap and no timeout, on the single thread driving both Qt and asyncio, so
+  a catastrophic-backtracking pattern freezes the whole tray; it is
+  reachable through config import, which the UI offers as a feature. And
+  the import path reads the picked file twice and writes the bytes from the
+  FIRST read, so a file changing between the two is written unvalidated,
+  against the security standard's claim that every loaded document is
+  validated.
   **Layman:** Tightening a few places where Perch trusts input it should check first.
   Kind: security.
   Source: review-code 2026-08-31 (lanes backend-kwin, compositor-scripts, backend-iface-stubs, config).
@@ -903,6 +925,291 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** The manual describes things the code does not do, and vice versa.
   Kind: doc-fix.
   Source: review-code 2026-08-31 (all ten lanes).
+
+- ✅ [PERC-0052] **Audit tranche 1a: the config and state persistence data-loss defects.**
+  Thirteen findings, each verified against source before it was touched.
+  state.json: a file from a newer Perch was discarded then rotated into
+  .bak and overwritten (CRITICAL); a malformed record raised KeyError past
+  the handler so the .bak fallback never ran; the dirty flag was cleared
+  after the write rather than with the snapshot, dropping a geometry saved
+  mid-flush. config.toml: a missing primary beside an intact backup seeded
+  defaults over it; a too-new schema was treated as corruption and answered
+  by loading the older backup; UnicodeDecodeError and OSError skipped the
+  fallback entirely; the first-run seed bypassed the atomic recipe;
+  os.replace rotated a symlinked config, detaching a dotfiles link; a
+  failed write left a stray .tmp. Layout writer: `type` was serialised as a
+  TOML array its own reader refuses (CRITICAL), and fractional percents
+  were rounded away on every re-serialise. Also fixed, found by the suite
+  rather than by review: load_or_create paired an explicit config_path with
+  a backup defaulted to the real user's ~/.config/perch/config.toml.bak.
+  Six regression tests added; the state-store one proved red by reverting
+  the latch.
+  **Layman:** Nine ways Perch could lose your saved windows or your settings file, all closed.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lanes core-state, config); closed 2026-09-01 in 810c1c4.
+
+- ✅ [PERC-0053] **Audit tranche 1b: the settings dialog's commit path.**
+  Six findings. The Rules and Exclusions panes never refreshed their
+  baseline after a successful commit, so a second commit re-applied the
+  first delete against the original index -- which by then addressed a
+  surviving entry. A failed save rolled back the document but not the
+  panes' dirty state, so panes that had already committed reported clean
+  and were never committed again, losing their edits silently. Adding a
+  layout then renaming it registered the new name as its own original, so
+  the add step was skipped and a description was written to a table that
+  was never created. A suppressed profile delete left the index remap
+  assuming it had happened, sending every later field write to the wrong
+  profile. And a confirmed import left the dialog holding the pre-import
+  document, so the next Apply from any pane undid the import. commit() and
+  mark_committed() are now separate, with the freeze happening only after
+  the write to disk lands.
+  **Layman:** Clicking Apply then OK could delete a rule you never touched. Fixed.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane ui-dialog); closed 2026-09-01 in 810c1c4.
+
+- ✅ [PERC-0054] **Audit tranche 1c: startup, teardown and backend lifecycle.**
+  Nine findings. `await backend.start()` ran unguarded after the tray was
+  already visible -- found independently by four review lanes, the highest
+  agreement in the sweep -- and now degrades to the UI-only mode docs/01
+  has always described; state_store.load() beside it was equally
+  unguarded. KWin's stop() was gated on a flag set on start()'s last line,
+  so any earlier failure left the bus name held and the injected script
+  running inside the compositor with nothing owning it; start() now unwinds
+  through stop(), which is idempotent. X11 read an ICCCM iconify unmap as a
+  close, emitting the terminal window_closed for a live window that nothing
+  could then restore (CRITICAL), and negative coordinates raised
+  OverflowError outside the error taxonomy because the wire packing is
+  unsigned (CRITICAL). Hyprland's event reader returned silently on EOF
+  leaving the backend marked healthy, and its connection guard had an empty
+  body. Teardown now cancels in-flight intent tasks and guards each stop
+  independently, per docs/01 Teardown order; intent-task exceptions are
+  retrieved so they reach perch.log.
+  **Layman:** Perch no longer dies with a traceback when a backend cannot start.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lanes app-shell, backend-x11, backend-kwin, backend-iface-stubs); closed 2026-09-01 in 810c1c4.
+
+- ✅ [PERC-0055] **Audit tranche 1d: the documentation corrected alongside those fixes.**
+  Fixed in the same commit as the code, per the project's
+  no-documentation-debt rule. docs/01-architecture.md Teardown order cited
+  `perch/core/shutdown.py`, a file that does not exist -- found by two
+  independent lanes -- and its step list omitted the reducer stop entirely;
+  both corrected, with the independent guarding of steps 3 and 4 stated.
+  docs/08-ui.md now records that a confirmed import closes the dialog and
+  why that is load-bearing rather than a convenience, and carries a new
+  section documenting the commit/mark_committed protocol every page
+  implements. CLAUDE.md rule 14 was applied to both: each records what was
+  just built rather than changing direction for work still to come, which
+  is the amendment instance that does not re-arm the cold-read gate.
+  **Layman:** Three places where the manual described something that was not true.
+  Kind: doc-fix.
+  Source: review-code 2026-08-31 (lanes app-shell, core-state, ui-dialog); closed 2026-09-01 in 810c1c4.
+
+- 📋 [PERC-0056] **Repair the project's own gates and packaging scripts.**
+  Nine findings, none covered elsewhere. docs/10-packaging.md claims the
+  AppImage is validated by extracting it in a bare ubuntu:22.04 container;
+  that check exists nowhere, and the only real one runs `--version`, which
+  __main__.py states exits before touching Qt -- so the bundle's whole
+  reason for existing is unverified and release.yml ships it. harvest-libs.sh
+  swallows three `dnf install` failures with `|| true` and nothing asserts
+  the harvested count is non-zero, which is how that unverified bundle
+  becomes a published AppImage that cannot load the xcb plugin. The
+  docs-drift hook offers "open a tracking TODO" as a resolution, which the
+  no-documentation-debt rule forbids by name, and it diffs the working tree
+  against HEAD so it is silent once the turn is committed -- wrong in both
+  directions. ci_lockstep_check.py drops any `run:` step with no `name:`, so
+  an unnamed check in ci.yml leaves local_CI.sh printing "safe to push".
+  intent_dispatch_audit.py classifies only top-level statements, so a stub
+  wrapped in an `if` counts as real work. entrypoint.sh exports
+  LD_LIBRARY_PATH to every child, so opening a link launches the host
+  browser against AlmaLinux 8 libraries. generate-pip-sources.sh fetches and
+  executes an unpinned `master` generator with no `curl -f`. flatpak-build.sh
+  does not assert its manifest rewrite matched anything. obs.sh discards and
+  silences an `osc add` failure, then commits without the tarball.
+  **Layman:** The checks that decide whether Perch is safe to release have holes in them.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane tooling).
+
+- 📋 [PERC-0057] **Close the rules-engine and state semantics the docs specify and the code does not implement.**
+  Eleven findings. profiles.default_layout is parsed, seeded in the sample
+  config and editable in the dialog, and nothing reads it -- docking
+  activates the profile and applies no layout. The most-recently-focused
+  rule is stated three times (docs/09:50, :163, layouts.py:6) and the
+  reducer has no focus tracking at all, so activating a layout stacks every
+  matching window on one rectangle. identity.py returns a shared
+  "app:unknown" for any window with neither app_id nor wm_class, so
+  unrelated windows overwrite each other's geometry, while its docstring
+  claims a skip the reducer does not perform. catch_all short-circuits
+  before every other field and parse_match accepts the combination, so one
+  typo matches every window. monitor='all' validates and then fails on
+  every apply. Percent geometry is never clamped, so docs/07:81's "a rule
+  cannot push a window off-screen" does not hold. The remembered-window
+  store has no quota, LRU or age eviction and records windows the exclusion
+  layer says must never be remembered. _opt_str exists twice and has diverged on whether an empty string is
+  valid. Three more sit in the apply path: the BackendUnsupported maximize
+  fallback resolves the work area of the window's cached pre-move monitor
+  rather than the resolved target, which docs/02:152 and docs/07:94 both
+  specify; resolver's unmaximize_first requires a geometry, while
+  docs/07:89 makes it unconditional on an explicit maximized=false --
+  precisely so a following move lands on Mutter -- so that move is dropped
+  on the backend the rule exists for; and the layout loop returns on the
+  FIRST matching entry where docs/09:31 says last one wins, which may be
+  the document's error rather than the code's and needs deciding.
+  **Layman:** Several rule and layout behaviours the manual describes that do not actually happen.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane core-state).
+
+- 📋 [PERC-0058] **Close the UI correctness and accessibility findings.**
+  The red-outline validation docs/08-ui.md promises twice sets a Qt dynamic
+  property with no stylesheet consumer anywhere in src/ -- setStyleSheet has
+  zero hits -- so the only signal is a mouse-only tooltip Orca never
+  announces. theming.py's default `auto` returns "system" only when
+  colorScheme() is Unknown, which Plasma 6 and GNOME under Qt 6.8 never
+  report, so it installs Fusion plus a hardcoded palette over Breeze and
+  over any high-contrast scheme the user chose, with no config value that
+  leaves the palette alone. The documented backend-disconnect notification
+  never fires. rules_model._summarise_geometry and
+  entry_editor.summarise_apply have diverged: one handles all four
+  GeometryExpr members and the other three, and they render identical
+  values differently, so two tables disagree on screen. icons.py returns a
+  null QIcon with no log line, making Perch's only surface invisible
+  silently. status.py connects plain closures Qt cannot auto-disconnect, so
+  the backend outliving the tray raises on a deleted C++ object.
+  portable_to_xdg is a zombie -- the live portal boundary uses a private
+  copy. Plus untranslated user-facing strings across four lanes and two
+  missing setAccessibleName calls.
+  **Layman:** Validation that shows nothing, a theme override that ignores your desktop, and keyboard gaps.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lanes ui-shell, ui-dialog).
+
+- 📋 [PERC-0059] **Close the remaining config robustness findings.**
+  Four findings left after the 2026-09-01 pass. There is no stale-document
+  or concurrent-writer guard: the dialog parses the document at open time
+  and writes it whole on Apply, and atomic_write compares no mtime, so a
+  hand edit made meanwhile is discarded silently on a file the docs call
+  hand-editable. schema.validate accepts `schema_version = true`, since
+  bool is an int in Python. validate() rejects unknown keys inside
+  [general] and [exclusions] but ignores unknown top-level tables, so a
+  typo'd [[rule]] is silently dropped -- against docs/07:157's "Perch does
+  not silently drop bad rules". rename_layout deletes and re-appends every
+  key in [layouts], and tomlkit standalone comments are not in the map, so
+  comments detach from the tables they annotate; docs/02:46 calls that
+  footgun release-blocking and it needs a fixture to confirm. Separately,
+  state.json has no migration registry at all, while docs/02 describes one
+  for both files.
+  **Layman:** Editing config.toml by hand while the dialog is open still loses your edit.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane config).
+
+- 📋 [PERC-0060] **Close the remaining KWin backend findings.**
+  Six findings outside the portal item. docs/05:140 promises recovery when
+  the script disappears on a KWin crash or restart -- nothing subscribes to
+  NameOwnerChanged, so every execute() then times out forever while the
+  tray still reports connected. service.py leaks a _completions entry on
+  CancelledError, grows latencies_ns without bound for the process
+  lifetime, and never drains the queue, so a command whose future already
+  expired is still applied late. is_available() claims to mirror
+  _probe_session_env and disagrees with it when XDG_CURRENT_DESKTOP is
+  unset. _bg_tasks is never cancelled in stop(), and the signal pump loops
+  end silently on any bus error, killing every hotkey with no error and no
+  restart. install.py raises unhandled when the target path is a symlink,
+  and accepts PERCH_KWIN_SCRIPT_TARGET unvalidated. Four exception classes
+  subclass RuntimeError against docs/03:219's ban on further subclassing,
+  all reachable from start().
+  **Layman:** If KWin restarts, Perch keeps reporting itself connected forever.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane backend-kwin).
+
+- 📋 [PERC-0061] **Triage the static-analysis backlog check-code surfaced.**
+  The whole-tree run left findings nobody has dispositioned: vulture 79
+  (largely pytest fixtures, D-Bus signal methods and lazy __getattr__
+  hooks, but not entirely), yamllint 68 against tool defaults with no
+  .yamllint in the repo, zizmor 14 (6 unpinned-uses, 4 excessive-permissions
+  from ci.yml having no top-level permissions block, 4 artipacked),
+  typos 24 after calibration (16 inside docs/screenshots PNG binaries),
+  bandit 3, semgrep 2 (both defusedxml in one test), and 160 from the
+  project's own analyser, mostly tier-4 metrics rather than defects. The
+  work is deciding which are real, then either fixing or recording a
+  calibration -- this project has no false-positive ledger and no
+  audit-config.json, so two runs of the sweep cannot be compared. Authoring
+  that config is part of this item. Note ruff runs with select E,F,I,UP,B,
+  SIM,RUF, which omits S: two asserts that vanish under `python -O` were
+  found by review rather than by the linter.
+  **Layman:** A pile of tool warnings nobody has sorted into real and noise yet.
+  Kind: investigate.
+  Source: check-code --tree 2026-08-31.
+
+- 📋 [PERC-0062] **Fix the documentation that points at things which no longer exist.**
+  Four, all verified absent on 2026-09-01. audit_config.yaml and CLAUDE.md
+  both drive the project's analyser from
+  /mnt/Storage/Scripts/Linux/3D_Engine/tools/audit/audit.py, on a drive that
+  was retired -- so nobody following the documented command can run it; the
+  surviving copy is under another project. docs/documentation-standards.md
+  mandates the `/cold-eyes` skill for every new or edited design doc and
+  names `/feature-test` for per-feature specs; both were retired and
+  replaced by review-contract and write-test. docs/coding-standards.md:63
+  cites `/audit`, replaced by check-code. And docs/06-backend-stubs.md:92
+  with mutter/STATUS.md:54-57 promise a script that installs the GNOME
+  extension into ~/.local/share/gnome-shell/extensions -- no such script
+  exists in scripts/ or packaging/, and EXTENSION_UUID and
+  BUNDLED_EXTENSION_DIR have zero consumers repo-wide. Separately,
+  docs/git-commit-standards.md:57 and docs/testing-standards.md:106 both
+  state local_CI.sh runs one interpreter, which has been false since it
+  learned to read ci.yml's matrix. Two more of the same class. PERCH_LOG_TITLES
+  is named as a privacy opt-in by docs/security-standards.md:54,
+  docs/coding-standards.md:80, docs/02-state-format.md:272,
+  docs/testing-standards.md:41 and logging_setup.py's own docstring, and is
+  read by no code anywhere -- while logging_privacy.py:21 states the
+  opposite policy outright, that redaction is unconditional. A control
+  named in a security standard that nothing reads is worse than no control,
+  because it invites a reader to conclude the redaction is switchable and
+  audited when it is neither; decide which side is true before either
+  document is trusted again. And several module docstrings still speak in
+  the future tense about shipped code on a 1.1.0 release --
+  core/__init__.py, state.py, reducer.py, engine.py, actions.py,
+  layouts.py, identity.py -- against the project's own no-documentation-debt
+  rule, whose own instruction is to grep for "planned", "will" and "not
+  yet" before declaring work done.
+  **Layman:** Instructions in the repo that cannot be followed because what they name is gone.
+  Kind: doc-fix.
+  Source: review-code 2026-08-31 (lane tooling); check-code 2026-08-31.
+
+- 📋 [PERC-0063] **Review the test suite, which this audit deliberately did not read.**
+  review-code bans its lanes from reading the test tree, because reading
+  the tests imports the author's model of what the code should do. So the
+  2026-08-31 sweep covered src/ and the tooling and says nothing about
+  whether the 855-test suite verifies what it claims, whether any test is
+  flaky or leaky, or where coverage is absent. review-tests is the skill
+  for that question and has never been run here. Two signals already argue
+  for it: vulture reports large numbers of apparently-unused pytest
+  fixtures, and the KWin compliance tests skip wholesale on any host
+  without a live KWin -- 20 skips in the local run -- so what they cover is
+  unestablished on the machine that gates the pushes.
+  **Layman:** The tests have not themselves been checked for whether they test anything.
+  Kind: test.
+  Source: review-code 2026-08-31 (coverage gap, stated in the run's report).
+
+- 📋 [PERC-0064] **Close the app-shell and autostart findings the tranche-1 pass left open.**
+  Six findings, none closed on 2026-09-01. autostart.py subscribes to the
+  Background portal's Response only after RequestBackground has returned,
+  so once a permission is stored the signal can fire first and the task
+  blocks for the full 300 s timeout, logging a failure for a toggle that
+  succeeded. The sibling copy in kwin/hotkeys.py:576 closes exactly this
+  with a caller-supplied handle_token; this copy's options dict carries
+  none, and the module docstring flags the duplication without naming the
+  axis it has drifted on. is_enabled() returns False unconditionally while
+  its docstring promises the config value, and sync() discards
+  portal_set_autostart's return, so the granted result the PERC-0037 fix
+  added reaches no caller and the state shown under Flatpak can never be
+  right. In app.py there is still no cleanup path between the guarded
+  backend.start() and the try block: reducer.start(), the ConfigDialog
+  construction and open_dialog() can each raise, and backend.stop() then
+  never runs. Smaller: one contextlib.suppress wraps both add_signal_handler
+  calls, so a SIGINT failure silently skips SIGTERM -- the signal the
+  session manager sends at logout; two asserts vanish under python -O; and
+  a relative $XDG_CONFIG_HOME is honoured where the spec says to ignore it.
+  **Layman:** Turning autostart on under Flatpak can report failure for something that worked.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane app-shell).
 
 ## v1.2 — Smarts
 
