@@ -181,3 +181,62 @@ async def test_flush_rotates_old_to_bak(state_path: Path) -> None:
     assert state_path.exists()
     bak = state_path.with_name(state_path.name + ".bak")
     assert bak.exists()
+
+
+# ── Regression: a newer-schema file must survive, not just be refused ───────
+@pytest.mark.asyncio
+async def test_future_version_file_is_not_overwritten(state_path: Path) -> None:
+    """A state file from a newer Perch survives a downgrade launch.
+
+    ``test_load_future_version_rejected`` above proves we do not *load* it.
+    That left the destructive half unchecked: load() fell through to an empty
+    store with writes still enabled, so the first geometry event rotated the
+    newer file into .bak and wrote an empty v1 document over it — and the
+    flush after that overwrote .bak too. docs/02-state-format.md §Versioning
+    and migration says such a file is refused, and refusing has to mean
+    leaving it intact.
+    """
+    state_path.parent.mkdir(parents=True)
+    original = json.dumps(
+        {"schema_version": CURRENT_STATE_SCHEMA_VERSION + 1, "windows": {}}
+    )
+    state_path.write_text(original)
+
+    store = StateStore(state_path)
+    store.load()
+    store.record_window("app:firefox", Geometry(0, 0, 800, 600), "DP-1", 0)
+    await store.flush()
+
+    assert state_path.read_text() == original
+    assert not state_path.with_name(state_path.name + ".bak").exists()
+
+
+def test_malformed_record_falls_back_to_bak(state_path: Path) -> None:
+    """A structurally broken record reaches the .bak fallback.
+
+    from_json raised KeyError/TypeError, which load() did not catch, so the
+    documented fallback never ran and the exception escaped startup.
+    """
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps({"schema_version": 1, "windows": {"app:x": {"identity": "app:x"}}})
+    )
+    state_path.with_name(state_path.name + ".bak").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "windows": {
+                    "app:konsole": {
+                        "identity": "app:konsole",
+                        "geometry": {"x": 0, "y": 0, "w": 400, "h": 300},
+                        "monitor": "DP-1",
+                        "desktop": 0,
+                        "last_seen": "2026-04-20T12:00:00+00:00",
+                    }
+                },
+            }
+        )
+    )
+    store = StateStore(state_path)
+    store.load()
+    assert "app:konsole" in store.state.windows

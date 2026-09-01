@@ -31,22 +31,35 @@ def atomic_write(path: Path, text: str) -> None:
     Writes ``path.tmp``, fsyncs it, rotates the old file to ``path.bak``, then
     renames the tmp file into place. Directory fsync guards the rename against
     power-loss reordering on ext4 with ``data=ordered``.
+
+    A symlinked ``path`` is resolved first. ``rename(2)`` acts on the *link*,
+    so rotating it would move the symlink itself to ``.bak`` and drop a regular
+    file in its place — silently detaching a ``config.toml`` the user symlinked
+    into a dotfiles repo, which ``docs/02-state-format.md`` offers as a
+    supported workflow.
     """
-    directory = path.parent
+    target = Path(os.path.realpath(path)) if path.is_symlink() else path
+    directory = target.parent
     directory.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    bak = path.with_suffix(path.suffix + ".bak")
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    bak = target.with_suffix(target.suffix + ".bak")
 
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
     try:
-        os.write(fd, text.encode("utf-8"))
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        try:
+            os.write(fd, text.encode("utf-8"))
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
-    if path.exists():
-        os.replace(path, bak)
-    os.replace(tmp, path)
+        if target.exists():
+            os.replace(target, bak)
+        os.replace(tmp, target)
+    except OSError:
+        # A half-written .tmp left on disk is picked up by nothing and
+        # confuses the next reader of the directory. Clear it on the way out.
+        tmp.unlink(missing_ok=True)
+        raise
 
     dir_fd = os.open(directory, os.O_RDONLY)
     try:

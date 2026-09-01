@@ -42,6 +42,18 @@ class SchemaError(ValueError):
     """Raised when a config document does not match the schema."""
 
 
+class SchemaTooNewError(SchemaError):
+    """Raised when ``schema_version`` is higher than this build understands.
+
+    Separate from a plain :class:`SchemaError` because the two demand opposite
+    responses. ``docs/02-state-format.md`` §Versioning and migration says a
+    too-new document is *refused*, and §Schema reference says it surfaces as a
+    ``ConfigError`` with a non-zero exit — where a corrupt document falls back
+    to ``config.toml.bak``. Falling back here would load an older config and
+    then rotate the newer one away on the next save.
+    """
+
+
 @dataclass
 class GeneralSettings:
     start_at_login: bool = True
@@ -166,7 +178,7 @@ def validate(document: dict[str, Any]) -> Config:
             f"schema_version must be an integer (got {type(version).__name__})"
         )
     if version > CURRENT_SCHEMA_VERSION:
-        raise SchemaError(
+        raise SchemaTooNewError(
             f"schema_version {version} is newer than this Perch "
             f"understands ({CURRENT_SCHEMA_VERSION}); upgrade Perch or "
             "roll back the config"

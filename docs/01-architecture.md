@@ -205,12 +205,17 @@ Key constraints:
 - Sync Qt slots that need to call async backend methods use `@qasync.asyncSlot()` — *not* `asyncio.ensure_future`, which loses exception propagation.
 - sdbus-python attaches to whatever loop is running at its first `await`; no explicit `set_event_loop` glue is needed. `sdbus.set_default_bus(await sdbus.sd_bus_open_user_async())` goes inside `main()`.
 
-Teardown order (see `perch/core/shutdown.py`):
+Teardown order (implemented in `main()`'s `finally` block, [`src/perch/app.py`](../src/perch/app.py)):
 
 1. Flip the shutdown flag (UI stops dispatching intents).
 2. Cancel named background tasks; `await asyncio.gather(..., return_exceptions=True)`.
-3. `await backend.stop()` — unloads the KWin script and releases the D-Bus service name.
-4. `QApplication.quit()` → triggers `aboutToQuit` → sets the close event → `main()` returns.
+3. `await reducer.stop()` — flushes `state.json`.
+4. `await backend.stop()` — unloads the KWin script and releases the D-Bus service name.
+5. `QApplication.quit()` → triggers `aboutToQuit` → sets the close event → `main()` returns.
+
+Steps 3 and 4 are independently guarded: a `state.json` flush that raises on a
+full or read-only `$XDG_STATE_HOME` must not leave the KWin script loaded and
+the bus name held.
 
 ## Dependencies, deferred
 

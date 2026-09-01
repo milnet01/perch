@@ -29,7 +29,22 @@ log = logging.getLogger(__name__)
 
 
 class StateLoadError(ValueError):
-    """Raised when both ``state.json`` and ``state.json.bak`` fail to parse."""
+    """Raised when a state document cannot be parsed into a :class:`PersistedState`.
+
+    :meth:`StateStore.load` catches this per candidate file and falls through
+    to ``state.json.bak``; it is not itself the both-files-failed signal.
+    """
+
+
+class StateSchemaTooNew(StateLoadError):
+    """Raised when ``schema_version`` is higher than this build understands.
+
+    Distinct from a parse failure because the response differs:
+    ``docs/02-state-format.md`` §Versioning and migration says Perch *refuses*
+    such a file, and refusing has to mean leaving it intact. A plain parse
+    failure falls back to ``.bak``; this one latches the store read-only so
+    the next flush cannot rotate a file we could not read.
+    """
 
 
 @dataclass
@@ -53,14 +68,20 @@ class WindowRecord:
 
     @classmethod
     def from_json(cls, raw: dict[str, Any]) -> WindowRecord:
-        g = raw["geometry"]
-        return cls(
-            identity=raw["identity"],
-            geometry=Geometry(x=g["x"], y=g["y"], w=g["w"], h=g["h"]),
-            monitor=raw["monitor"],
-            desktop=raw["desktop"],
-            last_seen=raw["last_seen"],
-        )
+        # A missing field or a non-dict record is a malformed document, not a
+        # programming error: it has to reach load()'s .bak fallback as a
+        # StateLoadError rather than escaping as KeyError/TypeError.
+        try:
+            g = raw["geometry"]
+            return cls(
+                identity=raw["identity"],
+                geometry=Geometry(x=g["x"], y=g["y"], w=g["w"], h=g["h"]),
+                monitor=raw["monitor"],
+                desktop=raw["desktop"],
+                last_seen=raw["last_seen"],
+            )
+        except (KeyError, TypeError, IndexError) as exc:
+            raise StateLoadError(f"malformed window record: {exc}") from exc
 
 
 @dataclass
@@ -90,7 +111,7 @@ class PersistedState:
                 f"state.json schema_version must be an integer (got {version!r})"
             )
         if version > CURRENT_STATE_SCHEMA_VERSION:
-            raise StateLoadError(
+            raise StateSchemaTooNew(
                 f"state.json schema_version {version} is newer than this "
                 f"Perch understands ({CURRENT_STATE_SCHEMA_VERSION})"
             )
@@ -135,6 +156,9 @@ class StateStore:
         self.state: PersistedState = PersistedState()
         self._dirty: bool = False
         self._flush_task: asyncio.Task[None] | None = None
+        # Latched by load() when the on-disk file is from a newer Perch.
+        # While set, flush() is a no-op so the newer file is preserved.
+        self._read_only: bool = False
 
     # ── Load ───────────────────────────────────────────────────────────────
     def load(self) -> None:
@@ -142,6 +166,11 @@ class StateStore:
 
         A missing file is normal on first run — the store stays empty and
         the next flush creates ``state.json``.
+
+        A file whose ``schema_version`` is newer than this build latches the
+        store read-only instead: the state is empty, but nothing is written
+        back, so a user who rolls Perch back and forward again still has
+        their remembered geometry.
         """
         for candidate, label in (
             (self.path, "state.json"),
@@ -153,6 +182,18 @@ class StateStore:
                 raw = json.loads(candidate.read_text(encoding="utf-8"))
                 self.state = PersistedState.from_json(raw)
                 log.info("loaded %s (%d windows)", label, len(self.state.windows))
+                return
+            except StateSchemaTooNew as exc:
+                # Must precede the StateLoadError arm below — it is a subclass.
+                # Returning here rather than trying .bak is deliberate: any
+                # write we then made would rotate the newer primary away.
+                self._read_only = True
+                log.error(
+                    "%s: %s — running with empty state and writing nothing, "
+                    "so the newer file is left intact",
+                    label,
+                    exc,
+                )
                 return
             except (OSError, json.JSONDecodeError, StateLoadError) as exc:
                 log.warning("%s failed to load: %s", label, exc)
@@ -220,6 +261,13 @@ class StateStore:
             await self.flush()
         except Exception:
             log.exception("state.json debounced flush failed")
+        finally:
+            # Clear the handle before re-arming: mark_dirty() returns early
+            # while a task is live, so a mutation that landed *during* the
+            # write would otherwise sit unscheduled until the next one.
+            self._flush_task = None
+            if self._dirty:
+                self.mark_dirty()
 
     async def flush(self) -> None:
         """Atomically write ``state.json`` if dirty.
@@ -227,13 +275,23 @@ class StateStore:
         Implements the docs/02 §Atomic writes recipe: tmp → fsync →
         rename-old-to-.bak → rename-tmp-to-primary → fsync dir.
         """
+        if self._read_only:
+            log.debug("state.json flush suppressed: store is read-only")
+            return
         if not self._dirty:
             return
         payload = json.dumps(
             self.state.to_json(), indent=2, sort_keys=True
         )
-        await asyncio.to_thread(self._write_atomically, payload)
+        # Cleared with the snapshot, not after the await: a record_window()
+        # landing mid-write must leave the store dirty, not have its flag
+        # cleared by the write that did not include it.
         self._dirty = False
+        try:
+            await asyncio.to_thread(self._write_atomically, payload)
+        except Exception:
+            self._dirty = True
+            raise
 
     def _write_atomically(self, payload: str) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

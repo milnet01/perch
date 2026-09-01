@@ -787,6 +787,123 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: feature.
   Source: user-request-2026-08-27.
 
+- 📋 [PERC-0043] **Build the four documented features the audit found missing.**
+  Each is promised by a document and has no implementation behind it:
+  `perch --settings` (docs/08-ui.md:47, and the only recovery route offered
+  to a user whose tray icon is invisible); the tray's Windows submenu
+  (docs/08-ui.md §Menu structure); the tray error state for a missing
+  compositor (TrayIconState.ERROR and its icon ship, and nothing ever sets
+  compositor_missing); and the Rules dry-run toggle and trace panel, which
+  docs/07-rules-engine.md:116 makes the gate for a documented engine mode.
+  **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
+  Kind: implement.
+  Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
+
+- 📋 [PERC-0044] **Make the Sway and Mutter backends' declared capabilities honest.**
+  Both declare can_observe_geometry and can_observe_outputs true and emit
+  no observation signal at all; neither polls either, despite Mutter's
+  STATUS.md saying it does. docs/03-backend-interface.md:230 gates
+  restore-on-open on that bit, so the product's headline feature is dead on
+  both. Mutter also declares can_register_hotkeys against a gschema its own
+  STATUS.md says is not shipped, which denies GNOME users the fallback
+  grabber. Set the bits to what is true, then implement the event paths.
+  **Layman:** On GNOME and Sway, Perch never notices a window opening — silently, with no error.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane backend-iface-stubs).
+
+- 📋 [PERC-0045] **Target the requested window in the Hyprland dispatchers.**
+  moveactive, resizeactive, movewindow and fullscreen all act on the active
+  window and take no selector; the window-targeted forms are
+  movewindowpixel, resizewindowpixel and movetoworkspacesilent. The
+  dispatch helper only checks the reply is "ok", so acting on the wrong
+  window reports success.
+  **Layman:** On Hyprland, Perch moves whichever window has focus instead of the one it meant.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane backend-iface-stubs).
+
+- 📋 [PERC-0046] **Give the compositor JavaScript a static-analysis gate, and fix what it finds.**
+  The repo has no package.json, so check-code's detection table never
+  selected eslint or tsc and 750 lines of shipped JavaScript have had no
+  static analysis. What one pass would have caught: setInterval used in
+  main.js where QJSEngine has no such builtin, which kills the whole
+  windowAdded handler; an unused binding in extension.js; a deprecated
+  global log(). Beyond a linter's reach and also open: main.js asserts both
+  that QTimer.triggered.connect works and that it does not, the Plasma 5
+  name sendClientToScreen with a silent read-only-property fallback, and
+  the GNOME extension discarding the accel argument it is passed.
+  **Layman:** The code Perch runs inside your desktop has never been checked by any tool.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane compositor-scripts); check-code 2026-08-31 tool gap.
+
+- 📋 [PERC-0047] **Close the remaining X11 EWMH and ICCCM defects.**
+  Four survive the 2026-09-01 fix pass, which took the unmap-as-close and
+  the negative-coordinate OverflowError. ScrollLock is missing from the
+  modifier-mask permutations, so a hotkey silently dies with ScrollLock on;
+  a server without RandR raises AttributeError out of start() rather than
+  degrading, and the except BadAccess written for it cannot execute; every
+  KeyPress refires the hotkey with no repeat filter; and the disjoint
+  branch of outputs._intersect returns a zero-size rect that becomes an
+  output's work area.
+  **Layman:** Several X11 corner cases where a hotkey stops working or Perch fails to start.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane backend-x11).
+
+- 📋 [PERC-0048] **Fix the KWin portal Request/Response ordering and its uncaught fallback.**
+  _await_response installs the signal match after issuing the call that
+  triggers it, which for CreateSession completes immediately; the module's
+  own comment states the required order. The documented fallback to
+  KGlobalAccel then does not happen: no except clause for
+  BackendDisconnectedProvider exists anywhere in src/, so the failure
+  aborts startup instead of degrading. Derive the request path from
+  handle_token and subscribe before the call.
+  **Layman:** On Flatpak, the preferred way of registering shortcuts times out instead of working.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane backend-kwin).
+
+- 📋 [PERC-0049] **Decide the single-instance question and implement the answer.**
+  Four independent lanes looked for a guard and found none: no QLockFile,
+  no flock, no pidfile anywhere in src/. docs/01-architecture.md:37 simply
+  asserts "There is one process". Consequences already identified: two
+  reducers writing one state.json through a fixed temp filename, and a
+  suppressed SdBusRequestNameExistsError that lets the second instance
+  believe it owns the bus name so every command times out. The 2026-09-01
+  pass made the startup failure survivable; it did not answer whether the
+  second instance should refuse or degrade.
+  **Layman:** Nothing stops two copies of Perch running and fighting over the same saved file.
+  Kind: implement.
+  Source: review-code 2026-08-31 (lanes app-shell, core-state, config, backend-kwin).
+
+- 📋 [PERC-0050] **Close the audit's security findings.**
+  All calibrate low against docs/security-standards.md, which puts a
+  same-UID attacker out of scope — filed because each is cheap and one is
+  arguably not that case. The KWin D-Bus service resolves any caller's
+  CommandDone payload into the state store with no sender check; the GNOME
+  extension exports close_window and set_geometry to any session-bus caller
+  with no validation, reachable by a Flatpak holding --socket=session-bus;
+  the Hyprland backend falls back to a world-writable /tmp/hypr socket path
+  built from an unvalidated instance signature; the config temp file is
+  opened without O_NOFOLLOW; and XDG directories are created 0755 where the
+  spec requires 0700, which does expose to other users on a shared machine.
+  **Layman:** Tightening a few places where Perch trusts input it should check first.
+  Kind: security.
+  Source: review-code 2026-08-31 (lanes backend-kwin, compositor-scripts, backend-iface-stubs, config).
+
+- 📋 [PERC-0051] **Reconcile the documentation the audit found contradicting the code.**
+  Roughly thirty places where a lane named the DOCUMENT as the wrong side,
+  left unfixed because each needs a contract decision rather than an edit.
+  The largest: docs/05-backend-kwin.md §Pre-placement hook and
+  docs/03-backend-interface.md both describe a can_preplace_windows feature
+  and a QueryPlacement method that CHANGELOG.md:269 records as deliberately
+  removed; docs/04-backend-x11.md §Reading geometry describes a
+  _NET_FRAME_EXTENTS subtraction the code correctly does not do;
+  docs/08-ui.md promises mutators with no callers; and the KWin command
+  vocabulary is documented only in docs/11-roadmap.md, a milestone log,
+  rather than in the design doc that calls itself authoritative. Route
+  through review-contract rather than editing piecemeal.
+  **Layman:** The manual describes things the code does not do, and vice versa.
+  Kind: doc-fix.
+  Source: review-code 2026-08-31 (all ten lanes).
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.

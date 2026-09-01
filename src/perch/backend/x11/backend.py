@@ -614,8 +614,20 @@ class X11Backend(WindowBackend):
         if etype == _X.KeyPress:
             self._on_key_press(event)
             return
-        if etype == _X.UnmapNotify or etype == _X.DestroyNotify:
+        if etype == _X.DestroyNotify:
+            # The window is provably gone: window_closed is terminal and safe.
             self._on_window_gone(event)
+            return
+        if etype == _X.UnmapNotify:
+            # An unmap is NOT a close. ICCCM has the WM unmap a client to
+            # iconify it, so treating this as a destroy emitted the terminal
+            # window_closed for a window still in _NET_CLIENT_LIST — after
+            # which nothing ever re-added it (reconcile only fires on a
+            # _NET_CLIENT_LIST PropertyNotify, and minimising does not change
+            # that property), so every later call raised UnknownWindow.
+            # Let the client list decide instead: it is the same authority
+            # _on_property_notify uses, and it drops only what is really gone.
+            self._reconcile_client_list()
             return
         # MapNotify intentionally not handled — EWMH WMs emit
         # PropertyNotify(_NET_CLIENT_LIST) as soon as a window is fully

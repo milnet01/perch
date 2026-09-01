@@ -269,6 +269,8 @@ class GeneralPage(QWidget):
             theme=general.theme,
             onboarding_completed=general.onboarding_completed,
         )
+
+    def mark_committed(self) -> None:
         self._changed = False
 
 
@@ -632,6 +634,8 @@ class WindowsPage(QWidget):
             return
         if self._state_store is not None:
             self._state_store.mark_dirty()
+
+    def mark_committed(self) -> None:
         self._dirty = False
 
 
@@ -796,6 +800,17 @@ class RulesPage(QWidget):
         if new_order and new_order != list(range(len(new_order))):
             reorder_rules(self._state.document, new_order)
 
+    def mark_committed(self) -> None:
+        """Freeze the committed rules as the next baseline.
+
+        Without this the page stays dirty after a successful Apply, and the
+        next commit re-derives ``deleted`` from the pre-commit originals — so
+        it deletes the ORIGINAL index a second time, which now addresses a
+        rule the user never touched. The five sibling pages all do this; two
+        did not.
+        """
+        self._state.original_rules = tuple(self.model.rules())
+
 
 class ExclusionsPage(QWidget):
     """Exclusions list — drag-reorder + delete for M3.b."""
@@ -900,6 +915,16 @@ class ExclusionsPage(QWidget):
         new_order = [remap[i] for i in self._order]
         if new_order and new_order != list(range(len(new_order))):
             reorder_exclusions(self._state.document, new_order)
+
+    def mark_committed(self) -> None:
+        """Freeze the surviving exclusions as the next baseline.
+
+        Same defect and same fix as :meth:`RulesPage.mark_committed` — left
+        dirty, a second Apply re-deletes the original index, which after the
+        first delete addresses a different pattern.
+        """
+        self._original = tuple(self._original[i] for i in self._order)
+        self._order = list(range(len(self._original)))
 
 
 class LayoutsPage(QWidget):
@@ -1133,8 +1158,12 @@ class LayoutsPage(QWidget):
             if current == old:
                 self._renames[original] = new
                 break
-        else:
-            self._renames[new] = new
+        # No lineage entry means this layout was ADDED in this session:
+        # _renames is seeded with every original name mapping to itself, so
+        # only an addition can miss. Registering it here made commit() treat
+        # it as a survivor and skip the add step, then write a description to
+        # a table that was never created; and where the new name collided
+        # with a renamed original, it overwrote that original's lineage.
         # Refresh the list widget.
         row = self.layouts_list.currentRow()
         self.layouts_list.blockSignals(True)
@@ -1320,9 +1349,10 @@ class LayoutsPage(QWidget):
             for entry in layout.windows:
                 add_layout_entry(doc, name, entry)
 
-        self._dirty = False
+    def mark_committed(self) -> None:
         # Refresh the originals snapshot so subsequent Apply passes
         # don't re-diff against the pre-commit state.
+        self._dirty = False
         self._original_names = tuple(self._layouts.keys())
         self._renames = {name: name for name in self._layouts}
 
@@ -1803,15 +1833,28 @@ class ProfilesPage(QWidget):
 
         # 1. Deletions on the original array (high indices first so the
         # remaining originals keep their positions).
+        # A delete that does NOT happen must not shift the remap below, or
+        # every later set_profile_field writes to the wrong profile. So record
+        # what actually went, rather than assuming the requested set did.
+        deleted_ok: set[int] = set()
         for original_idx in sorted(set(self._deleted_originals), reverse=True):
-            with contextlib.suppress(ConfigEditError):
+            try:
                 delete_profile(doc, original_idx)
+            except ConfigEditError as exc:
+                log.warning(
+                    "profile %d could not be deleted, keeping it in the "
+                    "index map: %s",
+                    original_idx,
+                    exc,
+                )
+                continue
+            deleted_ok.add(original_idx)
 
         # 2. After deletions, the surviving-originals compact. Build a
         # remap so we can still index into them for rewrites.
         remaining = [
             i for i in range(len(self._originals))
-            if i not in set(self._deleted_originals)
+            if i not in deleted_ok
         ]
         remap = {orig: new_pos for new_pos, orig in enumerate(remaining)}
 
@@ -1858,9 +1901,10 @@ class ProfilesPage(QWidget):
                 ],
             )
 
-        self._dirty = False
+    def mark_committed(self) -> None:
         # Freeze the new state as the next "original" snapshot so a
         # second Apply doesn't re-diff against the pre-commit state.
+        self._dirty = False
         self._originals = list(self._profiles)
         self._deleted_originals = []
         self._origin = list(range(len(self._profiles)))
@@ -2122,8 +2166,10 @@ class HotkeysPage(QWidget):
             if new_accel == self._original.get(name, ""):
                 continue
             apply_snap_hotkey(self._state.document, name, new_accel or None)
+
+    def mark_committed(self) -> None:
         # Freeze the new bindings so a second Apply doesn't re-diff.
-        self._original = current
+        self._original = self._current_accels()
 
 
 class ImportExportPage(QWidget):
@@ -2343,11 +2389,18 @@ class ImportExportPage(QWidget):
             self,
             self.tr("Import complete"),
             self.tr(
-                "Imported from {source}. Close and reopen this dialog to "
-                "edit the new config."
+                "Imported from {source}. This dialog will close; reopen it "
+                "to edit the new config."
             ).format(source=self._pending_import_path),
         )
         self._reset_pending()
+        # Close rather than leaving the dialog holding the PRE-import
+        # document it parsed at open time. Left open, the next Apply from any
+        # other pane serialises that stale document over the file just
+        # imported, silently undoing the import.
+        window = self.window()
+        if window is not None and window is not self:
+            window.close()
 
     def _on_cancel_import(self) -> None:
         self._reset_pending()
@@ -2368,6 +2421,9 @@ class ImportExportPage(QWidget):
         return False
 
     def commit(self) -> None:
+        return None
+
+    def mark_committed(self) -> None:
         return None
 
 
@@ -2570,6 +2626,12 @@ class ConfigDialog(QDialog):
         original_document = self._state.document
         self._state.document = staged
         try:
+            # commit() writes into the staged document and nothing else;
+            # freezing each page's baseline is mark_committed()'s job and
+            # happens only once the write to disk has actually landed. Doing
+            # it inside commit() meant a later page raising left the earlier
+            # ones reporting clean against a document that was rolled back,
+            # so their edits were never committed again and were simply lost.
             for page in dirty_pages:
                 page.commit()
         except Exception:
@@ -2599,6 +2661,12 @@ class ConfigDialog(QDialog):
                 ),
             )
             return False
+
+        # Only now is it true that the pages' edits are on disk, so only now
+        # may they stop reporting dirty. Both failure paths above return with
+        # every page still dirty, so the next Apply re-commits all of them.
+        for page in dirty_pages:
+            page.mark_committed()
 
         self.saved.emit()
         return True

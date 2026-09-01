@@ -140,6 +140,9 @@ class HyprlandBackend(WindowBackend):
     def __init__(self) -> None:
         super().__init__()
         self._connected: bool = False
+        # True only while start() primes the caches, so the query methods'
+        # connection guard passes for start()'s own calls and nobody else's.
+        self._priming: bool = False
         self._windows: dict[WindowId, WindowInfo] = {}
         self._outputs: dict[OutputName, OutputInfo] = {}
         self._current_workspace: DesktopIndex = 0
@@ -179,10 +182,15 @@ class HyprlandBackend(WindowBackend):
                 f"Hyprland {v} is below the minimum supported {minv}"
             )
 
-        # Prime caches.
-        await self.list_outputs()
-        await self.list_windows()
-        await self._refresh_workspaces()
+        # Prime caches. _priming lets the query methods' connection guard pass
+        # while start() populates them, without opening the guard to callers.
+        self._priming = True
+        try:
+            await self.list_outputs()
+            await self.list_windows()
+            await self._refresh_workspaces()
+        finally:
+            self._priming = False
 
         # Open the event stream.
         try:
@@ -462,6 +470,14 @@ class HyprlandBackend(WindowBackend):
             while self._connected:
                 line = await reader.readline()
                 if not line:
+                    # Clean EOF: the compositor restarted or revoked the
+                    # socket. Returning quietly left _connected true and the
+                    # tray showing a healthy backend that would never deliver
+                    # another event. KWin and X11 both announce this.
+                    self._connected = False
+                    self.backend_disconnected.emit(
+                        "hyprland event socket closed"
+                    )
                     break
                 try:
                     self._dispatch_event_line(line.decode(errors="replace").rstrip("\n"))
@@ -548,7 +564,17 @@ class HyprlandBackend(WindowBackend):
             )
 
     def _require_connected_or_priming(self) -> None:
-        """Permit queries during ``start()``'s own prime-the-cache phase."""
+        """Permit queries during ``start()``'s own prime-the-cache phase.
+
+        The body was missing entirely, so the five query methods that call it
+        checked nothing: a backend that was never started, or already stopped,
+        still shelled out to ``hyprctl`` and repopulated the caches ``stop()``
+        had just cleared. Sway and Mutter both enforce their equivalent.
+        """
+        if not (self._connected or self._priming):
+            raise BackendDisconnected(
+                "HyprlandBackend is not connected; call start() first"
+            )
 
 
 # ── JSON-decoding helpers (unit-testable on their own) ────────────────────

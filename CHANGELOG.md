@@ -8,6 +8,115 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Changed
+
+- **The settings dialog now closes after a confirmed import**
+  It held the pre-import document parsed when it opened, so the next Apply
+  from any pane wrote that stale copy back over the imported file, silently
+  undoing the import.
+
+### Fixed
+
+- **Shutdown now cancels in-flight actions, and a failed state flush no longer strands the backend**
+  Neither step matched `docs/01-architecture.md` §Teardown order: tasks ran
+  on into teardown, and an `OSError` from the `state.json` flush skipped
+  `backend.stop()` entirely, leaving the KWin script loaded.
+
+- **Background actions now log their failures to `perch.log`**
+  An intent task's exception was never retrieved, so asyncio reported it on
+  the unconfigured root logger — it reached stderr and never the file a bug
+  report attaches.
+
+- **Hyprland queries now refuse when the backend is not connected**
+  The guard existed but had an empty body, so a stopped backend still
+  queried the compositor and repopulated the caches `stop()` had cleared.
+
+- **Perch now reports it when the Hyprland event stream closes**
+  A clean EOF left the backend marked healthy while it would never deliver
+  another event.
+
+- **A failed KWin start no longer leaves a script running inside the compositor**
+  `stop()` returned early unless the connection had fully succeeded, so any
+  earlier failure left the bus name held and the injected KWin script
+  loaded with nothing owning it.
+
+- **A backend that fails to start no longer exits Perch with a traceback**
+  `start()` is a documented raiser on three backends — the ordinary trigger
+  is a second copy failing to take the D-Bus name — and it ran unguarded
+  after the tray was already visible. It now degrades to the UI-only mode
+  `docs/01-architecture.md` §Startup has always described.
+
+- **Restoring a window to a negative position on X11 no longer crashes**
+  `_NET_MOVERESIZE_WINDOW` coordinates are signed, but the wire packing is
+  unsigned, so any window remembered off the left or top edge raised
+  `OverflowError` outside the backend error taxonomy.
+
+- **Minimising a window on X11 no longer makes Perch forget it permanently**
+  ICCCM has the window manager unmap a client to iconify it, and Perch read
+  that as a close — emitting the terminal `window_closed` for a window still
+  open, after which nothing could restore it.
+
+- **A profile that cannot be deleted no longer corrupts the ones after it**
+  The failure was suppressed while the index remap still assumed it had
+  happened, so every later field write landed on the wrong profile.
+
+- **Adding a layout and then renaming it no longer fails the save**
+  The rename bookkeeping registered the new name as its own original, so
+  the add step was skipped and a description was written to a table that
+  was never created.
+
+- **A failed save no longer silently discards the other panes' edits**
+  The document was rolled back but each pane that had already committed had
+  frozen its baseline, so it reported clean and was never committed again.
+  Panes now stay dirty until the write to disk has landed.
+
+- **Apply then OK no longer deletes a rule or exclusion you did not touch**
+  The Rules and Exclusions panes never refreshed their baseline after a
+  successful commit, so a second commit re-applied the first delete against
+  the original index — which by then addressed a surviving entry.
+
+- **A symlinked `config.toml` is followed instead of being replaced**
+  `rename(2)` acts on the link, so the first save moved the symlink itself
+  to `.bak` and dropped a regular file in its place — silently detaching a
+  config symlinked into a dotfiles repo.
+
+- **Fractional percent geometries survive an unrelated layout edit**
+  They were rounded to whole percents on every re-serialisation, so `12.5%`
+  silently became `12%` across the file.
+
+- **Editing a layout no longer writes a `config.toml` Perch cannot read back**
+  A window `type` was serialised as a TOML array; the reader accepts only a
+  comma-separated string and refuses an array outright. Because a layout
+  edit re-serialises every entry, one unrelated change was enough.
+
+- **A `config.toml` with a non-UTF-8 byte now falls back to the backup**
+  It raised `UnicodeDecodeError`, which was outside the caught set, so it
+  skipped the fallback and surfaced as a traceback.
+
+- **A `config.toml` from a newer Perch is refused rather than silently replaced by the backup**
+  It was treated as corruption, so an older config loaded and the newer one
+  was rotated away on the next save. It now exits non-zero with a pinpoint
+  message, per `docs/02-state-format.md` §Schema reference.
+
+- **A missing `config.toml` beside an intact backup now recovers instead of reseeding**
+  The atomic write's own crash window leaves exactly that state. Perch
+  seeded defaults over it, and the next save rotated the surviving backup
+  away — losing every rule, layout and profile.
+
+- **A window geometry saved during a `state.json` write is no longer dropped**
+  The dirty flag was cleared after the write rather than with the snapshot,
+  so a change landing mid-write was marked clean without being saved.
+
+- **A malformed record in `state.json` no longer stops Perch starting**
+  A missing field raised `KeyError` past the handler, so the documented
+  `.bak` fallback never ran and the exception escaped startup.
+
+- **A `state.json` from a newer Perch is no longer destroyed by an older one**
+  Rolling back a version discarded the newer file, then rotated it into
+  `.bak` and overwrote both within seconds of the first window event —
+  losing every remembered geometry. The store now latches read-only, as
+  `docs/02-state-format.md` §Versioning and migration always specified.
+
 ## [1.1.0] — 2026-08-28
 
 ### Added

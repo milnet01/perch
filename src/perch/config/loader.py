@@ -19,9 +19,22 @@ from pathlib import Path
 from .. import paths
 from . import migrations
 from .defaults import DEFAULT_CONFIG_TOML
-from .schema import CURRENT_SCHEMA_VERSION, Config, SchemaError, validate
+from .schema import (
+    CURRENT_SCHEMA_VERSION,
+    Config,
+    SchemaError,
+    SchemaTooNewError,
+    validate,
+)
+from .writer import atomic_write
 
 log = logging.getLogger(__name__)
+
+# Everything that means "this file is unusable" rather than "this file is from
+# the future". tomllib decodes the bytes itself and catches only AttributeError
+# doing it, so a single non-UTF-8 byte arrives as UnicodeDecodeError; TOML v1.0.0
+# requires a UTF-8 document, which makes that a parse failure like any other.
+_UNUSABLE = (tomllib.TOMLDecodeError, UnicodeDecodeError, OSError, SchemaError)
 
 
 class ConfigError(Exception):
@@ -35,7 +48,10 @@ def _parse(path: Path) -> dict[str, object]:
 
 def _load_and_validate(path: Path) -> Config:
     document = _parse(path)
-    version = document.get("schema_version", CURRENT_SCHEMA_VERSION)
+    # Absent means v1, never "whatever this build is": schema_version is not a
+    # required key, so defaulting to current would make every unversioned file
+    # skip its migrations the day CURRENT_SCHEMA_VERSION moves past 1.
+    version = document.get("schema_version", 1)
     if isinstance(version, int) and 1 <= version < CURRENT_SCHEMA_VERSION:
         document = migrations.migrate(document, version, CURRENT_SCHEMA_VERSION)
         document["schema_version"] = CURRENT_SCHEMA_VERSION
@@ -44,7 +60,10 @@ def _load_and_validate(path: Path) -> Config:
 
 def _seed_defaults(path: Path) -> Config:
     paths.ensure_dir(path.parent)
-    path.write_text(DEFAULT_CONFIG_TOML, encoding="utf-8")
+    # docs/02-state-format.md §Atomic writes: "Every disk write follows the same
+    # recipe". An interrupted plain write_text leaves a truncated config.toml
+    # with no .bak beside it, which is the one state nothing can recover from.
+    atomic_write(path, DEFAULT_CONFIG_TOML)
     log.info("wrote default config to %s", path)
     return validate(_parse(path))
 
@@ -59,20 +78,51 @@ def load_or_create(
     validate. Raises :class:`ConfigError` if neither succeeds.
     """
     primary = config_path if config_path is not None else paths.config_file()
-    backup = backup_path if backup_path is not None else paths.config_backup_file()
+    # Derive the backup from the primary whenever the caller named one.
+    # Defaulting to paths.config_backup_file() independently pairs an explicit
+    # primary with the REAL user's ~/.config/perch/config.toml.bak, so a caller
+    # pointing at some other directory could read a backup belonging to a
+    # different config entirely.
+    if backup_path is not None:
+        backup = backup_path
+    elif config_path is not None:
+        backup = primary.with_suffix(primary.suffix + ".bak")
+    else:
+        backup = paths.config_backup_file()
 
     if not primary.exists():
+        if backup.exists():
+            # The atomic recipe's own crash window puts the filesystem in
+            # exactly this state: config.toml already rotated to .bak, tmp not
+            # yet renamed into place. Seeding defaults here would then rotate
+            # the user's whole config away on the next save.
+            log.warning(
+                "config %s is missing but %s exists; recovering from backup",
+                primary,
+                backup,
+            )
+            try:
+                return _load_and_validate(backup)
+            except _UNUSABLE as backup_exc:
+                raise ConfigError(
+                    f"{primary} is missing and {backup} failed to load: {backup_exc}"
+                ) from backup_exc
         return _seed_defaults(primary)
 
     try:
         return _load_and_validate(primary)
-    except (tomllib.TOMLDecodeError, SchemaError) as exc:
+    except SchemaTooNewError as exc:
+        # Refused, not guessed at. Must precede the _UNUSABLE arm below, which
+        # catches its base class and would send us to an older backup.
+        log.error("config %s is from a newer Perch: %s", primary, exc)
+        raise ConfigError(f"{primary}: {exc}") from exc
+    except _UNUSABLE as exc:
         log.error("config %s failed to load: %s", primary, exc)
         if backup.exists():
             log.warning("falling back to backup %s", backup)
             try:
                 return _load_and_validate(backup)
-            except (tomllib.TOMLDecodeError, SchemaError) as backup_exc:
+            except _UNUSABLE as backup_exc:
                 raise ConfigError(
                     f"both {primary} and {backup} failed to load: "
                     f"primary={exc}; backup={backup_exc}"

@@ -318,10 +318,27 @@ def _match_to_toml(match: MatchPattern) -> Any:
     if match.pid is not None:
         inline["pid"] = match.pid
     if match.types:
-        inline["type"] = [t.value for t in match.types]
+        # Comma-joined string, not a list: the reader accepts only a string
+        # (core.matching._parse_types) and refuses an array outright, so an
+        # array here writes a config.toml that Perch cannot load next start.
+        inline["type"] = ",".join(t.value for t in match.types)
     if match.catch_all:
         inline["catch_all"] = True
     return inline
+
+
+def _percent_literal(fraction: float) -> str:
+    """Render a 0..1 fraction as the percent literal the parser accepts.
+
+    Whole percents stay whole (``0.5`` → ``"50%"``) and fractional ones survive
+    (``0.125`` → ``"12.5%"``). ``:.0f`` rounded every fractional percent away,
+    and because a layout edit re-serialises every entry, one unrelated change
+    silently rewrote them across the whole file. Fixed decimals rather than
+    ``:g`` so a very small value cannot come out in exponent form, which
+    ``core.actions._PERCENT_RE`` does not accept.
+    """
+    text = f"{round(fraction * 100, 6):.6f}".rstrip("0").rstrip(".")
+    return f"{text or '0'}%"
 
 
 def _geometry_to_toml(geom: Any) -> Any:
@@ -337,10 +354,10 @@ def _geometry_to_toml(geom: Any) -> Any:
         return inline
     if isinstance(geom, PercentGeometry):
         inline = tomlkit.inline_table()
-        inline["x"] = f"{geom.x_pct * 100:.0f}%"
-        inline["y"] = f"{geom.y_pct * 100:.0f}%"
-        inline["w"] = f"{geom.w_pct * 100:.0f}%"
-        inline["h"] = f"{geom.h_pct * 100:.0f}%"
+        inline["x"] = _percent_literal(geom.x_pct)
+        inline["y"] = _percent_literal(geom.y_pct)
+        inline["w"] = _percent_literal(geom.w_pct)
+        inline["h"] = _percent_literal(geom.h_pct)
         return inline
     raise ConfigEditError(f"unknown geometry type: {type(geom).__name__}")
 

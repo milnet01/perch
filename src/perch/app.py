@@ -29,7 +29,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import __version__, autostart, paths
-from .backend import BackendUnavailable, WindowBackend, select
+from .backend import BackendError, BackendUnavailable, WindowBackend, select
 from .backend.mock import MockBackend
 from .config import Config, load_or_create
 from .core.reducer import Reducer
@@ -134,7 +134,37 @@ def _spawn(coro: Coroutine[Any, Any, None]) -> None:
     """Schedule ``coro`` and retain a strong reference until it finishes."""
     task: asyncio.Task[None] = asyncio.create_task(coro)
     _intent_tasks.add(task)
-    task.add_done_callback(_intent_tasks.discard)
+    task.add_done_callback(_on_intent_task_done)
+
+
+def _on_intent_task_done(task: asyncio.Task[None]) -> None:
+    """Prune the task, and log anything it raised.
+
+    Without retrieving the exception, asyncio reports it on the ROOT logger,
+    which ``configure_logging`` never touches — so it goes to stderr and never
+    reaches ``perch.log``, the file a user attaches to a bug report. A menu
+    action that silently did nothing is exactly the symptom that hides.
+    """
+    _intent_tasks.discard(task)
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        log.error("intent task failed: %s", exc, exc_info=exc)
+
+
+async def _cancel_intent_tasks() -> None:
+    """Cancel and await every in-flight intent task.
+
+    ``docs/01-architecture.md`` §Teardown order makes this step 2, before
+    ``backend.stop()`` — otherwise an ActivateLayout still mid-await can issue
+    a geometry write against a transport that has already been torn down.
+    """
+    pending = [t for t in _intent_tasks if not t.done()]
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
 
 
 def _handle_intent(
@@ -407,9 +437,32 @@ async def main(
     # Wire status signals before start() so a synchronous
     # backend_connected from start() still updates the tray.
     wire_backend_status(backend, controller, tray)
-    await backend.start()
+    try:
+        await backend.start()
+    except BackendError as exc:
+        # docs/01-architecture.md §Startup step 4: "If none match, log an error
+        # and run in UI-only mode". start() is a documented raiser on three
+        # backends — the ordinary trigger is a second Perch failing to take the
+        # bus name — and unguarded it exited with a traceback with the tray
+        # already on screen.
+        log.error(
+            "backend %s failed to start (%s); continuing in UI-only mode",
+            type(backend).__name__,
+            exc,
+        )
+        with contextlib.suppress(Exception):
+            await backend.stop()
+        backend = MockBackend()
+        wire_backend_status(backend, controller, tray)
+        await backend.start()
     state_store = StateStore(paths.state_dir() / "state.json")
-    state_store.load()
+    try:
+        state_store.load()
+    except Exception:
+        # load() is contracted to degrade to an empty store rather than raise,
+        # but a store that somehow does raise must not take startup with it:
+        # the user loses restore-on-open, not the application.
+        log.exception("state.json could not be loaded; starting with empty state")
     reducer = Reducer(backend=backend, config=config, state_store=state_store)
     reducer.bind_signals()
     await reducer.start()
@@ -474,8 +527,20 @@ async def main(
     try:
         await close_event.wait()
     finally:
-        await reducer.stop()
-        await backend.stop()
+        # docs/01-architecture.md §Teardown order: cancel background tasks and
+        # gather (step 2) before stopping the backend (step 3).
+        await _cancel_intent_tasks()
+        # Each stop is independent. reducer.stop() flushes state.json, which
+        # raises OSError on a full or read-only $XDG_STATE_HOME — and that must
+        # not leave the KWin script loaded and the bus name held.
+        try:
+            await reducer.stop()
+        except Exception:
+            log.exception("reducer shutdown failed; continuing to stop backend")
+        try:
+            await backend.stop()
+        except Exception:
+            log.exception("backend shutdown failed")
 
     # Async cleanup is done — now tell Qt to wind down. ``app.quit()``
     # stops the qasync loop, which ``asyncio.run`` then closes cleanly.

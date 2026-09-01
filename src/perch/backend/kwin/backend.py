@@ -21,6 +21,7 @@ registration land in M5.e / M5.f. Until then they raise
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -187,6 +188,19 @@ class KWinBackend(WindowBackend):
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
     async def start(self) -> None:
+        try:
+            await self._start()
+        except BaseException:
+            # Anything after the bus name is acquired leaves state OUTSIDE this
+            # process — the exported service, and worse, a JS script loaded and
+            # running inside the user's KWin that nothing then owns. stop() is
+            # idempotent and None-guarded throughout, so unwinding here is safe
+            # however far start() got.
+            with contextlib.suppress(Exception):
+                await self.stop()
+            raise
+
+    async def _start(self) -> None:
         _probe_session_env()
         try:
             await self._bus_setup(SERVICE_NAME)
@@ -229,8 +243,11 @@ class KWinBackend(WindowBackend):
         self.backend_connected.emit()
 
     async def stop(self) -> None:
-        if not self._connected:
-            return
+        # Deliberately NOT gated on _connected, which start() sets only on its
+        # last line: every earlier failure would otherwise skip this entirely
+        # and leave the bus name held and the KWin script loaded. Every branch
+        # below is None-guarded, so this is safe to call at any point.
+        was_connected = self._connected
         self._connected = False
 
         if self._hotkey_provider is not None:
@@ -256,7 +273,10 @@ class KWinBackend(WindowBackend):
         self._scripting = None
         self._per_script = None
         self._script_id = None
-        self.backend_disconnected.emit("stopped")
+        if was_connected:
+            # Only announce a disconnect if there was a connection to lose;
+            # unwinding a failed start() must not emit one.
+            self.backend_disconnected.emit("stopped")
 
     # ── Capabilities ──────────────────────────────────────────────────────
 

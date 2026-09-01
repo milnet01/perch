@@ -275,10 +275,16 @@ def build_moveresize_message(
     from Xlib.protocol.event import ClientMessage
 
     flags = moveresize_flags(source=source)
+    # x and y are INT32 per wm-spec, but python-xlib packs format-32
+    # ClientMessage data through an unsigned array ('I'), so a negative
+    # coordinate raises OverflowError — outside the backend error taxonomy
+    # entirely, and reachable from any window the user dragged off the left
+    # or top edge, whose position Perch faithfully remembered. Send the
+    # two's-complement bits the X server reads back as the signed value.
     return ClientMessage(
         window=window,
         client_type=atoms["_NET_MOVERESIZE_WINDOW"],
-        data=(32, [flags, x, y, w, h]),
+        data=(32, [flags, x & 0xFFFFFFFF, y & 0xFFFFFFFF, w, h]),
     )
 
 

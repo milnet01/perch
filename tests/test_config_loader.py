@@ -73,3 +73,56 @@ def test_migration_registry_empty_at_current_version() -> None:
         f"schema is at v{CURRENT_SCHEMA_VERSION}, so {expected_migrations} migrations "
         f"must be registered; found {len(migrations_mod.MIGRATIONS)}"
     )
+
+
+def test_missing_primary_recovers_from_backup(tmp_path: Path) -> None:
+    """A missing primary beside an intact backup is recovered, not reseeded.
+
+    The atomic recipe's own crash window leaves exactly this state — the old
+    config already rotated to .bak, the tmp file not yet renamed into place.
+    Seeding defaults there discards the user's whole config, and the next save
+    rotates the surviving backup away.
+    """
+    primary = tmp_path / "config.toml"
+    backup = tmp_path / "config.toml.bak"
+    backup.write_text(
+        'schema_version = 1\n[general]\ntheme = "light"\n', encoding="utf-8"
+    )
+
+    config = load_or_create(config_path=primary, backup_path=backup)
+    assert config.general.theme == "light"
+
+
+def test_future_schema_refused_without_backup_fallback(tmp_path: Path) -> None:
+    """A too-new config raises ConfigError instead of loading the backup.
+
+    docs/02-state-format.md §Schema reference: it "surfaces as a ConfigError
+    that produces a non-zero exit". Falling back would load an older config
+    and then rotate the newer one away on the next save.
+    """
+    primary = tmp_path / "config.toml"
+    backup = tmp_path / "config.toml.bak"
+    primary.write_text("schema_version = 99\n", encoding="utf-8")
+    backup.write_text(
+        'schema_version = 1\n[general]\ntheme = "light"\n', encoding="utf-8"
+    )
+
+    with pytest.raises(ConfigError, match="newer than this Perch"):
+        load_or_create(config_path=primary, backup_path=backup)
+
+
+def test_non_utf8_primary_falls_back_to_backup(tmp_path: Path) -> None:
+    """A non-UTF-8 byte is a parse failure, not an uncaught traceback.
+
+    TOML v1.0.0 requires a UTF-8 document; tomllib surfaces the breach as
+    UnicodeDecodeError, which was outside the caught set.
+    """
+    primary = tmp_path / "config.toml"
+    backup = tmp_path / "config.toml.bak"
+    primary.write_bytes(b'schema_version = 1\n[general]\ntheme = "\xff\xfe"\n')
+    backup.write_text(
+        'schema_version = 1\n[general]\ntheme = "light"\n', encoding="utf-8"
+    )
+
+    config = load_or_create(config_path=primary, backup_path=backup)
+    assert config.general.theme == "light"

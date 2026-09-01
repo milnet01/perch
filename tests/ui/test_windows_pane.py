@@ -266,6 +266,12 @@ def test_commit_schedules_state_flush(
 
     assert page.is_dirty() is True
     page.commit()
+    # commit() only performs the write; the page stays dirty until
+    # mark_committed(), which ConfigDialog calls once the save has actually
+    # landed on disk. A page that went clean inside commit() reported nothing
+    # to re-commit after a failed save, so its edits were silently dropped.
+    assert page.is_dirty() is True
+    page.mark_committed()
     assert page.is_dirty() is False
     # mark_dirty was called; the store is flagged dirty until the
     # debounced flush or explicit flush lands.
