@@ -14,6 +14,7 @@ without a real :class:`QSystemTrayIcon` host.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -79,3 +80,33 @@ def wire_backend_status(
     backend.backend_connected.connect(on_connected)
     backend.backend_disconnected.connect(on_disconnected)
     backend.backend_error.connect(on_error)
+
+
+def make_skipped_entries_notifier(
+    tray: TrayIcon | None = None,
+) -> Callable[[list[str]], None]:
+    """Return the reducer's ``notify_skipped`` callback.
+
+    ``docs/09-layouts-profiles.md`` §Apply semantics step 4 requires that
+    layout entries skipped for an absent output be listed to the user. The
+    reducer collects them and stays free of Qt; the wording and its
+    translation live here. With no :class:`TrayIcon` (tests) the list is
+    still logged at WARNING so the event is observable.
+    """
+
+    def notify(entries: list[str]) -> None:
+        body = "\n".join(entries)
+        log.warning("layout entries skipped:\n%s", body)
+        if tray is None:
+            return
+        heading = QCoreApplication.translate(
+            "perch.ui.status", "Some layout entries were skipped"
+        )
+        tray.showMessage(
+            QCoreApplication.translate("perch.ui.status", "Perch"),
+            f"{heading}\n{body}",
+            QSystemTrayIcon.MessageIcon.Information,
+            _NOTIFICATION_TIMEOUT_MS,
+        )
+
+    return notify

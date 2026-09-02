@@ -875,3 +875,70 @@ async def test_maximize_fallback_uses_the_resolved_target_monitor(
     assert geom_calls[-1] == (
         "w1", Geometry(2560, 360, 1920, 1040), "HDMI-1", 0,
     )
+
+
+# ── Skipped layout entries (docs/09 §Apply semantics step 4) ──────────────
+async def test_layout_entries_skipped_for_an_absent_output_are_reported_once(
+    tmp_path: Path,
+) -> None:
+    """One notification per apply pass, listing the entries that were
+    skipped — not one log line per window and nothing the user can see."""
+    backend, reducer, _ = await _make(
+        {
+            "layouts": {
+                "coding": {
+                    "windows": [
+                        {
+                            "match": {"app_id": "firefox"},
+                            "geometry": "left-half",
+                            "monitor": "DP-9",
+                        }
+                    ]
+                }
+            }
+        },
+        tmp_path,
+    )
+    reported: list[list[str]] = []
+    reducer.notify_skipped = reported.append
+    backend._spawn_window(_window())
+    backend._spawn_window(_window("w2"))
+    await reducer.start()
+
+    await reducer.activate_layout("coding")
+
+    assert len(reported) == 1
+    assert len(reported[0]) == 2
+    assert all("DP-9" in entry for entry in reported[0])
+
+
+async def test_a_lone_window_event_does_not_notify(tmp_path: Path) -> None:
+    """The pass is the unit docs/09 reports on. A single window arriving
+    outside one logs, and must not queue a notification for the next pass."""
+    backend, reducer, _ = await _make(
+        {
+            "layouts": {
+                "coding": {
+                    "windows": [
+                        {
+                            "match": {"app_id": "firefox"},
+                            "geometry": "left-half",
+                            "monitor": "DP-9",
+                        }
+                    ]
+                }
+            }
+        },
+        tmp_path,
+    )
+    reported: list[list[str]] = []
+    reducer.notify_skipped = reported.append
+    await reducer.start()
+    await reducer.activate_layout("coding")
+    assert reported == []
+
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    assert reported == []

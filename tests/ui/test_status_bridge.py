@@ -10,7 +10,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from perch.backend.mock import MockBackend
-from perch.ui.status import wire_backend_status
+from perch.ui.status import (
+    make_skipped_entries_notifier,
+    wire_backend_status,
+)
 from perch.ui.tray import TrayController, TrayIcon, TrayState
 
 if TYPE_CHECKING:
@@ -188,3 +191,19 @@ def test_tray_icon_swaps_to_warning_when_backend_disconnects(qtbot: QtBot) -> No
         assert tray.toolTip() == controller.state.header
     finally:
         tray.hide()
+
+
+# ── Skipped layout entries (docs/09 §Apply semantics step 4) ──────────────
+def test_skipped_entries_notifier_lists_them_in_one_message() -> None:
+    tray = _RecordingTray()
+    notify = make_skipped_entries_notifier(tray)  # type: ignore[arg-type]
+
+    notify(["app:code: output 'DP-9' is not currently connected"])
+
+    assert len(tray.messages) == 1
+    _title, body = tray.messages[0]
+    assert "DP-9" in body
+
+
+def test_skipped_entries_notifier_without_a_tray_does_not_raise() -> None:
+    make_skipped_entries_notifier(None)(["app:code: nowhere"])

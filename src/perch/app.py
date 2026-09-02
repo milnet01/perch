@@ -52,7 +52,7 @@ from .ui.intents import (
 )
 from .ui.onboarding import appindicator_guidance, run_setup_wizard
 from .ui.sni_probe import is_gnome_wayland, sni_host_available
-from .ui.status import wire_backend_status
+from .ui.status import make_skipped_entries_notifier, wire_backend_status
 from .ui.theming import apply_theme
 from .ui.tray import TrayController, TrayIcon, TrayState
 
@@ -466,7 +466,12 @@ async def main(
         # but a store that somehow does raise must not take startup with it:
         # the user loses restore-on-open, not the application.
         log.exception("state.json could not be loaded; starting with empty state")
-    reducer = Reducer(backend=backend, config=config, state_store=state_store)
+    reducer = Reducer(
+        backend=backend,
+        config=config,
+        state_store=state_store,
+        notify_skipped=make_skipped_entries_notifier(tray),
+    )
     reducer.bind_signals()
     await reducer.start()
 

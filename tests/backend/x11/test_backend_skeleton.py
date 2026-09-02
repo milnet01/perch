@@ -181,3 +181,39 @@ def test_display_lost_mid_handshake_tears_down(
     fake.close.assert_called_once()
     with pytest.raises(BackendDisconnected):
         asyncio.run(backend.list_outputs())
+
+
+def test_set_geometry_sends_desktop_before_placement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """docs/07 §Apply order step 2 — the placement is the last word.
+
+    A window manager is free to re-place a window when its desktop
+    changes, so sending the move after the placement can undo it. The
+    KWin backend already ordered its batch this way.
+    """
+    import asyncio
+    from unittest.mock import MagicMock
+
+    from perch.backend.x11 import backend as x11_backend
+
+    monkeypatch.setattr(
+        x11_backend, "build_wm_desktop_message", lambda *a, **k: "desktop-msg"
+    )
+    monkeypatch.setattr(
+        x11_backend, "build_moveresize_message", lambda *a, **k: "place-msg"
+    )
+
+    backend = X11Backend()
+    display = MagicMock()
+    root = display.screen.return_value.root
+    monkeypatch.setattr(backend, "_require_connected", lambda: display)
+    monkeypatch.setattr(backend, "_require_atoms", MagicMock())
+    backend._windows["w1"] = MagicMock()
+
+    asyncio.run(
+        backend.set_geometry("w1", Geometry(0, 0, 800, 600), desktop=2)
+    )
+
+    sent = [call.args[0] for call in root.send_event.call_args_list]
+    assert sent == ["desktop-msg", "place-msg"]

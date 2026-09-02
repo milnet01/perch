@@ -405,20 +405,14 @@ class X11Backend(WindowBackend):
             target_x = out.geometry.x + geom.x
             target_y = out.geometry.y + geom.y
 
-        # Send the client message routed through the WM for correct
-        # decoration-aware placement (StaticGravity → client-area coords).
-        msg = build_moveresize_message(
-            win, atoms, target_x, target_y, geom.w, geom.h
-        )
         root = d.screen().root
-        root.send_event(
-            msg,
-            event_mask=_X.SubstructureRedirectMask | _X.SubstructureNotifyMask,
-        )
 
-        # Move to the requested desktop in the same batch so pager-style
-        # "send to desktop N and place at (x, y)" moves land atomically from
-        # the user's perspective.
+        # Desktop first, then geometry — ``docs/07-rules-engine.md`` §Apply
+        # order step 2, and the order the KWin backend already used. A window
+        # manager is free to re-place a window when its desktop changes, so
+        # the placement has to be the last word. Both go out before the flush,
+        # so a pager-style "send to desktop N and place at (x, y)" still lands
+        # as one batch from the user's perspective.
         if desktop is not None:
             desk_msg = build_wm_desktop_message(
                 win, atoms, desktop_to_wire(desktop)
@@ -428,6 +422,16 @@ class X11Backend(WindowBackend):
                 event_mask=_X.SubstructureRedirectMask
                 | _X.SubstructureNotifyMask,
             )
+
+        # Routed through the WM for correct decoration-aware placement
+        # (StaticGravity → client-area coords).
+        msg = build_moveresize_message(
+            win, atoms, target_x, target_y, geom.w, geom.h
+        )
+        root.send_event(
+            msg,
+            event_mask=_X.SubstructureRedirectMask | _X.SubstructureNotifyMask,
+        )
 
         d.flush()
 

@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from collections.abc import Callable
 
 from perch.backend.base import (
     BackendUnsupported,
@@ -82,6 +83,7 @@ class Reducer:
         state_store: StateStore,
         *,
         topology_debounce_seconds: float = TOPOLOGY_DEBOUNCE_SECONDS,
+        notify_skipped: Callable[[list[str]], None] | None = None,
     ) -> None:
         self.backend = backend
         self.config = config
@@ -116,6 +118,15 @@ class Reducer:
         self._expected_geometry: dict[WindowId, Geometry] = {}
         self._topology_task: asyncio.Task[None] | None = None
 
+        # ``docs/09-layouts-profiles.md`` §Apply semantics step 4: entries
+        # skipped because their target output is absent are reported once
+        # per apply pass, not per window. ``None`` means no pass is running,
+        # so a lone window event logs and does not queue a notification for
+        # the next one. The core builds no user-facing string — wording and
+        # translation belong to the UI.
+        self.notify_skipped = notify_skipped
+        self._skipped_entries: list[str] | None = None
+
     # ── Startup ────────────────────────────────────────────────────────────
     async def start(self) -> None:
         """Snapshot the world, activate a profile, evaluate open windows."""
@@ -132,9 +143,7 @@ class Reducer:
             layout=self.active_layout.name if self.active_layout else None,
         )
         self.current_desktop = await self.backend.current_desktop()
-
-        for window in await self.backend.list_windows():
-            await self.handle_window_opened(window, trigger=TriggerEvent.USER_TRIGGER)
+        await self._evaluate_all_open_windows()
 
     async def stop(self) -> None:
         """Cancel the debounce task (if any) and flush pending state."""
@@ -173,11 +182,14 @@ class Reducer:
         await self._execute(info, identity, decision)
 
     async def handle_window_changed(self, info: WindowInfo) -> None:
-        """Only re-evaluate on title / type / state changes.
+        """Re-evaluate this window under the current rules and layout.
 
-        Geometry changes are never a trigger — the core's feedback-loop
-        guard relies on that (see ``docs/07-rules-engine.md`` §Reactive
-        evaluation).
+        The filtering is the backend's, not this method's: ``docs/03``
+        declares ``window_changed`` a title / type / state signal, and a
+        move arrives on ``geometry_changed`` instead. That split is what
+        the feedback-loop guard relies on (``docs/07-rules-engine.md``
+        §Reactive evaluation); this method re-evaluates whatever it is
+        handed.
         """
         await self.handle_window_opened(info, trigger=TriggerEvent.CHANGED)
 
@@ -294,10 +306,27 @@ class Reducer:
         Unlike ``recompute_topology`` it does not gate on the topology key:
         the user asked for a re-apply, so every open window is re-evaluated.
         """
-        for window in await self.backend.list_windows():
-            await self.handle_window_opened(
-                window, trigger=TriggerEvent.USER_TRIGGER
-            )
+        await self._evaluate_all_open_windows()
+
+    async def _evaluate_all_open_windows(self) -> None:
+        """Re-evaluate every open window as one apply pass.
+
+        The pass is the unit ``docs/09-layouts-profiles.md`` §Apply
+        semantics step 4 reports on: entries skipped for an absent output
+        are listed in a single notification at the end, rather than one
+        per window.
+        """
+        self._skipped_entries = []
+        try:
+            for window in await self.backend.list_windows():
+                await self.handle_window_opened(
+                    window, trigger=TriggerEvent.USER_TRIGGER
+                )
+            skipped = self._skipped_entries
+        finally:
+            self._skipped_entries = None
+        if skipped and self.notify_skipped is not None:
+            self.notify_skipped(skipped)
 
     # ── Pause Perch ────────────────────────────────────────────────────────
     def toggle_pause(self) -> bool:
@@ -405,6 +434,8 @@ class Reducer:
             )
         except ResolveError as exc:
             log.warning("resolve failed for %s: %s", identity, exc)
+            if self._skipped_entries is not None and source.startswith("layout:"):
+                self._skipped_entries.append(f"{identity}: {exc}")
             return
 
         target_monitor = placement.monitor or window.monitor

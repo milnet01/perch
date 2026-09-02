@@ -1341,6 +1341,38 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: implement.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.
 
+- ✅ [PERC-0068] **Settle the four open questions the core-state lane left unresolved.**
+  Three were real and are fixed; one was a doc-vs-doc wording mismatch.
+
+  The X11 backend sent its move-resize before the desktop message and KWin
+  sent them the other way round, so the two v1 backends disagreed and one
+  contradicted docs/07 §Apply order step 2. X11 now matches: a window
+  manager is free to re-place a window when its desktop changes, so the
+  placement has to be the last word. Both still go out before one flush.
+
+  docs/09 §Apply semantics step 4 requires a notification listing layout
+  entries skipped for an absent output; the reducer only logged. The
+  reducer now collects them across one apply pass and hands the list to a
+  notify_skipped callback the composition root wires to the tray balloon.
+  The pass is the unit -- a lone window event logs and does not notify --
+  and the core builds no user-facing string, so wording and translation
+  stay in ui/status.py.
+
+  reducer.handle_window_changed's docstring read as though the method
+  filtered events. It does not; docs/03 declares window_changed a title /
+  type / state signal and a move arrives on geometry_changed. Reworded to
+  say whose filtering it is.
+
+  Not a defect: docs/07 triggered the maximize fallback on
+  can_set_state=False and docs/02 on a caught BackendUnsupported, and the
+  code implements only the latter. No shipped backend declares
+  can_set_state=False, and a backend that cannot set the state raises
+  BackendUnsupported either way, so the two sentences describe one event
+  from two sides. docs/07 now says so rather than naming a second trigger.
+  **Layman:** Four things the audit could not decide, now decided.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane core-state, OPEN QUESTIONS block).
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.

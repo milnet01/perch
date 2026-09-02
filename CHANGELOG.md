@@ -8,6 +8,13 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Added
+
+- **Layout entries skipped for a missing monitor are now reported** (PERC-0068)
+  docs/09 §Apply semantics has always required it and the reducer only
+  wrote a log line. Activating a layout that names a disconnected output
+  now raises one tray notification listing every entry it skipped.
+
 ### Changed
 
 - **An empty string in a match or apply field is rejected** (PERC-0057)
@@ -31,6 +38,12 @@ Sections under each release are populated on a best-effort basis — empty secti
   undoing the import.
 
 ### Fixed
+
+- **X11: a window is moved to its target desktop before it is placed** (PERC-0068)
+  The two v1 backends disagreed — KWin sent the desktop change first, X11
+  sent it last. A window manager is free to re-place a window when its
+  desktop changes, so the placement has to be the last word. Both messages
+  still go out before a single flush.
 
 - **Excluded and unidentifiable windows are no longer remembered** (PERC-0057)
   A window covered by an exclusion was written to `state.json` on any

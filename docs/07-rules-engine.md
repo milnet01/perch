@@ -87,11 +87,11 @@ When an action's `geometry` or `snap` is applied, Perch resolves it to pixel coo
 An action can mix `maximized`, `geometry`/`snap`, `monitor`, and `desktop`. The backend adapter applies them in a fixed order so the user-visible result is deterministic:
 
 1. If `maximized = false` (explicit), unmaximize first. This lets a subsequent `set_geometry` actually move the window on backends that ignore geometry writes on maximized windows (Mutter; see [06-backend-stubs.md](06-backend-stubs.md)).
-2. If `desktop` is set and differs from the current desktop, move the window first so geometry is evaluated against the target desktop's work area.
+2. If `desktop` is set and differs from the current desktop, move the window first — a window manager is free to re-place a window when its desktop changes, so the placement has to be the last word. The core folds this into one `set_geometry(…, desktop=…)` call, which `docs/03-backend-interface.md` makes atomic; each backend applies the desktop before the geometry inside it.
 3. If `geometry` / `snap` is set, apply it (with `monitor` resolving the target output).
 4. If `maximized = true`, call `set_state(wid, WindowState.MAXIMIZED)`.
 
-If the active backend declares `can_set_state = False` and the action sets `maximized = true`, Perch substitutes `geometry = "maximize"` against the resolved target monitor and logs at DEBUG. This is the only automatic substitution the engine performs; the semantic difference is noted at [02-state-format.md](02-state-format.md) §Apply actions.
+If a backend cannot set the native maximized state and the action sets `maximized = true`, Perch substitutes `geometry = "maximize"` against the **resolved target** monitor and logs at DEBUG, naming the rule. Both routes to that arrive the same way — a backend declaring `can_set_state = False`, and one that declares it can but raises `BackendUnsupported` for `MAXIMIZED` specifically (Sway, Hyprland), both raise `BackendUnsupported` from `set_state`, and that is what the reducer catches. This is the only automatic substitution the engine performs; the semantic difference is noted at [02-state-format.md](02-state-format.md) §Apply actions.
 
 ## Reactive evaluation
 
