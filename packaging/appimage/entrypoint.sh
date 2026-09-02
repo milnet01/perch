@@ -10,6 +10,11 @@
 #                       libs (libffi, libssl, ...); our harvested libs link
 #                       against some of these, so it must be on the path too.
 #
+# Every child inherits LD_LIBRARY_PATH, so a HOST program Perch spawns (browser,
+# file manager, compositor CLI) would be resolved against the bundled AlmaLinux 8
+# libraries. Record what the host had first; src/perch/hostenv.py restores it for
+# those spawns.
+export PERCH_HOST_LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
 # {{ python-executable }} expands to ${APPDIR}/usr/bin/python3.<minor>.
 export LD_LIBRARY_PATH="${APPDIR}/usr/lib/perch-runtime-libs:${APPDIR}/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 "{{ python-executable }}" -m perch "$@"

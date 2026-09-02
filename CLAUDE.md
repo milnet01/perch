@@ -126,7 +126,7 @@ The repo ships with a small amount of Claude-Code-specific tooling at `.claude/`
 
 **Hooks** (run automatically, configured in `.claude/settings.json`):
 
-- `.claude/hooks/docs-drift-check.sh` — Stop hook. If the turn modified code under `src/perch/` / `perch/` / `data/` without touching `docs/` or `CLAUDE.md`, emits a reminder about the no-documentation-debt rule. Silent when there's no drift. Never blocks.
+- `.claude/hooks/docs-drift-check.sh` — Stop hook. If work that has not left this machine — uncommitted changes plus commits ahead of the upstream — touches code under `src/perch/` / `perch/` / `data/` without touching `docs/` or `CLAUDE.md`, emits a reminder about the no-documentation-debt rule. It looks past the commit deliberately: scoped to the working tree alone it went silent the moment the turn committed, which is the normal flow. Silent when there's no drift. Never blocks.
 - `.claude/hooks/python-post-edit.sh` — PostToolUse hook on `Edit`/`Write`. Runs `ruff check` (report-only) on any edited `.py` file, so issues surface in the next tool result instead of CI. No-op before M1 creates the dev env.
 
 **Project-local skill:**

@@ -31,6 +31,7 @@ from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any
 
+from perch import hostenv
 from perch.backend.base import (
     BackendDisconnected,
     BackendError,
@@ -413,6 +414,7 @@ class HyprlandBackend(WindowBackend):
             query,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=hostenv.host_env(),
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
@@ -435,6 +437,7 @@ class HyprlandBackend(WindowBackend):
             payload,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=hostenv.host_env(),
         )
         stdout, stderr = await proc.communicate()
         out = stdout.decode(errors="replace").strip()

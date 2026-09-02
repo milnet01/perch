@@ -28,7 +28,7 @@ from PySide6.QtCore import QCoreApplication, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from . import __version__, autostart, paths
+from . import __version__, autostart, hostenv, paths
 from .backend import BackendError, BackendUnavailable, WindowBackend, select
 from .backend.mock import MockBackend
 from .config import Config, load_or_create
@@ -208,7 +208,9 @@ def _handle_intent(
         case OpenUrl(url):
             # Under Flatpak Qt routes this through the OpenURI portal, so
             # no network or browser permission is needed in the manifest.
-            if not QDesktopServices.openUrl(QUrl(url)):
+            with hostenv.host_environment():
+                opened = QDesktopServices.openUrl(QUrl(url))
+            if not opened:
                 log.warning("could not open %s in a browser", url)
         case ShowAbout():
             _show_about_dialog()
@@ -313,6 +315,7 @@ def _open_in_file_manager(directory: Path) -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=hostenv.host_env(),
         )
     except FileNotFoundError:
         log.warning("xdg-open not found; cannot open %s", directory)

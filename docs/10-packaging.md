@@ -99,10 +99,33 @@ baseline and the AppImage's effective floor. It is pinned in
 decision — bump it here and in that script in lockstep, and re-run the
 bare-container check below.
 
-**Verification.** The build is validated by extracting the AppImage on a **bare
-`ubuntu:22.04` container** (none of the Qt/xcb libraries installed) and
-confirming `QApplication` initialises with the `xcb` platform — i.e. the bundle
-is genuinely self-contained, not silently borrowing the build host's libraries.
+**Verification.** `build.sh`'s last step extracts the AppImage on a **bare
+`ubuntu:22.04` container** (none of the Qt/xcb libraries installed) and resolves
+the library closure of the `xcb` platform plugin and of Qt Core, Gui, Widgets
+and DBus. The only names allowed to go unresolved are the host-provided sonames
+`harvest-libs.sh` deliberately excludes; that script writes them out as
+`host-provided.txt` so the check and the harvest cannot drift. Anything else is a
+library we failed to bundle, and the build fails naming it.
+
+The scope is what Perch loads, deliberately. Qt also ships plugins for
+databases, GTK dialogs, speech and a Wayland compositor whose dependencies are
+absent by design, so checking every bundled `.so` reports a long list of
+unresolved sonames that mean nothing.
+
+A `--version` run is not this check: it exits before touching Qt (see
+`src/perch/__main__.py`), so it says nothing about the bundle's reason for
+existing. Confirming the plugin *initialises* needs a display and so cannot run
+here; the closure is what is verifiable headless, and a missing library is the
+failure this bundling exists to prevent.
+
+**Host programs.** `entrypoint.sh` puts the bundled libraries on
+`LD_LIBRARY_PATH`, which every child process inherits — so a host program Perch
+spawns (a browser, a file manager, `hyprctl`) would resolve against AlmaLinux 8
+copies of its own libraries. The entry point records the inherited value in
+`PERCH_HOST_LD_LIBRARY_PATH`, and `src/perch/hostenv.py` restores it for those
+spawns: `host_env()` for a spawn Perch makes itself, and the `host_environment()`
+context manager for one Qt makes on its behalf (`QDesktopServices.openUrl`).
+Outside an AppImage the variable is unset and both are no-ops.
 
 **Runtime stub.** `appimagetool` fetches the AppImage `runtime-x86_64` from
 GitHub; `build.sh` accepts `PERCH_APPIMAGE_RUNTIME=/path` to use a local copy

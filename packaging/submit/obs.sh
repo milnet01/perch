@@ -126,7 +126,16 @@ for stale in _service $(ls perch-*.tar.gz 2>/dev/null | grep -Fxv "$TARBALL"); d
     [[ -e $stale ]] && osc rm --force "$stale" >/dev/null 2>&1 || true
 done
 
-osc add perch.spec "$TARBALL" 2>/dev/null || true
+# Only "already tracked" is tolerable. Any other failure means osc commit would
+# proceed WITHOUT the tarball and OBS would build the previous source -- the
+# exact failure the stale-source sweep above exists to prevent.
+if ! add_err=$(osc add perch.spec "$TARBALL" 2>&1); then
+    grep -qiE 'already (under version control|added|tracked)' <<<"$add_err" || {
+        echo "$add_err" >&2
+        echo "error: osc add failed -- refusing to commit without the tarball." >&2
+        exit 1
+    }
+fi
 
 echo ">> staged files:"
 osc status

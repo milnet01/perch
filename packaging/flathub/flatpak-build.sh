@@ -46,12 +46,18 @@ if [[ "${LOCAL:-1}" == "1" ]]; then
     MANIFEST="$HERE/.local-manifest.yml"
     REPO="$REPO" BRANCH="$BRANCH" SRC="$HERE/${APP_ID}.yml" OUT="$MANIFEST" \
         "${PYTHON:-python3}" - <<'PY'
-import os, yaml
+import os, sys, yaml
 m = yaml.safe_load(open(os.environ["SRC"]))
 repo, branch = os.environ["REPO"], os.environ["BRANCH"]
+rewritten = 0
 for mod in m["modules"]:
     if isinstance(mod, dict) and mod.get("name") == "perch":
         mod["sources"] = [{"type": "git", "url": f"file://{repo}", "branch": branch}]
+        rewritten += 1
+# Rename or nest the module and the rewrite matches nothing: the script would
+# print its LOCAL banner and build the PINNED TAG instead of the working tree.
+if rewritten != 1:
+    sys.exit(f"manifest rewrite matched {rewritten} 'perch' modules, expected 1")
 yaml.safe_dump(m, open(os.environ["OUT"], "w"), sort_keys=False)
 PY
     echo ">> LOCAL build: perch source = file://$REPO @ $BRANCH (HEAD)"

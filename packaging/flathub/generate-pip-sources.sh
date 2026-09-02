@@ -36,7 +36,11 @@ REPO="$(cd "$HERE/../.." && pwd)"
 RUNTIME_BRANCH="${RUNTIME_BRANCH:-6.11}"
 SDK="org.kde.Sdk//${RUNTIME_BRANCH}"
 GENERATOR="${GENERATOR:-$HERE/.flatpak-pip-generator.py}"
-GEN_URL="https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/pip/flatpak-pip-generator.py"
+# Pinned to a commit, not `master`: this script downloads and EXECUTES the file,
+# so a moving ref means every run can execute different unreviewed code. Bump the
+# ref deliberately, then re-run with REFETCH=1.
+GEN_REF="${GEN_REF:-dda10aa5949811589747e6e485da6ae2e86b5d2b}"
+GEN_URL="https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/${GEN_REF}/pip/flatpak-pip-generator.py"
 
 # The generator runs on the HOST interpreter (it only queries the Sdk for
 # platform tags). Prefer an active venv, else the project's, else python3 --
@@ -62,8 +66,13 @@ if ((${#MISSING[@]})); then
 fi
 
 if [[ "${REFETCH:-0}" == "1" || ! -f "$GENERATOR" ]]; then
-    echo ">> fetching flatpak-pip-generator"
-    curl -sSL -o "$GENERATOR" "$GEN_URL"
+    echo ">> fetching flatpak-pip-generator @ $GEN_REF"
+    # -f so an HTTP error page is not cached as the generator and then executed.
+    curl -fsSL --connect-timeout 10 --max-time 120 -o "$GENERATOR" "$GEN_URL" || {
+        rm -f "$GENERATOR"
+        echo "!! could not fetch $GEN_URL" >&2
+        exit 1
+    }
 fi
 
 if ! flatpak info "$SDK" >/dev/null 2>&1; then

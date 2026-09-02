@@ -36,6 +36,12 @@ Perch is a Python + Qt (PySide6) app, so the AppImage is built in four stages
    puts them on `LD_LIBRARY_PATH`. Without this step Perch's window fails with
    *"could not load the Qt platform plugin xcb"* on a bare desktop.
 4. **Pack** — `appimagetool` compresses the AppDir behind the AppImage runtime.
+5. **Verify** — the packed AppImage is extracted on a bare `ubuntu:22.04`
+   container, and the `xcb` platform plugin and Qt Core/Gui/Widgets/DBus must
+   resolve there, bar the host-provided sonames step 3 deliberately excludes.
+   A library we forgot to bundle fails the build here rather than on a user's
+   desktop. Qt's unused plugins (database, GTK, speech, Wayland compositor) are
+   out of scope — their dependencies are absent by design.
 
 What is *not* bundled (and must not be): glibc itself, the GL/DRM driver stack,
 and the X core libs (`libX11`, `libxcb.so.1`) — every graphical desktop already
@@ -56,9 +62,9 @@ ships these, and bundling them would break hardware acceleration.
 
 | File | Role |
 |---|---|
-| `build.sh` | orchestrator (wheel → AppDir → harvest → pack) |
-| `harvest-libs.sh` | runs in AlmaLinux 8; bundles the portable Qt/xcb system libs |
-| `entrypoint.sh` | AppImage launcher; widens `LD_LIBRARY_PATH` to the bundled libs |
+| `build.sh` | orchestrator (wheel → AppDir → harvest → pack → verify) |
+| `harvest-libs.sh` | runs in AlmaLinux 8; bundles the portable Qt/xcb system libs, and writes the host-provided soname list `build.sh` verifies against |
+| `entrypoint.sh` | AppImage launcher; widens `LD_LIBRARY_PATH` to the bundled libs, and records the host's own value for `src/perch/hostenv.py` to restore when Perch spawns a host program |
 | `perch.desktop` | desktop entry embedded in the AppImage |
 
 See [`docs/10-packaging.md`](../../docs/10-packaging.md) § AppImage for the

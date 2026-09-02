@@ -86,25 +86,35 @@ RUN_LABEL = re.compile(r'\brun\s+"([^"]+)"')
 VERSIONED = re.compile(r"^(?P<base>.+) \((?P<version>\d+\.\d+)\)$")
 
 
-def ci_check_steps() -> dict[str, list[str]]:
+def ci_check_steps() -> tuple[dict[str, list[str]], list[str]]:
     """Map each ci.yml check step to the interpreters it runs under.
 
     An empty list means the step runs once, outside any matrix -- the docs
     and packaging jobs. A non-empty one is every `python-version` its job's
     matrix names, which is how many times CI really runs that check.
+
+    The second return value is every `run:` step ci.yml leaves unnamed. A step
+    with no name cannot be mapped to a local_CI.sh label, so it is reported
+    rather than dropped: dropping one lets local_CI.sh print "safe to push" for
+    a check it does not run, which is the one thing this module must not allow.
     """
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     steps: dict[str, list[str]] = {}
-    for job in workflow["jobs"].values():
+    unnamed: list[str] = []
+    for job_name, job in workflow["jobs"].items():
         matrix = job.get("strategy", {}).get("matrix", {})
         versions = [str(v) for v in matrix.get("python-version", [])]
         for step in job.get("steps", []):
             if "run" not in step:
                 continue  # an action (checkout, setup-python), not a check
             name = step.get("name")
-            if name and name not in SETUP_STEPS:
+            if not name:
+                first_line = str(step["run"]).strip().splitlines()[0]
+                unnamed.append(f"{job_name}: {first_line}")
+                continue
+            if name not in SETUP_STEPS:
                 steps[name] = versions
-    return steps
+    return steps, unnamed
 
 
 #: The loop variable local_CI.sh suffixes a matrixed check with. The labels
@@ -131,10 +141,17 @@ def local_labels(versions: list[str]) -> list[str]:
 
 
 def main() -> int:
-    ci = ci_check_steps()
+    ci, unnamed = ci_check_steps()
     all_versions = {v for versions in ci.values() for v in versions}
     local = local_labels(sorted(all_versions))
     findings: list[str] = []
+
+    for step in unnamed:
+        findings.append(
+            f"ci.yml has an unnamed `run:` step ({step!r}) -- give it a `name:` "
+            f"so it can be mapped to a local_CI.sh label; unnamed, it is a CI "
+            f"check the local gate cannot be shown to run"
+        )
 
     for name in ci:
         if name not in EQUIVALENT:

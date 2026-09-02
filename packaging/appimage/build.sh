@@ -41,12 +41,12 @@ WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 echo ">> Perch $VERSION  ->  dist/$OUT  (workdir $WORK)"
 
 # 1. wheel ---------------------------------------------------------------------
-echo ">> [1/5] building wheel"
+echo ">> [1/6] building wheel"
 python3 -m pip wheel "$REPO" --no-deps -w "$WORK/wheels" >/dev/null
 WHEEL="$(ls "$WORK/wheels"/perch-*.whl)"
 
 # 2. AppDir via python-appimage ------------------------------------------------
-echo ">> [2/5] assembling AppDir (python-appimage, $MANYLINUX_TAG, cp$PYVER)"
+echo ">> [2/6] assembling AppDir (python-appimage, $MANYLINUX_TAG, cp$PYVER)"
 python3 -m venv "$WORK/bvenv"
 "$WORK/bvenv/bin/pip" install -q --upgrade pip python-appimage
 RECIPE="$WORK/recipe"; mkdir -p "$RECIPE"
@@ -59,7 +59,7 @@ APPDIR="$WORK/Perch-x86_64"
 [[ -d "$APPDIR" ]] || { echo "ERROR: AppDir not produced" >&2; exit 1; }
 
 # 3. harvest + fold portable system libs ---------------------------------------
-echo ">> [3/5] harvesting portable Qt/xcb system libs (AlmaLinux 8)"
+echo ">> [3/6] harvesting portable Qt/xcb system libs (AlmaLinux 8)"
 HARV="$WORK/harvested"; mkdir -p "$HARV"
 cp "$HERE/harvest-libs.sh" "$WORK/harvest.sh"   # mount a copy so the repo file's SELinux label is untouched
 # :z relabels the bind mounts for container access on SELinux-enforcing hosts
@@ -67,33 +67,75 @@ cp "$HERE/harvest-libs.sh" "$WORK/harvest.sh"   # mount a copy so the repo file'
 "$CONTAINER" run --rm \
   -v "$APPDIR":/appdir:ro,z -v "$HARV":/out:z -v "$WORK/harvest.sh":/harvest.sh:ro,z \
   almalinux:8 bash /harvest.sh
+HOSTLIST="$WORK/host-provided.txt"
+mv "$HARV/host-provided.txt" "$HOSTLIST"     # a manifest, not a library to bundle
 mkdir -p "$APPDIR/usr/lib/perch-runtime-libs"
 cp -a "$HARV/." "$APPDIR/usr/lib/perch-runtime-libs/"
 
 # 4. AppImage runtime stub -----------------------------------------------------
-echo ">> [4/5] obtaining AppImage runtime"
+echo ">> [4/6] obtaining AppImage runtime"
 RUNTIME="$WORK/runtime-x86_64"
 if [[ -n "${PERCH_APPIMAGE_RUNTIME:-}" ]]; then
   cp "$PERCH_APPIMAGE_RUNTIME" "$RUNTIME"
   echo "   using PERCH_APPIMAGE_RUNTIME=$PERCH_APPIMAGE_RUNTIME"
 else
-  curl -fsSL --retry 3 --retry-delay 3 \
+  # --retry does not bound a stalled-but-open connection, which is the
+  # documented failure here; the timeouts are what make it fail over.
+  curl -fsSL --retry 3 --retry-delay 3 --connect-timeout 10 --max-time 180 \
     https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64 \
     -o "$RUNTIME"
 fi
 chmod +x "$RUNTIME"
 
 # 5. pack ----------------------------------------------------------------------
-echo ">> [5/5] packing $OUT"
-"$WORK/bvenv/bin/python" - "$WORK" <<'PY'
-import sys, subprocess
-from python_appimage.utils.deps import ensure_appimagetool
-print(ensure_appimagetool())   # extracts appimagetool into the cache; prints its AppRun
-PY
+echo ">> [5/6] packing $OUT"
+# ensure_appimagetool() extracts appimagetool into the cache and returns its
+# AppRun; one call does both.
 AT="$($WORK/bvenv/bin/python -c 'from python_appimage.utils.deps import ensure_appimagetool; print(ensure_appimagetool())')"
 env ARCH=x86_64 "$AT" --no-appstream --runtime-file "$RUNTIME" "$APPDIR" "$DIST/$OUT"
 
-# smoke test -------------------------------------------------------------------
-echo ">> smoke test: $OUT --version"
+# 6. verify self-containment ---------------------------------------------------
+# `--version` exits before touching Qt (see src/perch/__main__.py), so it proves
+# nothing about the bundle's whole reason for existing. This does: extract the
+# AppImage on a BARE ubuntu:22.04 (no Qt, no xcb-util, no xkbcommon) and require
+# every bundled .so to resolve, except the sonames harvest-libs.sh deliberately
+# leaves to the host. An unresolved name outside that set is a library we forgot
+# to bundle -- i.e. an AppImage that dies with "could not load the Qt platform
+# plugin xcb" on a machine that is not this one.
+echo ">> [6/6] verifying self-containment (bare ubuntu:22.04)"
 "$DIST/$OUT" --appimage-extract-and-run --version
+"$CONTAINER" run --rm \
+  -v "$DIST/$OUT":/perch.AppImage:ro,z -v "$HOSTLIST":/host-provided.txt:ro,z \
+  ubuntu:22.04 bash -euo pipefail -c '
+    cd /tmp && /perch.AppImage --appimage-extract >/dev/null
+    APPDIR=/tmp/squashfs-root
+    PYDIR=$(find "$APPDIR/opt" -maxdepth 1 -name "python3.*" -type d -print -quit)
+    PYVER=$(basename "$PYDIR")
+    SP="$PYDIR/lib/$PYVER/site-packages"
+    # The same search path entrypoint.sh and harvest-libs.sh use, so this asks
+    # what the AppImage itself would resolve at runtime.
+    export LD_LIBRARY_PATH="$APPDIR/usr/lib/perch-runtime-libs:$APPDIR/usr/lib:$SP/PySide6/Qt/lib:$SP/PySide6:$SP/shiboken6:$PYDIR/lib"
+
+    # Scope: what Perch actually loads. Qt also ships plugins for databases,
+    # GTK dialogs, speech and a Wayland compositor whose dependencies are
+    # deliberately absent -- Perch never loads them, so their unresolved
+    # sonames are not evidence of anything.
+    TARGETS="$SP/PySide6/Qt/plugins/platforms/libqxcb.so"
+    for lib in Core Gui Widgets DBus; do
+      TARGETS="$TARGETS $SP/PySide6/Qt/lib/libQt6$lib.so.6"
+    done
+    for t in $TARGETS; do
+      [ -e "$t" ] || { echo "ERROR: $t is not in the bundle" >&2; exit 1; }
+    done
+
+    # shellcheck disable=SC2086
+    ldd $TARGETS 2>/dev/null | awk "/not found/ {print \$1}" | sort -u > /tmp/unresolved.txt
+    if comm -23 /tmp/unresolved.txt <(sort /host-provided.txt) | grep .; then
+      echo "ERROR: the xcb platform plugin needs the sonames above, and they" >&2
+      echo "       resolve from neither the bundle nor the documented" >&2
+      echo "       host-provided set. Add them to harvest-libs.sh." >&2
+      exit 1
+    fi
+    echo "   self-contained: the xcb plugin and Qt core resolve"
+  '
 echo ">> done: $DIST/$OUT"

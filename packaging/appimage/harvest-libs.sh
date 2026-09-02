@@ -17,15 +17,17 @@
 # Mounts (set by build.sh): /appdir = the AppDir (ro), /out = output dir.
 set -euo pipefail
 
-dnf -y -q install epel-release 2>/dev/null || true
+# A failure here leaves the container without the libs, ldd resolves nothing,
+# and the harvest is silently empty -- which ships as an AppImage that dies with
+# "could not load the Qt platform plugin xcb". So these must NOT be tolerated.
+dnf -y -q install epel-release
 dnf -y -q install \
     libxcb libX11 libX11-xcb libXau libxkbcommon libxkbcommon-x11 \
     xcb-util xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm \
     fontconfig freetype libpng dbus-libs \
     libglvnd libglvnd-egl libglvnd-glx libglvnd-opengl \
     libffi openssl-libs bzip2-libs xz-libs sqlite-libs zlib expat \
-    ncurses-libs readline gdbm-libs libtirpc \
-    2>/dev/null || true
+    ncurses-libs readline gdbm-libs libtirpc
 # xcb-util-cursor lives in EPEL on EL8; don't fail the whole run if it is absent.
 dnf -y -q install xcb-util-cursor 2>/dev/null || echo "WARN: xcb-util-cursor unavailable" >&2
 
@@ -34,7 +36,8 @@ OUT=/out
 mkdir -p "$OUT"
 
 # Resolve the interpreter's Python minor from the bundled tree (future-proof).
-PYDIR=$(find "$APPDIR/opt" -maxdepth 1 -name 'python3.*' -type d | head -1)
+PYDIR=$(find "$APPDIR/opt" -maxdepth 1 -name 'python3.*' -type d -print -quit)
+[[ -n "$PYDIR" ]] || { echo "ERROR: no python3.* under $APPDIR/opt" >&2; exit 1; }
 PYVER=$(basename "$PYDIR")               # e.g. python3.12
 SP="$PYDIR/lib/$PYVER/site-packages"
 
@@ -68,4 +71,13 @@ done | sort -u | while read -r path; do
   [[ "$(basename "$real")" != "$soname" ]] && ln -sf "$(basename "$real")" "$OUT/$soname" || true
 done
 
-echo "harvested $(ls -1 "$OUT" | wc -l) files into perch-runtime-libs"
+# The host-provided contract: sonames the bundle deliberately does NOT carry,
+# so build.sh's bare-container check knows which unresolved names are expected.
+# shellcheck disable=SC2086  # EXCLUDE is a whitespace-separated list; splitting is the point
+printf '%s\n' $EXCLUDE > "$OUT/host-provided.txt"
+
+COUNT=$(find "$OUT" -name '*.so*' | wc -l)
+# Zero means every ldd above resolved nothing -- a bundle with no system libs in
+# it builds and packs cleanly and then fails on the user's machine.
+[[ "$COUNT" -gt 0 ]] || { echo "ERROR: harvested 0 libraries" >&2; exit 1; }
+echo "harvested $COUNT files into perch-runtime-libs"

@@ -1015,7 +1015,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: doc-fix.
   Source: review-code 2026-08-31 (lanes app-shell, core-state, ui-dialog); closed 2026-09-01 in 810c1c4.
 
-- 📋 [PERC-0056] **Repair the project's own gates and packaging scripts.**
+- ✅ [PERC-0056] **Repair the project's own gates and packaging scripts.**
   Nine findings, none covered elsewhere. docs/10-packaging.md claims the
   AppImage is validated by extracting it in a bare ubuntu:22.04 container;
   that check exists nowhere, and the only real one runs `--version`, which
@@ -1036,6 +1036,35 @@ Goal: fewer first-run support tickets; the config is safe.
   executes an unpinned `master` generator with no `curl -f`. flatpak-build.sh
   does not assert its manifest rewrite matched anything. obs.sh discards and
   silences an `osc add` failure, then commits without the tarball.
+  Resolved (2026-09-02): all nine closed, each checked against
+  current source first. The AppImage now proves itself -- build.sh's last
+  step extracts it on a bare ubuntu:22.04 and resolves the xcb plugin's and
+  Qt Core/Gui/Widgets/DBus's library closure against the host-provided
+  soname list harvest-libs.sh writes out, so the harvest and the check
+  cannot drift; harvest-libs.sh no longer tolerates a dnf failure and
+  asserts a non-zero harvest. The docs-drift hook dropped its
+  tracking-TODO resolution and now looks at unpushed commits as well as the
+  working tree, so it survives the commit. generate-pip-sources.sh pins the
+  generator to a commit and fetches with curl -f; flatpak-build.sh fails
+  unless its rewrite matched exactly one module; obs.sh aborts on any osc
+  add failure but "already tracked"; ci_lockstep_check.py reports an
+  unnamed run: step instead of dropping it; intent_dispatch_audit.py
+  descends into compound bodies while counting an effectful guard condition
+  as real work; entrypoint.sh records the host library path and
+  src/perch/hostenv.py restores it at every spawn site.
+
+  Verified rather than assumed: a full AppImage build ran the new check,
+  which passed and, with one soname removed from the allowed set, failed
+  naming it. tests/test_hostenv.py is six tests, three of which fail
+  without the fix. local_CI.sh: "All CI checks passed -- safe to push",
+  830 passed on each of 3.12/3.13/3.14.
+
+  The first version of the bare-container check was wrong -- it scanned
+  every bundled .so with an incomplete search path and reported Qt's unused
+  database/GTK/speech/Wayland plugins as missing libraries. Running it is
+  what caught that.
+
+  The lane's LOW/INFO tail and its three open questions are PERC-0065.
   **Layman:** The checks that decide whether Perch is safe to release have holes in them.
   Kind: fix.
   Source: review-code 2026-08-31 (lane tooling).
@@ -1221,6 +1250,43 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Turning autostart on under Flatpak can report failure for something that worked.
   Kind: fix.
   Source: review-code 2026-08-31 (lane app-shell).
+
+- 📋 [PERC-0065] **Close the tooling lane's LOW/INFO tail, which PERC-0056 did not cover.**
+  PERC-0056 closed the lane's HIGH and MEDIUM findings; these are the
+  rest, and they are recorded here because .audit/ is gitignored.
+
+  python-post-edit.sh never checks for jq, so without it the hook
+  silently no-ops forever -- its header documents a no-op for a missing
+  ruff only. docs_check.py's SCANNED set excludes
+  packaging/appimage/README.md (a version-bearing entry in bump.json)
+  and packaging/flathub/SUBMISSION.md, and its Python-floor rule cannot
+  fire on pyproject.toml, the RPM spec or the Flatpak manifest. aur.sh
+  copies .SRCINFO verbatim and checks only that it exists; nothing
+  verifies pkgver/source against the PKGBUILD beside it, and
+  version_lockstep_check.py -- which covers both -- is wired only into
+  bump.json's post_check, so a manual AUR push has no gate. obs.sh
+  assigns USER, clobbering it for osc, curl and every child, and an
+  empty awk result yields the project name "home::perch".
+  scripts/i18n-update.sh documents perch_<locale>.ts and passes only
+  perch_en.ts. pyproject.toml carries a static version alongside a
+  [tool.hatch.version] source with no dynamic entry, so it names two
+  sources of truth and honours one (bump.json bumps both, so nothing is
+  broken today). docs_check.py re-reads and re-slugs the whole target
+  file for every link. version_lockstep_check.py's DATE_RE is unused.
+
+  Three questions the lane raised and could not settle. release.yml
+  checks out github.ref on the workflow_dispatch path but uploads to
+  inputs.tag, so a manual backfill can attach an AppImage built from a
+  different commit than the tag; the comment there calls it deliberate
+  and versioning-release-standards.md does not address the dispatch
+  path. Should version_lockstep_check.py join the push gate -- adding it
+  to local_CI.sh alone would trip ci_lockstep_check.py's question 4, so
+  it goes into both or neither. And obs.sh derives the version by
+  grep|cut in two places, a third parsing method alongside build.sh's
+  tomllib and bump.json's regex; they agree today.
+  **Layman:** Small leftovers in the release and check scripts — none of them break a build, but each one hides something.
+  Kind: fix.
+  Source: review-code 2026-08-31 (lane tooling, LOW/INFO tail); deferred by the PERC-0056 pass 2026-09-02.
 
 ## v1.2 — Smarts
 

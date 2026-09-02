@@ -10,12 +10,29 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **AppImage builds now verify the bundle is self-contained** (PERC-0056)
+  The build extracts the finished AppImage on a bare ubuntu:22.04
+  container and fails if any bundled library fails to resolve there. The
+  previous check ran --version, which exits before Qt is touched and so
+  proved nothing about the bundle.
+
 - **The settings dialog now closes after a confirmed import**
   It held the pre-import document parsed when it opened, so the next Apply
   from any pane wrote that stale copy back over the imported file, silently
   undoing the import.
 
 ### Fixed
+
+- **Release and CI gate scripts no longer swallow their own failures** (PERC-0056)
+  The library harvest, the Flatpak manifest rewrite, the OBS upload and
+  the CI/local lockstep check each had a path where a failure was
+  discarded and the step reported success.
+
+- **AppImage: a program launched from Perch no longer inherits the bundle's libraries** (PERC-0056)
+  Opening a link or the config folder from the tray launched the host
+  browser or file manager against the AppImage's bundled AlmaLinux 8
+  libraries, which could crash it. The entry point now records the
+  host's own library path and Perch restores it for anything it spawns.
 
 - **Shutdown now cancels in-flight actions, and a failed state flush no longer strands the backend**
   Neither step matched `docs/01-architecture.md` §Teardown order: tasks ran

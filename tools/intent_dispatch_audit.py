@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -183,45 +184,76 @@ def _is_trivial_statement(stmt: ast.stmt) -> bool:
     return False
 
 
-def _is_close_event_set(stmt: ast.stmt) -> bool:
-    """Quit() legitimately sets ``close_event`` — that's real work."""
-    if not isinstance(stmt, ast.Expr):
+def _has_effectful_call(node: ast.expr | None) -> bool:
+    """``True`` when an expression calls anything other than a log target.
+
+    A guard's own condition can be the side effect -- ``if not
+    QDesktopServices.openUrl(url):`` does the work in the test, not the body.
+    """
+    if node is None:
         return False
-    if not isinstance(stmt.value, ast.Call):
-        return False
-    func = stmt.value.func
-    if not isinstance(func, ast.Attribute):
-        return False
-    return func.attr in {"set", "clear"}
+    for sub in ast.walk(node):
+        if not isinstance(sub, ast.Call):
+            continue
+        func = sub.func
+        if (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id in LOG_CALL_TARGETS
+        ):
+            continue
+        return True
+    return False
+
+
+def _real_statements(statements: list[ast.stmt]) -> Iterator[ast.stmt]:
+    """Yield the statements that could carry a side effect.
+
+    Descends into compound statements: a guard or loop whose own condition does
+    nothing is only as real as its body, so ``if cond: log.debug(...)`` is still
+    a stub. Classifying only the top level counted the ``if`` itself as real
+    work -- a shape already present in the dispatcher.
+    """
+    for stmt in statements:
+        if isinstance(stmt, ast.If | ast.While):
+            if _has_effectful_call(stmt.test):
+                yield stmt
+                continue
+            yield from _real_statements(stmt.body)
+            yield from _real_statements(stmt.orelse)
+        elif isinstance(stmt, ast.For | ast.AsyncFor):
+            if _has_effectful_call(stmt.iter):
+                yield stmt
+                continue
+            yield from _real_statements(stmt.body)
+            yield from _real_statements(stmt.orelse)
+        elif isinstance(stmt, ast.Try):
+            yield from _real_statements(stmt.body)
+            for handler in stmt.handlers:
+                yield from _real_statements(handler.body)
+            yield from _real_statements(stmt.orelse)
+            yield from _real_statements(stmt.finalbody)
+        elif isinstance(stmt, ast.Match):
+            if _has_effectful_call(stmt.subject):
+                yield stmt
+                continue
+            for case in stmt.cases:
+                yield from _real_statements(case.body)
+        else:
+            # ``with`` included: entering a context manager IS a side effect.
+            yield stmt
 
 
 def _audit_case_body(statements: list[ast.stmt]) -> str | None:
     """Return ``None`` when the body does real work, else a diagnostic.
 
-    Walks each top-level statement. A body is a stub when *every*
-    non-docstring / non-comment / non-placeholder-underscore / non-log
-    statement is absent. ``close_event.set()`` and similar are treated
-    as real work so ``Quit()``'s body passes.
+    A body is a stub when every statement -- at any nesting depth -- is a
+    docstring, a placeholder underscore assignment or a log call.
     """
-    real_statements = 0
-    log_only = True
-    for stmt in statements:
-        if _is_trivial_statement(stmt):
-            continue
-        if _is_close_event_set(stmt):
-            real_statements += 1
-            log_only = False
-            continue
-        # Anything else — call, await, if, for, assignment to a real
-        # name, etc. — counts as real work.
-        real_statements += 1
-        log_only = False
-
-    if real_statements == 0:
-        return "handler body is empty or consists only of log calls"
-    if log_only:
-        return "handler only writes to close_event / log — no real side effect"
-    return None
+    for stmt in _real_statements(statements):
+        if not _is_trivial_statement(stmt):
+            return None
+    return "handler body is empty or consists only of log calls"
 
 
 def run() -> int:
@@ -291,4 +323,4 @@ def run() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(run())
+    sys.exit(1 if run() else 0)  # a count > 255 would wrap to 0 = success
