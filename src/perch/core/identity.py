@@ -15,6 +15,12 @@ from __future__ import annotations
 
 from perch.backend.types import WindowInfo
 
+# Returned when a window reports neither ``app_id`` nor ``wm_class``. It is
+# not an identity: every such window shares it, so the reducer refuses to
+# persist under this key rather than let unrelated windows overwrite each
+# other's remembered geometry.
+UNKNOWN_IDENTITY = "app:unknown"
+
 
 def compute_identity(window: WindowInfo) -> str:
     """Return the stable identity string for this window.
@@ -22,12 +28,13 @@ def compute_identity(window: WindowInfo) -> str:
     Prefers ``app_id`` (Wayland and modern X11 clients); falls back to
     ``wm_class`` (older X11 clients that never set ``_NET_WM_PID`` /
     ``app_id`` — Signal's Electron build, some legacy Java/Swing apps).
-    Returns ``"app:unknown"`` if neither is set, which only happens when a
-    backend misbehaves; the reducer will log and skip the entry rather
-    than persist a garbage key.
+    Returns :data:`UNKNOWN_IDENTITY` if neither is set, which only happens
+    when a backend misbehaves. The window is still evaluated and placed —
+    the string is a usable label for logs and the dialog's window list —
+    but the reducer will not write a ``state.json`` entry under it.
     """
     if window.app_id:
         return f"app:{window.app_id}"
     if window.wm_class:
         return f"app:{window.wm_class}"
-    return "app:unknown"
+    return UNKNOWN_IDENTITY

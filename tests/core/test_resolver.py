@@ -232,15 +232,6 @@ def test_monitor_primary_none_connected_raises() -> None:
         )
 
 
-def test_monitor_all_rejected(outputs: list[OutputInfo]) -> None:
-    with pytest.raises(ResolveError, match="layout-fanout"):
-        resolve_action(
-            ApplyAction(geometry=PresetGeometry(name="maximize"), monitor="all"),
-            _w(),
-            outputs,
-            {},
-        )
-
 
 # ── Snap expansion ────────────────────────────────────────────────────────
 def test_snap_builtin_name(outputs: list[OutputInfo]) -> None:
@@ -336,11 +327,69 @@ def test_maximized_true_alone(outputs: list[OutputInfo]) -> None:
 
 
 def test_maximized_false_alone(outputs: list[OutputInfo]) -> None:
+    # docs/07 §Apply order step 1 makes the unmaximize unconditional on an
+    # explicit ``maximized = false``, so it is carried by unmaximize_first
+    # rather than by a post-geometry ``maximized`` of False.
     placement = resolve_action(
         ApplyAction(maximized=False), _w(), outputs, {}
     )
-    assert placement.maximized is False
-    assert not placement.unmaximize_first
+    assert placement.maximized is None
+    assert placement.unmaximize_first
+
+
+def test_maximized_false_with_monitor_only_flags_unmaximize_first(
+    outputs: list[OutputInfo],
+) -> None:
+    """A monitor move carries no geometry and must still unmaximize first.
+
+    This is the case docs/07 §Apply order step 1 exists for: on a backend
+    that ignores writes to a maximized window, the move is dropped unless
+    the unmaximize precedes it.
+    """
+    placement = resolve_action(
+        ApplyAction(monitor="HDMI-1", maximized=False), _w(), outputs, {}
+    )
+    assert placement.geometry is None
+    assert placement.monitor == "HDMI-1"
+    assert placement.unmaximize_first
+
+
+def test_percent_geometry_is_clamped_into_the_work_area(
+    outputs: list[OutputInfo],
+) -> None:
+    """docs/07 §Geometry resolution: a rule cannot push a window off-screen.
+
+    Percentages are not range-checked at parse time, so the resolver is the
+    only place a negative or oversized one can be caught.
+    """
+    placement = resolve_action(
+        ApplyAction(
+            geometry=PercentGeometry(
+                x_pct=-0.5, y_pct=-0.5, w_pct=0.5, h_pct=0.5
+            )
+        ),
+        _w(),
+        outputs,
+        {},
+    )
+    work_area = outputs[0].work_area
+    assert placement.geometry is not None
+    assert placement.geometry.x >= work_area.x
+    assert placement.geometry.y >= work_area.y
+
+
+def test_oversized_percent_geometry_shrinks_to_the_work_area(
+    outputs: list[OutputInfo],
+) -> None:
+    placement = resolve_action(
+        ApplyAction(
+            geometry=PercentGeometry(x_pct=0.0, y_pct=0.0, w_pct=5.0, h_pct=5.0)
+        ),
+        _w(),
+        outputs,
+        {},
+    )
+    assert placement.geometry == outputs[0].work_area
 
 
 def test_maximized_false_with_geometry_flags_unmaximize_first(

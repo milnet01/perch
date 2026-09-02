@@ -166,3 +166,24 @@ def test_and_semantics_across_fields() -> None:
     assert match_window(p, _w(app_id="firefox", title="Private Browsing"))
     assert not match_window(p, _w(app_id="firefox", title="Normal"))
     assert not match_window(p, _w(app_id="chromium", title="Private"))
+
+
+# ── catch_all ──────────────────────────────────────────────────────────────
+def test_catch_all_alone_matches_every_window() -> None:
+    p = parse_match({"catch_all": True}, "x")
+    assert match_window(p, _w(app_id="anything", title="whatever"))
+
+
+def test_catch_all_with_another_field_rejected() -> None:
+    """One typo would otherwise silently match every window.
+
+    ``match_window`` short-circuits on ``catch_all``, so any field beside it
+    is never consulted — the config says one thing and does another.
+    """
+    with pytest.raises(MatchValidationError, match="catch_all"):
+        parse_match({"catch_all": True, "app_id": "firefox"}, "x")
+
+
+def test_empty_match_field_rejected() -> None:
+    with pytest.raises(MatchValidationError, match="must not be empty"):
+        parse_match({"app_id": ""}, "x")

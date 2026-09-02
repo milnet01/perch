@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from .matching import opt_str
+
 
 class ActionValidationError(ValueError):
     """Raised when an ``apply = { ... }`` block is malformed or contradictory."""
@@ -92,16 +94,16 @@ BUILTIN_PRESETS: dict[str, GeometryExpr] = {
 
 
 # ── MonitorSpec ────────────────────────────────────────────────────────────
-# ``monitor`` accepts:
+# ``monitor`` accepts, per ``docs/07-rules-engine.md`` §Geometry resolution:
 #   * an output name as reported by the compositor ("DP-1")
-#   * the strings "primary", "current", "all"
+#   * the strings "primary", "current"
 #   * an integer profile-relative index (0, 1, …)
 MonitorSpec = str | int
 
-# Surfaced for UI / docs consumers. The parser itself accepts any non-empty
-# string as a potential output name; keyword handling is the reducer's job
-# against live output info.
-MONITOR_KEYWORDS: frozenset[str] = frozenset({"primary", "current", "all"})
+# Surfaced for UI / docs consumers. The parser otherwise accepts any non-empty
+# string as a potential output name; resolving a keyword against live output
+# info is the resolver's job.
+MONITOR_KEYWORDS: frozenset[str] = frozenset({"primary", "current"})
 
 
 # ── ApplyAction ────────────────────────────────────────────────────────────
@@ -144,7 +146,7 @@ def parse_action(raw: Any, prefix: str) -> ApplyAction:
     geometry, geom_monitor = _parse_geometry(raw.get("geometry"), f"{prefix}.geometry")
     monitor = _resolve_monitor(apply_monitor, geom_monitor, prefix)
 
-    snap = _opt_str(raw, "snap", prefix)
+    snap = opt_str(raw, "snap", prefix, error=ActionValidationError)
     desktop = _parse_desktop(raw.get("desktop"), f"{prefix}.desktop")
     maximized = _opt_bool(raw, "maximized", prefix)
 
@@ -271,7 +273,7 @@ def parse_monitor(raw: Any, prefix: str) -> MonitorSpec | None:
         return None
     if isinstance(raw, bool):
         raise ActionValidationError(
-            f"{prefix} must be an output name, 'primary' / 'current' / 'all', "
+            f"{prefix} must be an output name, 'primary' / 'current', "
             "or an integer index"
         )
     if isinstance(raw, int):
@@ -283,6 +285,14 @@ def parse_monitor(raw: Any, prefix: str) -> MonitorSpec | None:
     if isinstance(raw, str):
         if not raw:
             raise ActionValidationError(f"{prefix} must not be empty")
+        if raw == "all":
+            # Rejected at parse time rather than at apply time: nothing
+            # resolves a single action onto every output, so a config
+            # carrying it would fail on every window it matched.
+            raise ActionValidationError(
+                f"{prefix}: 'all' is not a monitor — use an output name, "
+                "'primary', 'current', or an integer index"
+            )
         return raw
     raise ActionValidationError(
         f"{prefix} must be a string or integer (got {type(raw).__name__})"
@@ -328,18 +338,6 @@ def _parse_desktop(raw: Any, prefix: str) -> int | str | None:
         f"{prefix} must be a string or integer (got {type(raw).__name__})"
     )
 
-
-def _opt_str(raw: dict[str, Any], key: str, prefix: str) -> str | None:
-    if key not in raw:
-        return None
-    value = raw[key]
-    if not isinstance(value, str):
-        raise ActionValidationError(
-            f"{prefix}.{key} must be a string (got {type(value).__name__})"
-        )
-    if not value:
-        raise ActionValidationError(f"{prefix}.{key} must not be empty")
-    return value
 
 
 def _opt_bool(raw: dict[str, Any], key: str, prefix: str) -> bool | None:

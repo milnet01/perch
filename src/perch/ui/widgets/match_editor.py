@@ -155,7 +155,7 @@ class MatchEditor(QWidget):
             wt for wt, cb in self.type_checkboxes.items() if cb.isChecked()
         )
 
-        return MatchPattern(
+        pattern = MatchPattern(
             app_id=self.app_id_edit.text() or None,
             wm_class=self.wm_class_edit.text() or None,
             title=title,
@@ -163,6 +163,15 @@ class MatchEditor(QWidget):
             types=selected_types,
             catch_all=self.catch_all_checkbox.isChecked(),
         )
+        # The widget builds the dataclass directly, so ``parse_match``'s
+        # guard is not on this path — without the mirror here the dialog
+        # would write a config it then refuses to load.
+        if pattern.catch_all and not pattern.is_empty():
+            raise ValueError(
+                "catch-all already matches every window — clear the other "
+                "fields, or turn catch-all off"
+            )
+        return pattern
 
     # ── Field validation helpers ────────────────────────────────────────
     def _title_regex_error(self) -> str | None:

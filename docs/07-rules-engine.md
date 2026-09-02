@@ -77,8 +77,8 @@ When two rules would match:
 When an action's `geometry` or `snap` is applied, Perch resolves it to pixel coordinates:
 
 1. Named preset (`"left-half"`, `"top-right-quarter"`, `"maximize"`, `"center"`, or a user-defined preset) → fixed `x%/y%/w%/h%` relative to the target monitor's work area.
-2. Percent values → multiplied by the target monitor's work area and rounded to ints.
-3. Absolute pixel values → used as-is, clamped to the target monitor's work area (a rule cannot push a window off-screen).
+2. Percent values → multiplied by the target monitor's work area, rounded to ints, then clamped to it. Percentages are not range-checked when the config is parsed, so `"-50%"` is caught here.
+3. Absolute pixel values → used as-is, clamped to the target monitor's work area. Neither form can push a window off-screen.
 4. `monitor = "primary"` | `"current"` | an integer index → resolved against the active profile's output list.
 5. `monitor` as an output name (`"DP-1"`) → resolved directly; if that output is currently disconnected, the rule is skipped (not reassigned to primary — that would silently do the wrong thing).
 
@@ -146,6 +146,10 @@ Budgets in the harness are deliberately 10-20× the measured times so CI runner 
 The config loader rejects a rule with:
 
 - A `match` block that is entirely empty (would match every window — users almost never want that; use an explicit `catch_all = true` field if you really do).
+- A `match` block combining `catch_all = true` with any other field. `catch_all` short-circuits, so the other fields would never be consulted and the config would say one thing and do another.
+- Any `match` or `apply` string field written as `""`.
+- `monitor = "all"`, at the apply level or inside a `geometry` table. Nothing fans one action out across every output; the valid forms are an output name, `"primary"`, `"current"`, or an integer index.
+- A `[[profiles]]` entry whose `default_layout` names a layout that is not declared under `[layouts]`.
 - An `apply` block that has no effect — i.e. none of `geometry`, `snap`, `maximized`, `desktop` is set. `maximized = false` alone is a legitimate unmaximize action and is accepted.
 - An `apply` block setting both `maximized = true` and an explicit `geometry` or `snap` (contradiction — see [02-state-format.md](02-state-format.md) §Apply actions). `maximized = false` alongside a geometry/snap is allowed and means "unmaximize first, then place."
 - An `apply` block specifying `monitor` both at the apply level and inside the `geometry` table with *different* values. Redundant-but-agreeing specifications are accepted.

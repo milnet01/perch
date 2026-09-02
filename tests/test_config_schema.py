@@ -114,3 +114,23 @@ def test_representative_full_config_validates() -> None:
     assert config.rules[0].name == "Firefox"
     assert "coding" in config.layouts
     assert len(config.profiles) == 1
+
+
+def test_profile_default_layout_must_name_a_declared_layout() -> None:
+    """A dangling ``default_layout`` would otherwise fail only at runtime.
+
+    docs/09 §Activation applies it when the profile activates, so the
+    config loader is the last place a typo can be reported to the user.
+    """
+    with pytest.raises(SchemaError, match="not a declared layout"):
+        validate(
+            {
+                "profiles": [
+                    {
+                        "name": "Docked",
+                        "topology": "DP-1:2560x1440@0,0",
+                        "default_layout": "codign",
+                    }
+                ]
+            }
+        )

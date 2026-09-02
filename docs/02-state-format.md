@@ -109,7 +109,7 @@ default_layout = "coding"
 [[profiles]]
 name     = "Laptop only"
 topology = "eDP-1:1920x1200@0,0"
-default_layout = "writing"
+default_layout = "coding"        # must name a layout declared above
 ```
 
 ### Geometry expressions
@@ -174,7 +174,7 @@ Used by `exclusions`, `rules`, and `layouts.*.windows`. Fields:
 | `pid` | Process id (rarely used; for one-shot targeting) | exact |
 | `type` | Window type (`normal`, `dialog`, `splash`, `utility`, …) | exact, comma list |
 
-All specified fields must match (`AND`). An empty match object matches everything (useful in layouts as a "fallback for unmatched windows" entry).
+All specified fields must match (`AND`). An empty match object is rejected by the config loader: it would match every window, which is almost always a slip. Write `catch_all = true` to mean it deliberately. `catch_all` cannot be combined with other match fields — it short-circuits, so they would never be consulted.
 
 ## `state.json` — machine-written, rewritten often
 
@@ -220,6 +220,7 @@ identity = "app:<app_id>" [ "::title:<title_regex>" ] [ "::rolespecific:<X>" ]
 
 - The *first* segment is always `app:<app_id>` (falling back to `app:<wm_class>` on X11 when `app_id` is not known).
 - Extra segments are added when the user (or a rule) pins on title / role / pid.
+- A window reporting neither `app_id` nor `wm_class` has no identity. Perch still places it, and the dialog's window list shows `app:unknown`, but no `windows` entry is written under that key — every such window shares it, so each would overwrite the last.
 
 This ensures two Firefox windows with different profiles can be remembered separately if the user has asked for title-based distinction, but otherwise collapse into one remembered geometry.
 

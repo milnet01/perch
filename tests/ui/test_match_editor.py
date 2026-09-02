@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+import pytest
+
 from perch.backend.types import WindowType
 from perch.core.matching import MatchPattern
 from perch.ui.widgets.match_editor import MatchEditor
@@ -112,3 +114,17 @@ def test_empty_fields_return_none_not_empty_string(qtbot: QtBot) -> None:
     assert got.wm_class is None
     assert got.title is None
     assert got.pid is None
+
+
+def test_catch_all_with_another_field_is_refused(qtbot: QtBot) -> None:
+    """The widget builds the dataclass directly, bypassing ``parse_match``.
+
+    Without this guard the dialog would happily write a config the loader
+    then refuses, leaving the user with a Perch that will not start.
+    """
+    editor = MatchEditor()
+    qtbot.addWidget(editor)
+    editor.catch_all_checkbox.setChecked(True)
+    editor.app_id_edit.setText("firefox")
+    with pytest.raises(ValueError, match="catch-all"):
+        editor.value()

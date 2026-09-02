@@ -1069,7 +1069,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane tooling).
 
-- 📋 [PERC-0057] **Close the rules-engine and state semantics the docs specify and the code does not implement.**
+- ✅ [PERC-0057] **Close the rules-engine and state semantics the docs specify and the code does not implement.**
   Eleven findings. profiles.default_layout is parsed, seeded in the sample
   config and editable in the dialog, and nothing reads it -- docking
   activates the profile and applies no layout. The most-recently-focused
@@ -1094,6 +1094,30 @@ Goal: fewer first-run support tickets; the config is safe.
   on the backend the rule exists for; and the layout loop returns on the
   FIRST matching entry where docs/09:31 says last one wins, which may be
   the document's error rather than the code's and needs deciding.
+  Resolved (2026-09-02): nine of the eleven fixed. default_layout is
+  applied on profile activation and the loader now rejects one naming no
+  declared layout; identity.UNKNOWN_IDENTITY and excluded windows are
+  refused by a single Reducer._remember guard covering both write paths;
+  catch_all combined with any other match field is rejected at parse time
+  and in the settings dialog, which builds the dataclass directly;
+  monitor='all' is rejected when the config loads rather than on every
+  apply; percent geometry is clamped like the absolute branch;
+  unmaximize_first is unconditional on an explicit maximized=false, so a
+  monitor or desktop move is no longer dropped on Mutter; the maximize
+  fallback resolves the target monitor's work area and names the rule; the
+  two _opt_str copies are one shared matching.opt_str that rejects an
+  empty string; and the layout loop takes the LAST matching entry, which
+  is what docs/09 specifies -- rules keep first-match-wins and each
+  document states its own half. Fourteen tests lock the changed
+  contracts; all fourteen fail against the pre-fix tree.
+
+  Two were split out rather than fixed, both needing a decision and not an
+  edit. Most-recently-focused layout disambiguation is PERC-0066: no
+  backend reports a focus order, and docs/09 §Apply semantics and
+  §Implementation pointers describe different algorithms. Store retention
+  is PERC-0067: no doc states a rule, and the growth is milder than the
+  finding reads -- identities key on the application, not the window
+  instance. docs/02, /07 and /09 record both.
   **Layman:** Several rule and layout behaviours the manual describes that do not actually happen.
   Kind: fix.
   Source: review-code 2026-08-31 (lane core-state).
@@ -1287,6 +1311,35 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Small leftovers in the release and check scripts — none of them break a build, but each one hides something.
   Kind: fix.
   Source: review-code 2026-08-31 (lane tooling, LOW/INFO tail); deferred by the PERC-0056 pass 2026-09-02.
+
+- 📋 [PERC-0066] **Settle and implement layout disambiguation when several windows match one entry.**
+  docs/09 §Apply semantics says the geometry goes to the
+  most-recently-focused match and the others are left alone. Nothing
+  tracks focus: WindowBackend exposes get_active_window(), a
+  point-in-time poll, and no focus-change signal, so no recency order
+  exists to consult. docs/09 §Implementation pointers describes a
+  different algorithm again -- the engine emitting one decision per
+  layout-matched window, which is what the code does and which has no
+  place to prefer one window. So the contract has to be settled before
+  anything is built, and settling it may extend WindowBackend, which
+  CLAUDE.md routes through a doc PR. Until then a layout entry matching
+  two windows stacks both on one rectangle.
+  **Layman:** When two windows of the same app are open, decide which one a layout moves.
+  Kind: implement.
+  Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.
+
+- 📋 [PERC-0067] **Decide a retention policy for remembered windows and stop writing last_seen unread.**
+  state.json has no quota, no LRU and no age eviction, and last_seen is
+  written on every record and read by nothing. The growth is milder than
+  it looks -- compute_identity keys on the application, not the window
+  instance, so the store holds one entry per distinct app rather than one
+  per window ever opened. No doc states a retention rule, so picking one
+  is a product decision, not an edit: either give last_seen a reader (age
+  eviction at load) or drop the field. docs/02 needs the answer before
+  the code does.
+  **Layman:** Decide how long Perch should remember a window it has not seen in a long time.
+  Kind: implement.
+  Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.
 
 ## v1.2 — Smarts
 

@@ -213,6 +213,18 @@ def validate(document: dict[str, Any]) -> Config:
     except ProfileValidationError as exc:
         raise SchemaError(str(exc)) from exc
 
+    # Cross-table check: neither parser can see the other's table, and
+    # ``docs/09-layouts-profiles.md`` §Activation applies a profile's
+    # ``default_layout`` on activation — a name with no layout behind it
+    # would otherwise surface only as a log line at topology-change time.
+    for profile in profiles:
+        if profile.default_layout is not None and profile.default_layout not in layouts:
+            raise SchemaError(
+                f"[[profiles]] {profile.name!r}: default_layout "
+                f"{profile.default_layout!r} is not a declared layout "
+                f"(known: {sorted(layouts)})"
+            )
+
     return Config(
         schema_version=version,
         general=_parse_general(document.get("general")),

@@ -49,7 +49,8 @@ from .engine import (
     TriggerEvent,
     evaluate,
 )
-from .identity import compute_identity
+from .exclusions import is_builtin_excluded, is_user_excluded
+from .identity import UNKNOWN_IDENTITY, compute_identity
 from .layouts import Layout
 from .profiles import (
     Profile,
@@ -124,6 +125,7 @@ class Reducer:
         self.active_profile = select_profile(
             self.config.profiles, self._topology_key
         )
+        self._adopt_profile_default_layout()
         self._recompute_effective_layout()
         self.state_store.set_active(
             profile=self.active_profile.name if self.active_profile else None,
@@ -206,9 +208,7 @@ class Reducer:
             # an-info (shouldn't happen; backends emit window_opened before
             # geometry_changed per docs/03). Drop — there's no identity to key on.
             return
-        identity = compute_identity(info)
-        self.state_store.record_window(identity, geometry, monitor, desktop)
-        self.state_store.mark_dirty()
+        self._remember(info, geometry, monitor, desktop)
 
     # ── Output / topology handlers ─────────────────────────────────────────
     async def handle_output_added(self, info: OutputInfo) -> None:
@@ -252,6 +252,7 @@ class Reducer:
         self._topology_key = new_key
         new_profile = select_profile(self.config.profiles, new_key)
         self.active_profile = new_profile
+        self._adopt_profile_default_layout()
         self._recompute_effective_layout()
         self.state_store.set_active(
             profile=new_profile.name if new_profile else None,
@@ -310,6 +311,32 @@ class Reducer:
         log.info("pause %s", "enabled" if self.paused else "disabled")
         return self.paused
 
+    # ── Profile default layout ────────────────────────────────────────────
+    def _adopt_profile_default_layout(self) -> None:
+        """Activate the layout the newly-active profile declares.
+
+        ``docs/09-layouts-profiles.md`` §Activation step 2: activating a
+        profile applies its ``default_layout`` too. A profile that declares
+        none leaves the current layout alone — step 3 keeps layouts working
+        under the implicit unnamed profile, so a topology change must not
+        silently drop one the user activated by hand.
+        """
+        if self.active_profile is None:
+            return
+        name = self.active_profile.default_layout
+        if name is None:
+            return
+        layout = self.config.layouts.get(name)
+        if layout is None:
+            # The config loader rejects a profile naming an unknown layout,
+            # so this only fires if the two fall out of step.
+            log.warning(
+                "profile %r declares unknown default_layout %r; ignoring",
+                self.active_profile.name, name,
+            )
+            return
+        self.active_layout = layout
+
     # ── Effective layout (base layout + profile overrides) ────────────────
     def _recompute_effective_layout(self) -> None:
         if self.active_layout is None:
@@ -343,7 +370,9 @@ class Reducer:
             await self._restore_last_seen(window, identity)
             return
         if isinstance(decision, ApplyActionDecision):
-            await self._apply_action(window, identity, decision.action)
+            await self._apply_action(
+                window, identity, decision.action, decision.source
+            )
 
     async def _restore_last_seen(
         self, window: WindowInfo, identity: str
@@ -356,7 +385,11 @@ class Reducer:
         )
 
     async def _apply_action(
-        self, window: WindowInfo, identity: str, action: ApplyAction
+        self,
+        window: WindowInfo,
+        identity: str,
+        action: ApplyAction,
+        source: str,
     ) -> None:
         try:
             placement = resolve_action(
@@ -374,30 +407,33 @@ class Reducer:
             log.warning("resolve failed for %s: %s", identity, exc)
             return
 
+        target_monitor = placement.monitor or window.monitor
+        target_desktop = (
+            placement.desktop if placement.desktop is not None else window.desktop
+        )
+
         if placement.unmaximize_first:
             await self._set_state_safe(window, WindowState.NORMAL)
 
         if placement.geometry is not None:
             await self._set_geometry_safe(
-                window,
-                placement.geometry,
-                placement.monitor or window.monitor,
-                placement.desktop if placement.desktop is not None else window.desktop,
+                window, placement.geometry, target_monitor, target_desktop
             )
         elif placement.monitor is not None or placement.desktop is not None:
             # Monitor / desktop moves without a geometry: pass through the
             # window's current geometry so the backend has something to place.
             await self._set_geometry_safe(
-                window,
-                window.geometry,
-                placement.monitor or window.monitor,
-                placement.desktop if placement.desktop is not None else window.desktop,
+                window, window.geometry, target_monitor, target_desktop
             )
 
         if placement.maximized is True:
-            await self._set_state_safe(window, WindowState.MAXIMIZED)
-        elif placement.maximized is False and placement.geometry is None:
-            await self._set_state_safe(window, WindowState.NORMAL)
+            await self._set_state_safe(
+                window,
+                WindowState.MAXIMIZED,
+                fallback_monitor=target_monitor,
+                fallback_desktop=target_desktop,
+                source=source,
+            )
 
     # ── Backend wrappers with fallback ─────────────────────────────────────
     async def _set_geometry_safe(
@@ -429,33 +465,78 @@ class Reducer:
             self._expected_geometry.pop(window.id, None)
             return
 
-        identity = compute_identity(window)
-        self.state_store.record_window(identity, geometry, monitor, desktop)
-        self.state_store.mark_dirty()
+        self._remember(window, geometry, monitor, desktop)
 
     async def _set_state_safe(
-        self, window: WindowInfo, state: WindowState
+        self,
+        window: WindowInfo,
+        state: WindowState,
+        *,
+        fallback_monitor: OutputName | None = None,
+        fallback_desktop: DesktopIndex | None = None,
+        source: str | None = None,
     ) -> None:
         try:
             await self.backend.set_state(window.id, state)
         except BackendUnsupported as exc:
             if state is WindowState.MAXIMIZED:
-                log.debug(
-                    "set_state MAXIMIZED unsupported (%s); falling back to "
-                    "work-area geometry for %s", exc, window.id
+                # docs/02-state-format.md §Apply actions: fall back to the
+                # work area of the *resolved target* monitor — the window's
+                # own monitor is where it sat before this action moved it —
+                # and name the rule in the log line.
+                monitor = fallback_monitor or window.monitor
+                desktop = (
+                    fallback_desktop
+                    if fallback_desktop is not None
+                    else window.desktop
                 )
-                output = self._outputs.get(window.monitor)
+                log.debug(
+                    "set_state MAXIMIZED unsupported (%s); %s falls back to "
+                    "the work area of %s",
+                    exc, source or "placement", monitor,
+                )
+                output = self._outputs.get(monitor)
                 if output is not None:
                     await self._set_geometry_safe(
-                        window,
-                        output.work_area,
-                        window.monitor,
-                        window.desktop,
+                        window, output.work_area, monitor, desktop
                     )
                 return
             log.warning("set_state failed: %s", exc)
         except UnknownWindow:
             return
+
+    # ── state.json writes ──────────────────────────────────────────────────
+    def _remember(
+        self,
+        window: WindowInfo,
+        geometry: Geometry,
+        monitor: OutputName,
+        desktop: DesktopIndex,
+    ) -> None:
+        """Record this window's geometry, unless it must not be remembered.
+
+        Two kinds never reach ``state.json``. One the exclusion layer covers
+        (``docs/07-rules-engine.md`` §Evaluation order): Perch does not manage
+        it, so restoring it later would be exactly the thing the exclusion
+        asked Perch not to do. And one whose identity is
+        :data:`~perch.core.identity.UNKNOWN_IDENTITY`, which every window
+        missing both ``app_id`` and ``wm_class`` shares — remembering under it
+        would have unrelated windows overwrite each other.
+        """
+        identity = compute_identity(window)
+        if identity == UNKNOWN_IDENTITY:
+            log.debug(
+                "not remembering window %s: reports no app_id or wm_class",
+                window.id,
+            )
+            return
+        if is_builtin_excluded(window) or is_user_excluded(
+            window, self.config.exclusions
+        ):
+            log.debug("not remembering excluded window %s", identity)
+            return
+        self.state_store.record_window(identity, geometry, monitor, desktop)
+        self.state_store.mark_dirty()
 
     # ── Signal binding (live app only; tests drive handlers directly) ──────
     def bind_signals(self) -> None:

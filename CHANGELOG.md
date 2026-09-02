@@ -10,6 +10,15 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **An empty string in a match or apply field is rejected** (PERC-0057)
+  The two parsers had diverged on it. As a glob or a preset name an empty
+  string matches nothing the user could have meant, so both now refuse it.
+
+- **Inside a layout, the last matching entry wins** (PERC-0057)
+  This is what docs/09 has always specified; the engine returned on the
+  first match. Rules are unchanged and still first-match-wins — the
+  asymmetry is deliberate and each document states its own half.
+
 - **AppImage builds now verify the bundle is self-contained** (PERC-0056)
   The build extracts the finished AppImage on a bare ubuntu:22.04
   container and fails if any bundled library fails to resolve there. The
@@ -22,6 +31,45 @@ Sections under each release are populated on a best-effort basis — empty secti
   undoing the import.
 
 ### Fixed
+
+- **Excluded and unidentifiable windows are no longer remembered** (PERC-0057)
+  A window covered by an exclusion was written to `state.json` on any
+  user-initiated move, so Perch would restore later exactly what the
+  exclusion asked it to leave alone. A window reporting neither `app_id`
+  nor `wm_class` was stored under one shared key, so unrelated windows
+  overwrote each other's geometry.
+
+- **The maximize fallback places the window on the resolved target monitor** (PERC-0057)
+  Where a backend rejects native maximize, Perch substitutes the work-area
+  rectangle. It resolved that against the window's own monitor, which is
+  where the window sat before the same action moved it. The log line now
+  names the rule, as docs/02 specifies.
+
+- **`maximized = false` unmaximizes before a monitor or desktop move** (PERC-0057)
+  The pre-move unmaximize only ran when the action also carried a
+  geometry, so on a compositor that ignores writes to a maximized window
+  the move was dropped — the backend the rule exists for.
+
+- **Percent geometry is clamped to the target monitor's work area** (PERC-0057)
+  Percentages are not range-checked when the config is parsed, so a
+  negative or oversized one placed the window off-screen — against
+  docs/07's promise that a rule cannot.
+
+- **`monitor = "all"` is rejected when the config loads** (PERC-0057)
+  It validated and then failed on every window it matched. Nothing fans a
+  single action out across every output; the valid forms are an output
+  name, `primary`, `current`, or an integer index.
+
+- **A `match` block combining `catch_all` with other fields is rejected** (PERC-0057)
+  `catch_all` short-circuits, so the other fields were never consulted and
+  one stray checkbox matched every window. The settings dialog refuses the
+  combination too, rather than writing a config it would then not load.
+
+- **A profile's `default_layout` is applied when the profile activates** (PERC-0057)
+  The field parsed, seeded the documented sample and was editable in the
+  dialog, and nothing read it: docking activated the profile and applied
+  no layout. The config loader now also rejects a `default_layout` that
+  names no declared layout.
 
 - **Release and CI gate scripts no longer swallow their own failures** (PERC-0056)
   The library harvest, the Flatpak manifest rewrite, the OBS upload and

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from perch.backend.types import Geometry, WindowInfo, WindowState, WindowType
+from perch.core.actions import PresetGeometry
 from perch.core.engine import (
     ApplyActionDecision,
     Ignore,
@@ -267,3 +268,29 @@ def test_last_seen_fires_on_user_trigger() -> None:
 def test_no_match_emits_ignore_no_match() -> None:
     d = evaluate(_w(), TriggerEvent.OPENED, **_DEFAULT_KW)
     assert isinstance(d, Ignore) and d.source == "no-match"
+
+
+# ── Layout entry order ────────────────────────────────────────────────────
+def test_layout_last_matching_entry_wins() -> None:
+    """docs/09 §Layouts: entries are walked top-to-bottom, last match wins.
+
+    The opposite of ``[[rules]]``, where the first match wins. Each document
+    states its own half, and the asymmetry is deliberate.
+    """
+    layouts = parse_layouts(
+        {
+            "coding": {
+                "windows": [
+                    {"match": {"app_id": "firefox"}, "geometry": "left-half"},
+                    {"match": {"app_id": "firefox"}, "geometry": "right-half"},
+                ]
+            }
+        }
+    )
+    d = evaluate(
+        _w(app_id="firefox"),
+        TriggerEvent.OPENED,
+        **{**_DEFAULT_KW, "active_layout": layouts["coding"]},
+    )
+    assert isinstance(d, ApplyActionDecision)
+    assert d.action.geometry == PresetGeometry(name="right-half")

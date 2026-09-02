@@ -763,3 +763,115 @@ async def test_profile_override_with_no_matching_base_is_appended(
     # signal was not in the base layout; the override adds it.
     assert len(geom_calls) == 1
     assert geom_calls[0][0] == "sig"
+
+
+# ── Profile default_layout ────────────────────────────────────────────────
+async def test_profile_default_layout_is_activated_on_start(
+    tmp_path: Path,
+) -> None:
+    """docs/09 §Activation step 2: activating a profile applies its layout.
+
+    Without this the field parses, seeds the sample config and is editable
+    in the dialog, and no window is ever placed by it.
+    """
+    backend, reducer, _ = await _make(
+        {
+            "layouts": {
+                "coding": {
+                    "windows": [
+                        {
+                            "match": {"app_id": "firefox"},
+                            "geometry": "right-half",
+                        }
+                    ]
+                }
+            },
+            "profiles": [
+                {
+                    "name": "Docked",
+                    "topology": (
+                        "DP-1:2560x1440@0,0;HDMI-1:1920x1080@2560,360"
+                    ),
+                    "default_layout": "coding",
+                }
+            ],
+        },
+        tmp_path,
+    )
+    backend._spawn_window(_window())
+
+    await reducer.start()
+
+    assert reducer.active_layout is not None
+    assert reducer.active_layout.name == "coding"
+    geom_calls = [
+        args for n, args in backend.commands.entries if n == "set_geometry"
+    ]
+    assert geom_calls[-1][1] == Geometry(1280, 0, 1280, 1400)
+
+
+# ── What must never reach state.json ──────────────────────────────────────
+async def test_excluded_window_is_not_remembered(tmp_path: Path) -> None:
+    """An excluded window is not managed, so remembering it would restore
+    it later — exactly what the exclusion asked Perch not to do."""
+    backend, reducer, store = await _make(
+        {"exclusions": {"patterns": [{"app_id": "signal"}]}},
+        tmp_path,
+    )
+    await reducer.start()
+
+    window = _window("w9", app_id="signal")
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+    reducer.handle_geometry_changed("w9", Geometry(5, 5, 50, 50), "DP-1", 0)
+
+    assert store.get_last_seen("app:signal") is None
+
+
+async def test_window_without_app_id_or_wm_class_is_not_remembered(
+    tmp_path: Path,
+) -> None:
+    """Every such window shares one identity, so one would overwrite the
+    next. compute_identity's docstring has always promised this skip."""
+    backend, reducer, store = await _make({}, tmp_path)
+    await reducer.start()
+
+    window = _window("w8", app_id="")
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+    reducer.handle_geometry_changed("w8", Geometry(5, 5, 50, 50), "DP-1", 0)
+
+    assert store.get_last_seen("app:unknown") is None
+
+
+# ── Maximize fallback target ──────────────────────────────────────────────
+async def test_maximize_fallback_uses_the_resolved_target_monitor(
+    tmp_path: Path,
+) -> None:
+    """docs/02 §Apply actions: the substitute geometry is the *target*
+    monitor's work area. The window's own monitor is where it sat before
+    this action moved it, so the fallback would land on the wrong screen."""
+    backend, reducer, _ = await _make(
+        {
+            "rules": [
+                {
+                    "match": {"app_id": "firefox"},
+                    "apply": {"maximized": True, "monitor": "HDMI-1"},
+                }
+            ]
+        },
+        tmp_path,
+    )
+    backend._fail_state(WindowState.MAXIMIZED)
+    await reducer.start()
+
+    window = _window()  # currently on DP-1
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    geom_calls = [
+        args for n, args in backend.commands.entries if n == "set_geometry"
+    ]
+    assert geom_calls[-1] == (
+        "w1", Geometry(2560, 360, 1920, 1040), "HDMI-1", 0,
+    )

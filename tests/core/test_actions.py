@@ -253,3 +253,21 @@ def test_snap_alone() -> None:
 def test_empty_snap_rejected() -> None:
     with pytest.raises(ActionValidationError, match="must not be empty"):
         parse_action({"snap": ""}, "x")
+
+
+def test_monitor_all_rejected_at_parse_time() -> None:
+    """``monitor = "all"`` is not a monitor and never was resolvable.
+
+    Nothing fans one action out across every output, so accepting it here
+    only defers the failure to every window the rule matches.
+    """
+    with pytest.raises(ActionValidationError, match="not a monitor"):
+        parse_action({"geometry": "maximize", "monitor": "all"}, "x")
+
+
+def test_monitor_all_rejected_inside_a_geometry_table() -> None:
+    with pytest.raises(ActionValidationError, match="not a monitor"):
+        parse_action(
+            {"geometry": {"x": 0, "y": 0, "w": 10, "h": 10, "monitor": "all"}},
+            "x",
+        )

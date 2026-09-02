@@ -216,6 +216,9 @@ class EntryEditorDialog(QDialog):
 
         * The match pattern is empty (would match everything) and
           ``catch_all`` isn't set — the parser would reject it on load.
+        * ``catch_all`` is set alongside another match field — raised by
+          :meth:`MatchEditor.value`, and rejected on load for the same
+          reason: the other fields would never be consulted.
         * ``pid`` / ``title`` field errors are still outstanding.
         * ``maximized=True`` is combined with geometry/snap.
         """

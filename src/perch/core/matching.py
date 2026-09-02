@@ -61,8 +61,8 @@ def parse_match(raw: Any, prefix: str) -> MatchPattern:
             f"{prefix}: unknown keys {sorted(unknown)!r}"
         )
 
-    app_id = _opt_str(raw, "app_id", prefix)
-    wm_class = _opt_str(raw, "wm_class", prefix)
+    app_id = opt_str(raw, "app_id", prefix, error=MatchValidationError)
+    wm_class = opt_str(raw, "wm_class", prefix, error=MatchValidationError)
     title = _parse_title(raw.get("title"), prefix)
     pid = _opt_int(raw, "pid", prefix)
     types = _parse_types(raw.get("type"), prefix)
@@ -73,7 +73,7 @@ def parse_match(raw: Any, prefix: str) -> MatchPattern:
             f"(got {type(raw['catch_all']).__name__})"
         )
 
-    return MatchPattern(
+    pattern = MatchPattern(
         app_id=app_id,
         wm_class=wm_class,
         title=title,
@@ -81,6 +81,13 @@ def parse_match(raw: Any, prefix: str) -> MatchPattern:
         types=types,
         catch_all=catch_all,
     )
+    if pattern.catch_all and not pattern.is_empty():
+        raise MatchValidationError(
+            f"{prefix}: catch_all = true already matches every window, so the "
+            "other match fields would never be consulted. Drop catch_all, or "
+            "drop them."
+        )
+    return pattern
 
 
 def match_signature(pattern: MatchPattern) -> tuple[object, ...]:
@@ -124,15 +131,27 @@ def match_window(pattern: MatchPattern, window: WindowInfo) -> bool:
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
-def _opt_str(raw: dict[str, Any], key: str, prefix: str) -> str | None:
+def opt_str(
+    raw: dict[str, Any], key: str, prefix: str, *, error: type[ValueError]
+) -> str | None:
+    """Read an optional, non-empty string field out of a raw TOML table.
+
+    Shared with :mod:`perch.core.actions`, whose parser raises its own
+    ``ActionValidationError``: the caller passes the class so one
+    implementation serves both and the two cannot drift on what counts as
+    valid. An empty string is rejected everywhere — as a glob or as a
+    preset name it matches nothing the user could have meant.
+    """
     if key not in raw:
         return None
     value = raw[key]
     if not isinstance(value, str):
-        raise MatchValidationError(
+        raise error(
             f"{prefix}.{key} must be a string "
             f"(got {type(value).__name__})"
         )
+    if not value:
+        raise error(f"{prefix}.{key} must not be empty")
     return value
 
 

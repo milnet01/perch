@@ -47,7 +47,7 @@ geometry = { x = "0%",  y = "70%", w = "60%", h = "30%", monitor = "primary" }
 When a layout is selected (tray menu or hotkey):
 
 1. For every entry in the layout, find all currently-open windows matching `match`.
-2. If multiple windows match one entry (two Firefox windows), apply the geometry to the **most-recently-focused** one. The others are left alone.
+2. If multiple windows match one entry (two Firefox windows), apply the geometry to the **most-recently-focused** one. The others are left alone. *Not implemented: no backend reports a focus order — `WindowBackend` has `get_active_window()` and no focus-change signal — and §Implementation pointers below describes a different algorithm again. Today every matching window is placed, so they stack. Settling the contract is tracked as PERC-0066 in [`ROADMAP.md`](../ROADMAP.md).*
 3. If no window matches, the entry is skipped silently. (Should Perch *launch* the app if it isn't open? Not in v1. That's session-management territory.)
 4. If an entry's target monitor is not currently present, the entry is skipped and a notification lists the skipped entries.
 
@@ -109,7 +109,7 @@ This is a deliberate trade-off. If two different physical monitors report identi
 On every `output_added` / `output_removed` / `output_changed` event (debounced 300 ms):
 
 1. Recompute the topology key.
-2. If it matches an existing profile, activate it: `state.active_profile = "<name>"`. If the profile declares a `default_layout`, apply that layout too.
+2. If it matches an existing profile, activate it: `state.active_profile = "<name>"`. If the profile declares a `default_layout`, apply that layout too — the config loader rejects a `default_layout` that names no declared layout, so the name always resolves. A profile declaring none leaves the current layout in force: step 3 keeps layouts working without a named profile, so a topology change must not silently drop one the user activated by hand.
 3. If no profile matches, activate the implicit *unnamed* profile — "running without a named profile." Last-seen restore and rules still work; layouts still work. The tray just shows *"Perch — unknown topology"*.
 4. Either way, re-evaluate rules for all currently-open windows (their `context.profile` may now match or stop matching).
 
@@ -160,5 +160,5 @@ This allows one layout name ("coding") to mean different pixel-precise arrangeme
 ## Implementation pointers
 
 - [`src/perch/core/profiles.py`](../src/perch/core/profiles.py) — `Profile` and `ProfileOverride` dataclasses, `compute_topology_key(outputs)`, `parse_profiles(raw)` (validates duplicate names, duplicate topologies, malformed segment strings, and unknown keys), and `select_profile(profiles, key)` (first-match-wins). `src/perch/config/schema.py::validate` delegates `[[profiles]]` parsing to this module.
-- [`src/perch/core/layouts.py`](../src/perch/core/layouts.py) — `Layout` / `LayoutEntry` dataclasses, `parse_layouts(raw)`. The apply algorithm (match every entry against the open windows, prefer the most-recently-focused when multiple match, skip entries whose target output is absent) lives in the reducer (M2.d); the engine emits an `ApplyActionDecision` for each layout-matched window and the reducer sequences them.
+- [`src/perch/core/layouts.py`](../src/perch/core/layouts.py) — `Layout` / `LayoutEntry` dataclasses, `parse_layouts(raw)`. The engine emits an `ApplyActionDecision` per layout-matched window, taking the **last** entry that matches it, and the reducer sequences them. Preferring the most-recently-focused window when several match one entry is the part that is not implemented (PERC-0066 above).
 - Both sit above the rules engine and below the UI. They emit the same decision types the rules engine does, so the final "push to backend" code is one function either way.

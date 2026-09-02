@@ -105,14 +105,12 @@ def resolve_action(
 
     # ``maximized`` in the resolved placement is the *post-geometry* state to
     # set. ``unmaximize_first`` flags the *pre-geometry* unmaximize that
-    # docs/07 §Apply order step 1 requires so subsequent geometry writes
-    # stick on backends that ignore them on maximized windows.
-    has_placement = geometry is not None
-    unmaximize_first = action.maximized is False and has_placement
-    if unmaximize_first:
-        maximized: bool | None = None
-    else:
-        maximized = action.maximized
+    # docs/07 §Apply order step 1 requires so subsequent writes stick on
+    # backends that ignore them on maximized windows. It is unconditional on
+    # an explicit ``maximized = false``: a monitor or desktop move carries no
+    # geometry, and it is exactly that move Mutter would otherwise drop.
+    unmaximize_first = action.maximized is False
+    maximized: bool | None = True if action.maximized else None
 
     return ResolvedPlacement(
         geometry=geometry,
@@ -151,15 +149,8 @@ def _resolve_monitor(
             if o.is_primary and o.is_connected:
                 return o.name
         raise ResolveError("no primary output is connected")
-    if spec == "all":
-        # "all" is only meaningful for layouts (multi-window), not a single
-        # apply; the reducer should never reach here with "all". Surface
-        # it plainly.
-        raise ResolveError(
-            "monitor='all' is a layout-fanout directive and cannot resolve "
-            "to a single output"
-        )
-    # Otherwise: a concrete output name.
+    # Otherwise: a concrete output name. ``parse_monitor`` has already
+    # rejected the keywords this resolver has no meaning for.
     if not any(o.name == spec and o.is_connected for o in outputs):
         raise ResolveError(f"output {spec!r} is not currently connected")
     return spec
@@ -205,12 +196,18 @@ def _resolve_geometry(
         # Clamp into the work area — a rule cannot push a window off-screen.
         return _clamp(Geometry(expr.x, expr.y, expr.w, expr.h), work_area)
     if isinstance(expr, PercentGeometry):
-        # Round half-to-even to keep outputs stable across repeat evals.
-        return Geometry(
-            x=work_area.x + _round(expr.x_pct * work_area.w),
-            y=work_area.y + _round(expr.y_pct * work_area.h),
-            w=max(1, _round(expr.w_pct * work_area.w)),
-            h=max(1, _round(expr.h_pct * work_area.h)),
+        # Round half-to-even to keep outputs stable across repeat evals, then
+        # clamp on the same terms as the absolute branch — the percentages are
+        # not range-checked at parse time, so "-50%" would otherwise place the
+        # window off-screen and break docs/07 §Geometry resolution's promise.
+        return _clamp(
+            Geometry(
+                x=work_area.x + _round(expr.x_pct * work_area.w),
+                y=work_area.y + _round(expr.y_pct * work_area.h),
+                w=max(1, _round(expr.w_pct * work_area.w)),
+                h=max(1, _round(expr.h_pct * work_area.h)),
+            ),
+            work_area,
         )
     if isinstance(expr, CenterKeepSize):
         # Centre the window inside the work area without resizing it.

@@ -1,9 +1,13 @@
 """Named layouts — ``[layouts.<name>]`` + ``[[layouts.<name>.windows]]``.
 
 Spec in ``docs/09-layouts-profiles.md`` §Layouts. A layout is an ordered
-list of (match, apply) pairs; when activated, the reducer (M2.d) walks the
-list top-to-bottom and applies the action to the matching window — or the
-most-recently-focused window, when multiple match a single entry.
+list of (match, apply) pairs; when activated, the engine walks the list
+top-to-bottom per window and the **last** matching entry wins — the
+opposite of ``[[rules]]``, where the first does.
+
+Preferring the most-recently-focused window when several match one entry
+is specified there and not implemented: no backend reports a focus order.
+Tracked as PERC-0066 in ``ROADMAP.md``.
 """
 
 from __future__ import annotations
