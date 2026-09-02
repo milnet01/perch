@@ -4,8 +4,8 @@ Authoritative spec: ``docs/02-state-format.md`` §Identity keying. The base
 form is ``app:<app_id>`` with ``app:<wm_class>`` as an X11 fallback when
 ``app_id`` is unknown. Extra segments (``::title:<regex>``, ``::role:<X>``,
 ``::pid:<N>``) are reserved for v1.x when rules start pinning on those
-fields; M2.d only implements the base form so the reducer can correlate
-last-seen entries across sessions.
+fields. Only the base form is implemented; it is what the reducer
+correlates last-seen entries on across sessions.
 
 The function is intentionally tiny and pure: identity computation happens
 on every window event, so overhead matters.

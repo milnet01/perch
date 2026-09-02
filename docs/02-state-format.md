@@ -270,7 +270,7 @@ Coverage: both halves are exercised by `tests/ui/test_import_export_pane.py` —
 - Path: `$XDG_STATE_HOME/perch/perch.log`.
 - Rotates at 1 MB; keeps two old files (`perch.log.1`, `perch.log.2`).
 - Default level: `INFO`. `PERCH_DEBUG=1` in the environment bumps to `DEBUG`.
-- Never contains window titles by default (privacy: many titles leak file paths, URLs, chat counterparties). `PERCH_LOG_TITLES=1` opts in.
+- Never contains window titles (privacy: many titles leak file paths, URLs, chat counterparties). `logging_privacy` redacts unconditionally and no environment variable turns that off; `PERCH_DEBUG=1` raises the level without relaxing it.
 
 ## Flatpak considerations
 

@@ -280,7 +280,8 @@ class Reducer:
         Activation is not a window event and therefore re-evaluates every
         open window under the new layout. Per ``docs/09-layouts-profiles.md``
         §Activating / deactivating, deactivating does *not* move windows
-        back — that's a "Revert layout" action held in RAM (out of M2.d).
+        back — that would be a "Revert layout" action held in RAM, which
+        Perch does not implement.
         """
         if name is None:
             self.active_layout = None

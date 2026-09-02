@@ -60,7 +60,8 @@ coroutine via `asyncio.run(..., loop_factory=QEventLoop)` (imported there as
 
 Locked in Phase 2 / 2.5 research. The canonical forbidden-import list lives in
 the [house rules](contributing-dev-setup.md#house-rules) (rule 5) and is enforced
-by `/audit` — that is the single source; don't copy it here. What this doc adds
+by the drift analyser `audit_config.yaml` configures — that is the single
+source; don't copy it here. What this doc adds
 is the *why* behind the two deliberate library swaps: `dbus-next` → **`sdbus`**
 (active, C-backed, clean async that attaches to the running loop) and
 `python-ewmh` → **`python-xlib`** + a small in-tree EWMH helper (`python-ewmh`
@@ -76,9 +77,9 @@ is unmaintained since 2017 and unpackaged on Fedora/openSUSE). See
 - `logging_setup.configure_logging()` owns handler config (rotating file at
   `$XDG_STATE_HOME/perch/perch.log` + stderr); modules just call `log.*`. Use
   `%`-style lazy args (`log.info("x: %s", val)`), not f-strings, in log calls.
-- `PERCH_DEBUG=1` (or `--debug`) raises the level to DEBUG. Window titles are
-  redacted unless `PERCH_LOG_TITLES=1` — route anything privacy-sensitive
-  through `logging_privacy`.
+- `PERCH_DEBUG=1` (or `--debug`) raises the level to DEBUG. It does not relax
+  redaction — window titles are redacted unconditionally. Route anything
+  privacy-sensitive through `logging_privacy`.
 
 ## Error handling
 

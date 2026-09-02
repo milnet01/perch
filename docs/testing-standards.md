@@ -38,7 +38,7 @@ which is exactly why CI and `local_CI.sh` both export
 
 The `xdg_env` fixture in `tests/conftest.py` points `$XDG_CONFIG_HOME`,
 `$XDG_STATE_HOME`, and `$XDG_CACHE_HOME` at a fresh `tmp_path` tree and deletes
-`PERCH_DEBUG` / `PERCH_LOG_TITLES` from the environment. A test that touches
+`PERCH_DEBUG` from the environment. A test that touches
 config, state, or logs **must** take `xdg_env` so the real user's
 `~/.config/perch` is never read or written.
 
@@ -95,7 +95,7 @@ coverage only on a machine with the compositor present, never a false green.
 Per [../CLAUDE.md](../CLAUDE.md), a reported bug is fixed **failing-test-first**:
 write a test that reproduces the symptom, confirm it fails, then fix and watch it
 pass — the test stays as a regression lock. Scaffold these with the
-`/feature-test` skill (feature-test-writer subagent), which will create a
+`write-test` skill (test-writer subagent), which creates a
 `tests/features/<name>/spec.md` (the behaviour contract) plus its test file —
 that directory is created on first use and is not populated yet. Skip the
 ceremony only for mechanical one-liners where reproduction is pure overhead.
@@ -103,9 +103,10 @@ ceremony only for mechanical one-liners where reproduction is pure overhead.
 ## The matrix and the push gate
 
 CI (`.github/workflows/ci.yml`) runs the test job across **Python 3.12 / 3.13 /
-3.14**; `requires-python` floors at 3.12. `local_CI.sh` runs on whatever
-interpreter is on `PATH`, so a version-specific failure can still slip a green
-local run — run it under each interpreter for full parity. **Hard rule: get
+3.14**; `requires-python` floors at 3.12. `local_CI.sh` runs the test job once
+per interpreter in that matrix, reading the versions out of `ci.yml` and
+building a `uv`-managed environment per version under `.venvs/`, so a
+version-specific failure cannot slip a green local run. **Hard rule: get
 `safe to push` from `./local_CI.sh` before every push** (see [../CLAUDE.md](../CLAUDE.md)
 and [contributing-dev-setup.md](contributing-dev-setup.md)). `local_CI.sh` and
 `ci.yml` must stay in lockstep — edit both in the same commit.

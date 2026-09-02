@@ -7,9 +7,10 @@ reorder into a valid permutation. The working copy is owned here and
 returned on OK; the caller's original list is untouched on Cancel, per
 the deep-copy-on-open / replace-on-OK pattern.
 
-Per-cell editing (match fields, apply fields, context fields) lands in
-M3.c with the reusable widgets; M3.b's model is read-only at the cell
-level and exposes reorder + delete.
+The model is read-only at the cell level and exposes reorder + delete.
+Editing a rule's match, apply and context fields goes through the entry
+dialog (:mod:`perch.ui.entry_editor` and the widgets under
+:mod:`perch.ui.widgets`), not through the table.
 """
 
 from __future__ import annotations
@@ -111,8 +112,8 @@ class RulesModel(QAbstractTableModel):
 
     The caller constructs the model with the current rules; the working
     copy is owned here and returned by :meth:`rules` at OK time. Mutation
-    is reorder + delete only in M3.b — per-cell editing comes in M3.c
-    once the reusable widgets land.
+    is reorder + delete only; a rule's fields are edited in the entry
+    dialog rather than in the table.
     """
 
     def __init__(

@@ -33,8 +33,6 @@ def xdg_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    # Never let a test accidentally enable DEBUG or title-logging from the
-    # host environment.
+    # Never let a test pick up DEBUG from the host environment.
     monkeypatch.delenv("PERCH_DEBUG", raising=False)
-    monkeypatch.delenv("PERCH_LOG_TITLES", raising=False)
     yield tmp_path

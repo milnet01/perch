@@ -2,7 +2,7 @@
 
 Spec in ``docs/02-state-format.md`` §Apply actions. An :class:`ApplyAction`
 carries any combination of ``geometry``, ``snap``, ``monitor``, ``desktop``,
-and ``maximized``; the reducer (M2.d) executes them in the fixed order
+and ``maximized``; the reducer executes them in the fixed order
 documented in ``docs/07-rules-engine.md`` §Apply order.
 
 This module only parses and validates. Geometry resolution to pixels needs

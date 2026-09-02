@@ -89,7 +89,7 @@ Upstream GNOME extension APIs break every major release:
 
 1. **Recommended**: ship the extension as a **separate distro package** — openSUSE OBS / AUR — or publish to extensions.gnome.org (EGO).
 2. **Fallback**: ask the user to install it via `com.mattjakeman.ExtensionManager` from Flathub, which *can* write to `~/.local/share/gnome-shell/extensions/` because it runs with the right portal access.
-3. **Dev path**: Perch ships a script that drops the extension files into `~/.local/share/gnome-shell/extensions/perch@milnet01.github.io/` and prints instructions to run `gnome-extensions enable perch@milnet01.github.io` and log out / in.
+3. **Dev path**: `python3 scripts/install-gnome-extension.py` copies the bundled extension into `$XDG_DATA_HOME/gnome-shell/extensions/perch@milnet01.github.io/` and prints the two steps it deliberately does not take — `gnome-extensions enable perch@milnet01.github.io`, then log out and back in. It refuses to replace an existing install unless given `--force`, since that install may be a distro package's.
 
 Perch's first-run wizard on GNOME surfaces this explicitly: *"GNOME requires Perch's Shell extension to be installed separately. Install it via Extension Manager (recommended) or the distro package."* The tray icon shows a warning state ("Perch — awaiting GNOME extension") until the extension is enabled.
 

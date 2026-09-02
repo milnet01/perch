@@ -10,6 +10,13 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **`scripts/install-gnome-extension.py` installs the bundled GNOME Shell extension** (PERC-0062)
+  The dev path docs/06 §Flatpak has described all along, and the only
+  consumer of the `BUNDLED_EXTENSION_DIR` and `EXTENSION_UUID` constants,
+  which had none. It copies the extension into `$XDG_DATA_HOME`, refuses to
+  replace an existing install without `--force`, and leaves enabling and
+  the session restart to you.
+
 - **state.json has a migration registry, like config.toml** (PERC-0059)
   docs/02 §Versioning and migration covers both files and only config.toml
   had one. A state document older than the running Perch is migrated in
@@ -44,7 +51,32 @@ Sections under each release are populated on a best-effort basis — empty secti
   from any pane wrote that stale copy back over the imported file, silently
   undoing the import.
 
+### Removed
+
+- **`PERCH_LOG_TITLES` is gone from the documentation — it never existed in code** (PERC-0062)
+  Five documents described it as a privacy opt-in for logging window
+  titles, and no code has ever read it: `logging_privacy` redacts
+  unconditionally and says so. A control a security standard names and
+  nothing reads is worse than no control, because it invites a reader to
+  believe the redaction is switchable and audited. The documents now say
+  what the code does. Nothing about logging behaviour changed.
+
 ### Fixed
+
+- **Module docstrings that described shipped code as still to come** (PERC-0062)
+  The X11 and KWin backend docstrings said their commands and hotkey
+  registration had not landed and would raise; both are v1 backends and
+  complete. Same class in the core modules, the app entry point, the rules
+  table model and the KWin hotkey path — all rewritten to describe what the
+  code does.
+
+- **Instructions that named retired tools and a retired drive** (PERC-0062)
+  `audit_config.yaml` and `CLAUDE.md` drove the drift analyser from a path
+  on the failed `/mnt/Storage` drive, with a flag the analyser does not
+  accept, so nobody following them could run it. The docs also mandated
+  four Claude Code skills that no longer exist, and two of them stated that
+  `local_CI.sh` runs one interpreter, which stopped being true when it
+  learned to read `ci.yml`'s matrix.
 
 - **A failing config migration reports the problem instead of a traceback** (PERC-0059)
   A missing migration step escaped as a bare `KeyError`. It is now a

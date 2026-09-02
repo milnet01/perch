@@ -51,10 +51,11 @@ Three user paths (order of preference):
    extension alongside Perch.
 2. **Extension Manager** — `com.mattjakeman.ExtensionManager` from
    Flathub can write to `~/.local/share/gnome-shell/extensions/`.
-3. **Dev path** — Perch ships a helper that copies
-   `extension/` into `~/.local/share/gnome-shell/extensions/perch@milnet01.github.io/`
-   and prints instructions to run
-   `gnome-extensions enable perch@milnet01.github.io` and log out / in.
+3. **Dev path** — `python3 scripts/install-gnome-extension.py` copies
+   `extension/` into `$XDG_DATA_HOME/gnome-shell/extensions/perch@milnet01.github.io/`
+   and prints the two steps it leaves to you:
+   `gnome-extensions enable perch@milnet01.github.io`, then log out and
+   back in. `--force` replaces an existing install.
 
 Until the extension is enabled, `MutterBackend.start()` raises
 `BackendUnavailable` with the instruction string from `backend.py`.

@@ -1,7 +1,7 @@
 """Schema-migration registry.
 
 Each migration is a pure ``dict -> dict`` transforming schema version ``N`` to
-``N + 1``. The registry is wired but empty in M1 (current schema is version 1).
+``N + 1``. The registry is wired and empty (the current schema is version 1).
 Future migrations land as ``v1_to_v2.py`` etc. and are registered below.
 
 Applied only in memory; the migrated document is **not written back** to disk

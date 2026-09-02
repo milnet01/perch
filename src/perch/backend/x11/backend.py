@@ -1,17 +1,15 @@
 """``X11Backend`` — the concrete :class:`WindowBackend` for any EWMH-compliant WM.
 
-This is a progressive build-out. M4.b lands the skeleton: transport lifecycle
-(``start`` / ``stop`` via :class:`Xlib.display.Display`), :data:`Capabilities`
+One of the two v1 backends, and complete: transport lifecycle (``start`` /
+``stop`` via :class:`Xlib.display.Display`), a :data:`Capabilities`
 declaration matching ``docs/04-backend-x11.md``, :meth:`list_outputs` via
-XRandR, and the EWMH root queries for the current desktop / desktop count.
+XRandR, the EWMH root queries, window enumeration and identity extraction,
+the event loop, the commands (``set_geometry`` / ``set_state`` /
+``close_window``) and hotkey registration.
 
-Window enumeration, identity extraction, the event loop, commands
-(``set_geometry`` / ``set_state`` / ``close_window``), and hotkey registration
-arrive in M4.c..M4.f. Until those land they return empty lists or raise
-:class:`BackendUnsupported`; the compliance suite's skip-on-capability rule
-means most of its tests will skip rather than fail, but the shape of
-``X11Backend`` is already correct and the suite can be extended as features
-land.
+The end-to-end tests against a live WM are in
+``tests/backend/x11/test_live_openbox.py``; the rest of that directory runs
+without a display.
 """
 
 from __future__ import annotations

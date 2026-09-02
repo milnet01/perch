@@ -6,9 +6,11 @@ the CLI wrapper (before ``QEventLoop`` is constructed by ``asyncio.run``),
 ``aboutToQuit → asyncio.Event`` handshake, ``await close_event`` as the
 idle point.
 
-M3 wires the UI end-to-end: SNI probe → tray icon + controller → MockBackend
-→ reducer (real backends land in M4/M5). Intents emitted by the tray drive
-reducer work via :meth:`_handle_intent`.
+Wires the app end-to-end: SNI probe → tray icon + controller → the selected
+backend → reducer. Intents emitted by the tray drive reducer work via
+:meth:`_handle_intent`. Backend selection is :func:`perch.backend.select`,
+wrapped here by :func:`_select_backend`; :class:`MockBackend` is the
+fallback when no compositor backend starts.
 """
 
 from __future__ import annotations

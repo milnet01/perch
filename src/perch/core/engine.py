@@ -4,7 +4,7 @@ Authoritative spec: ``docs/07-rules-engine.md`` §Inputs and outputs,
 §Evaluation order. This module is deliberately pure: it consumes typed
 config plus a window snapshot and returns a :class:`Decision`. Execution
 (geometry resolution against live output info, issuing backend commands)
-happens in the reducer (M2.d).
+happens in the reducer.
 """
 
 from __future__ import annotations

@@ -18,8 +18,8 @@ is stale in the same change (no-doc-debt rule).
 ## Mandatory Qt 6 idioms
 
 These are hard requirements — the global rule in [../CLAUDE.md](../CLAUDE.md)
-mandates current-version idioms, and the `/audit` config has drift detectors
-for several of them.
+mandates current-version idioms, and `audit_config.yaml` carries drift
+detectors for several of them.
 
 - **New-style signal/slot connect only.** Bind the typed member signal to a
   callable: `sender.triggered.connect(self._on_thing)`. Every connect in the
@@ -58,7 +58,7 @@ for several of them.
   loop is live*; it is documented as such.)
 - **Forbidden:** `asyncio.get_event_loop()`. Under qasync the loop is Qt's;
   acquire it via qasync/`asyncio.get_running_loop()` inside a running slot. The
-  `/audit` config flags `get_event_loop()` as drift.
+  `audit_config.yaml` drift detectors flag `get_event_loop()`.
 - Import qasync locally in modules that must stay importable without it (the
   reducer does `import qasync` inside `bind_signals` so pure-core tests need no
   qasync dependency).

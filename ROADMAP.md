@@ -1238,7 +1238,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: investigate.
   Source: check-code --tree 2026-08-31.
 
-- 📋 [PERC-0062] **Fix the documentation that points at things which no longer exist.**
+- ✅ [PERC-0062] **Fix the documentation that points at things which no longer exist.**
   Four, all verified absent on 2026-09-01. audit_config.yaml and CLAUDE.md
   both drive the project's analyser from
   /mnt/Storage/Scripts/Linux/3D_Engine/tools/audit/audit.py, on a drive that
@@ -1269,6 +1269,50 @@ Goal: fewer first-run support tickets; the config is safe.
   layouts.py, identity.py -- against the project's own no-documentation-debt
   rule, whose own instruction is to grep for "planned", "will" and "not
   yet" before declaring work done.
+  Resolved (2026-09-02): all four, plus the same class found elsewhere.
+
+  The analyser: audit_config.yaml and CLAUDE.md now name the surviving copy
+  at /mnt/Games/Scripts/Linux/Vestige/tools/audit/audit.py and the flag it
+  actually takes -- the documented command used -c, which that argparse
+  does not accept, so it was wrong twice over. CLAUDE.md's Parent context
+  pointed at /mnt/Storage too and now says the drive is retired. The
+  retired skills are replaced by name: review-contract for /cold-eyes,
+  write-test for /feature-test, check-code for /audit, locate-defect for
+  /triage, and CLAUDE.md's tooling block is rewritten around the live
+  family. The one-interpreter claim in git-commit-standards and
+  testing-standards is replaced by what local_CI.sh does -- reads ci.yml's
+  matrix, one uv-managed venv per version under .venvs/ -- verified against
+  the script.
+
+  PERCH_LOG_TITLES is withdrawn rather than implemented. logging_privacy's
+  own docstring says the redactions are unconditional and that --debug does
+  not relax them; adding an opt-out would weaken a privacy guarantee for a
+  debugging convenience, so the five documents and the logging_setup
+  docstring now say what the code does. A reversible call, and the reasoning
+  is recorded in the CHANGELOG entry.
+
+  The GNOME extension installer is built rather than retracted:
+  scripts/install-gnome-extension.py, which is what docs/06 §Flatpak and
+  mutter/STATUS.md have described all along and the only consumer
+  BUNDLED_EXTENSION_DIR and EXTENSION_UUID have ever had. Exercised in all
+  three directions -- install, refuse without --force, replace with it --
+  and covered by three tests.
+
+  Beyond the bullet, and the same defect: the X11 and KWin backend module
+  docstrings both said their commands and hotkey registration had not landed
+  and would raise BackendUnsupported. Both are v1 backends and complete, so
+  those were the worst instances of the class the bullet listed. app.py said
+  real backends land in M4/M5, rules_model.py said per-cell editing was
+  still to come when the design moved to dialog editing, and
+  kwin/hotkeys.py said the portal path would take over in M8 when
+  PortalGlobalShortcutsProvider is live. Fixed with the seven the bullet
+  named, per the project's no-documentation-debt rule.
+
+  Swept after: no /mnt/Storage reference outside the ROADMAP body describing
+  this finding and one CHANGELOG release section, which is a frozen record;
+  no retired skill name outside the same two; no remaining future-tense
+  milestone claim in src/. doc_integrity clean over docs/, CLAUDE.md,
+  README.md and CONTRIBUTING.md.
   **Layman:** Instructions in the repo that cannot be followed because what they name is gone.
   Kind: doc-fix.
   Source: review-code 2026-08-31 (lane tooling); check-code 2026-08-31.

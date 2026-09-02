@@ -1,9 +1,9 @@
 """In-memory application state.
 
-M1 scope: holds the loaded config. Backend wiring, managed-windows tracking,
-and ``state.json`` persistence land in M2 per ``docs/11-roadmap.md``. Fields
-for those arrive with the code that populates them; we don't ship empty
-placeholders.
+Holds the loaded config, and only that. Backend wiring lives in
+:mod:`perch.app`, live window tracking in :class:`perch.core.reducer.Reducer`
+and remembered geometry in :class:`perch.core.state_store.StateStore`; each
+owns its own state rather than parking it here.
 """
 
 from __future__ import annotations

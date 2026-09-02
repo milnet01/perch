@@ -1,6 +1,6 @@
 """``KWinBackend`` — the concrete :class:`WindowBackend` for Plasma 6 Wayland.
 
-Progressive build-out. M5.d lands the skeleton:
+One of the two v1 backends, and complete:
 
 * Transport lifecycle: ``start`` acquires the session-bus name, exports the
   :class:`PerchKWin1` service, loads the bundled JS script, and awaits the
@@ -13,9 +13,9 @@ Progressive build-out. M5.d lands the skeleton:
   translating JSON payloads into :mod:`perch.backend.types` dataclasses
   and emitting the standard :class:`WindowBackend` Qt signals.
 
-Commands (``set_geometry`` / ``set_state`` / ``close_window``) and hotkey
-registration land in M5.e / M5.f. Until then they raise
-:class:`BackendUnsupported` / :class:`BackendDisconnected`.
+* Commands (``set_geometry`` / ``set_state`` / ``close_window``) and hotkey
+  registration, the latter over KGlobalAccel or the XDG GlobalShortcuts
+  portal — see :mod:`perch.backend.kwin.hotkeys`.
 """
 
 from __future__ import annotations

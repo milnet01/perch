@@ -223,9 +223,11 @@ def _accel_to_qt_key(parsed: ParsedAccel) -> int:
     encoding for the second argument to ``setShortcutKeys``. Supported
     keys: single printable characters (letters / digits) and ``F1``..``F35``.
     Named special keys (``Return``, ``Escape``, …) raise
-    :class:`HotkeyParseError` — the portal path will take over in M8 and
-    cover the full Qt::Key enum; KGlobalAccel-only installs can rebind
-    via System Settings if the user needs a named key.
+    :class:`HotkeyParseError`. This encoding is the KGlobalAccel path only;
+    the portal path (:class:`PortalGlobalShortcutsProvider`) sends the
+    accelerator as XDG Shortcuts text and does not go through here.
+    KGlobalAccel-only installs can rebind via System Settings if the user
+    needs a named key.
     """
     # Qt modifier flags (Qt::KeyboardModifier in qnamespace.h):
     #   ShiftModifier    = 0x02000000

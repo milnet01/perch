@@ -112,7 +112,7 @@ perch/
 
 ## Parent context
 
-`/mnt/Storage/Scripts/Linux/perch/` sits under the OS work root at `/mnt/Storage/`. See `/mnt/Storage/CLAUDE.md` for OS-wide conventions — notably, use `SUDO_ASKPASS=/usr/libexec/ssh/ksshaskpass sudo -A` instead of bare `sudo` for any privileged command.
+`/mnt/Games/Scripts/Linux/perch/` sits under the games-and-scripts drive at `/mnt/Games/`. See `/mnt/Games/CLAUDE.md` for drive-wide conventions — notably, use `SUDO_ASKPASS=/usr/libexec/ssh/ksshaskpass sudo -A` instead of bare `sudo` for any privileged command. The `/mnt/Storage/` paths older documents cite are retired; the drive was failing and everything moved here.
 
 ## Working notes for future Claude sessions
 
@@ -127,7 +127,7 @@ The repo ships with a small amount of Claude-Code-specific tooling at `.claude/`
 **Hooks** (run automatically, configured in `.claude/settings.json`):
 
 - `.claude/hooks/docs-drift-check.sh` — Stop hook. If work that has not left this machine — uncommitted changes plus commits ahead of the upstream — touches code under `src/perch/` / `perch/` / `data/` without touching `docs/` or `CLAUDE.md`, emits a reminder about the no-documentation-debt rule. It looks past the commit deliberately: scoped to the working tree alone it went silent the moment the turn committed, which is the normal flow. Silent when there's no drift. Never blocks.
-- `.claude/hooks/python-post-edit.sh` — PostToolUse hook on `Edit`/`Write`. Runs `ruff check` (report-only) on any edited `.py` file, so issues surface in the next tool result instead of CI. No-op before M1 creates the dev env.
+- `.claude/hooks/python-post-edit.sh` — PostToolUse hook on `Edit`/`Write`. Runs `ruff check` (report-only) on any edited `.py` file, so issues surface in the next tool result instead of CI. A no-op where the dev environment is absent.
 
 **Project-local skill:**
 
@@ -135,10 +135,12 @@ The repo ships with a small amount of Claude-Code-specific tooling at `.claude/`
 
 **Built-in skills and subagents to prefer over bespoke work:**
 
-- `/audit` → drives `/mnt/Storage/Scripts/Linux/3D_Engine/tools/audit/audit.py` against the project using Perch's `audit_config.yaml` at the repo root. Pipes raw findings through the `audit-triage` subagent and returns only the actionable list. The config includes Perch-specific drift detectors (retired KWin API symbols, swapped libraries like `dbus-next` / `python-ewmh`, deprecated `asyncio.get_event_loop()`, Python 3.11 floor strays). Reports write to `.audit/report.md` (gitignored). Use after any non-trivial batch of code changes.
-- `/feature-test` → scaffolds a regression test (spec.md + test file + CMake/pytest wiring) via the `feature-test-writer` subagent. Use after every bug fix.
-- `/triage` → locate the subsystem responsible for a vague bug report; proposes a fix plan. Use when a bug report doesn't pin a file.
-- `/simplify`, `/review`, `/security-review` — quality passes on changed code.
+- `check-code` → the routine static-analysis sweep. Runs the tools Perch's languages call for and names every applicable tool that did **not** run, with the reason.
+- `write-test` → writes the test that fails before the fix exists and proves it red by running it. Use after every bug fix.
+- `locate-defect` → narrows a vague bug report to one file:line and one testable hypothesis. Use when a report doesn't pin a file.
+- `review-code`, `review-tests`, `review-contract`, `close-findings` → the cold-review family. The first three report and stop; `close-findings` is where a findings list goes.
+- `/simplify`, `/code-review`, `/security-review` — built-in commands, diff- or branch-scoped, where the skills above are corpus-scoped.
+- The **Perch-specific drift analyser** is a hand-invoked extra that `check-code` does not cover: `audit_config.yaml` at the repo root carries detectors for retired KWin API symbols, swapped libraries (`dbus-next` / `python-ewmh`), `asyncio.get_event_loop()`, and Python 3.11 floor strays. Run it with `python3 /mnt/Games/Scripts/Linux/Vestige/tools/audit/audit.py --config audit_config.yaml` — the analyser lives under a neighbouring project by historical accident, not by design. Reports write to `.audit/` (gitignored).
 - `cut-release` — drives the release flow end to end (pre-flight → bump → build/test → `local_CI.sh` → commit → tag → push → publish), wired to `.claude/bump.json`. `cut-release --check` is the read-only readiness report and the cheapest way to ask "can we ship?".
 - `general-purpose` subagent — for web research (e.g. the Phase 2 / 2.5 research dispatches). Isolates the research round-trip from the main context window.
 - `Explore` subagent — for broad codebase surveys.

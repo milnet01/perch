@@ -5,8 +5,9 @@ Wires a :class:`~logging.handlers.RotatingFileHandler` at
 ``docs/02-state-format.md`` §Log file) and bridges Qt's own logger into the
 Python logging tree via ``qInstallMessageHandler``.
 
-``PERCH_DEBUG=1`` bumps the console level to DEBUG. Window titles are redacted
-unless ``PERCH_LOG_TITLES=1`` is set, per the privacy note in docs/02.
+``PERCH_DEBUG=1`` bumps the console level to DEBUG. It does not relax
+redaction: window titles are redacted unconditionally, and there is no
+switch that turns that off — see :mod:`perch.logging_privacy`.
 """
 
 from __future__ import annotations

@@ -51,8 +51,11 @@ describes the actual code as it ships; aspirational items are labelled as such.
   field, that assumption — and every write path's permissions — must be
   revisited.
 - **Window titles are treated as sensitive.** The log file omits window titles
-  by default (they often leak paths, URLs, chat counterparties); `PERCH_LOG_TITLES=1`
-  is an explicit opt-in. See [02-state-format.md](02-state-format.md) §Log file.
+  (they often leak paths, URLs, chat counterparties), and there is no switch
+  that puts them back: `logging_privacy` redacts unconditionally, and
+  `--debug` raises the level without relaxing the rules. Deliberate — a
+  control the user can turn off is one a bug report can arrive with turned
+  off. See [02-state-format.md](02-state-format.md) §Log file.
 
 ## D-Bus / X11 / KWin trust boundary
 
