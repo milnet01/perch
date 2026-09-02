@@ -493,3 +493,62 @@ def test_set_profile_overrides_empty_clears_the_array() -> None:
     set_profile_overrides(doc, 0, [])
     out = tomlkit.dumps(doc)
     assert "[[profiles.override]]" not in out
+
+
+# ── set_profile_field validates what add_profile validates ───────────────
+
+
+def _two_profile_doc() -> tomlkit.toml_document.TOMLDocument:
+    doc = _profile_doc()
+    from perch.config.edit import add_profile
+
+    add_profile(doc, name="Docked", topology="DP-1:2560x1440@0,0")
+    return doc
+
+
+def test_set_profile_field_rejects_a_duplicate_name() -> None:
+    """docs/09 §Edge cases: the dialog flags a collision.
+
+    Editing an existing profile went through none of add_profile's checks,
+    so the dialog could write a config the loader then refuses on the next
+    start — with nothing said at the time.
+    """
+    from perch.config.edit import set_profile_field
+
+    doc = _two_profile_doc()
+    with pytest.raises(ConfigEditError, match="already used"):
+        set_profile_field(doc, 1, "name", "Laptop only")
+
+
+def test_set_profile_field_rejects_a_duplicate_topology() -> None:
+    from perch.config.edit import set_profile_field
+
+    doc = _two_profile_doc()
+    with pytest.raises(ConfigEditError, match="already used"):
+        set_profile_field(doc, 1, "topology", "eDP-1:1920x1200@0,0")
+
+
+def test_set_profile_field_rejects_a_malformed_topology() -> None:
+    from perch.config.edit import set_profile_field
+
+    doc = _two_profile_doc()
+    with pytest.raises(ConfigEditError, match="malformed"):
+        set_profile_field(doc, 1, "topology", "not-a-topology-key")
+
+
+def test_set_profile_field_allows_its_own_current_value() -> None:
+    """The duplicate check must skip the entry being edited, or renaming a
+    profile to the name it already has would fail."""
+    from perch.config.edit import set_profile_field
+
+    doc = _two_profile_doc()
+    set_profile_field(doc, 1, "name", "Docked")
+    assert "Docked" in tomlkit.dumps(doc)
+
+
+def test_add_profile_rejects_a_malformed_topology() -> None:
+    from perch.config.edit import add_profile
+
+    doc = _profile_doc()
+    with pytest.raises(ConfigEditError, match="malformed"):
+        add_profile(doc, name="Docked", topology="DP-1")

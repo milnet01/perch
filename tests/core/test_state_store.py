@@ -240,3 +240,54 @@ def test_malformed_record_falls_back_to_bak(state_path: Path) -> None:
     store = StateStore(state_path)
     store.load()
     assert "app:konsole" in store.state.windows
+
+
+# ── Migration registry (docs/02 §Versioning and migration) ────────────────
+def test_state_older_than_this_build_needs_a_registered_migration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unmigratable document leaves the store empty AND read-only.
+
+    Falling through to ``.bak`` would only meet the same missing step, and
+    rotating a file this build cannot read would destroy it.
+    """
+    monkeypatch.setattr(
+        "perch.core.state_store.CURRENT_STATE_SCHEMA_VERSION", 2
+    )
+    path = tmp_path / "state.json"
+    original = json.dumps({"schema_version": 1, "windows": {}})
+    path.write_text(original, encoding="utf-8")
+
+    store = StateStore(path)
+    store.load()
+
+    assert store.state.windows == {}
+    store.record_window(
+        "app:firefox", Geometry(0, 0, 10, 10), "DP-1", 0
+    )
+    import asyncio
+
+    asyncio.run(store.flush())
+    assert path.read_text(encoding="utf-8") == original
+
+
+def test_a_registered_migration_is_applied_and_stamps_the_new_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from perch.core import state_store as mod
+
+    monkeypatch.setattr(mod, "CURRENT_STATE_SCHEMA_VERSION", 2)
+    monkeypatch.setattr(
+        mod, "STATE_MIGRATIONS", {1: lambda raw: {**raw, "windows": {}}}
+    )
+    path = tmp_path / "state.json"
+    path.write_text(
+        json.dumps({"schema_version": 1, "windows": {"junk": 1}}),
+        encoding="utf-8",
+    )
+
+    store = StateStore(path)
+    store.load()
+
+    assert store.state.schema_version == 2
+    assert store.state.windows == {}

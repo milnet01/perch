@@ -52,8 +52,19 @@ def _load_and_validate(path: Path) -> Config:
     # required key, so defaulting to current would make every unversioned file
     # skip its migrations the day CURRENT_SCHEMA_VERSION moves past 1.
     version = document.get("schema_version", 1)
-    if isinstance(version, int) and 1 <= version < CURRENT_SCHEMA_VERSION:
-        document = migrations.migrate(document, version, CURRENT_SCHEMA_VERSION)
+    if (
+        isinstance(version, int)
+        and not isinstance(version, bool)
+        and 1 <= version < CURRENT_SCHEMA_VERSION
+    ):
+        try:
+            document = migrations.migrate(
+                document, version, CURRENT_SCHEMA_VERSION
+            )
+        except migrations.MigrationError as exc:
+            # docs/02-state-format.md §Schema reference: a failing migration
+            # surfaces as a ConfigError with a pinpoint line, not a traceback.
+            raise ConfigError(f"{path}: {exc}") from exc
         document["schema_version"] = CURRENT_SCHEMA_VERSION
     return validate(document)
 

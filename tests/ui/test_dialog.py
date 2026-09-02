@@ -320,3 +320,74 @@ def test_save_failure_keeps_dialog_open_and_document_clean(
     dialog._on_ok()
     # Dialog still "open" (not accepted); result() == Rejected default.
     assert dialog.result() == 0
+
+
+# ── External-edit guard ─────────────────────────────────────────────────
+
+
+def test_apply_refuses_when_config_changed_on_disk(
+    qtbot: QtBot,
+    tmp_path: Path,
+    xdg_env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """docs/02 offers hand-editing config.toml as a supported workflow.
+
+    Apply replaces the file whole from the document parsed at open time,
+    so an edit made in between is discarded. The user is asked first, and
+    declining leaves the file as the hand edit left it.
+    """
+    dialog, fixture_path, captured = _open_dialog(tmp_path, xdg_env)
+    qtbot.addWidget(dialog)
+
+    from PySide6.QtWidgets import QMessageBox
+
+    asked: list[object] = []
+
+    def fake_warning(*args: object, **kwargs: object) -> object:
+        asked.append(args)
+        return QMessageBox.StandardButton.Cancel
+
+    monkeypatch.setattr(QMessageBox, "warning", fake_warning)
+
+    hand_edited = fixture_path.read_text(encoding="utf-8") + "\n# hand edit\n"
+    fixture_path.write_text(hand_edited, encoding="utf-8")
+
+    general = dialog._pages[SECTION_GENERAL]
+    assert isinstance(general, GeneralPage)
+    general.start_at_login.setChecked(False)
+
+    assert dialog._commit_and_save() is False
+    assert len(asked) == 1
+    assert captured == []
+    assert fixture_path.read_text(encoding="utf-8") == hand_edited
+
+
+def test_apply_does_not_ask_when_the_file_is_untouched(
+    qtbot: QtBot,
+    tmp_path: Path,
+    xdg_env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard must be silent on the ordinary path, and stay silent on a
+    second Apply — the dialog's own write moves the file too."""
+    dialog, _fixture_path, captured = _open_dialog(tmp_path, xdg_env)
+    qtbot.addWidget(dialog)
+
+    from PySide6.QtWidgets import QMessageBox
+
+    asked: list[object] = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda *a, **kw: asked.append(a)
+    )
+
+    general = dialog._pages[SECTION_GENERAL]
+    assert isinstance(general, GeneralPage)
+    general.start_at_login.setChecked(False)
+    assert dialog._commit_and_save() is True
+
+    general.start_at_login.setChecked(True)
+    assert dialog._commit_and_save() is True
+
+    assert asked == []
+    assert len(captured) == 2

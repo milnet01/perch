@@ -10,6 +10,13 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **state.json has a migration registry, like config.toml** (PERC-0059)
+  docs/02 §Versioning and migration covers both files and only config.toml
+  had one. A state document older than the running Perch is migrated in
+  memory and written back at the current version; one that cannot be
+  migrated leaves the store empty and read-only, so the file survives a
+  Perch that cannot read it.
+
 - **Layout entries skipped for a missing monitor are now reported** (PERC-0068)
   docs/09 §Apply semantics has always required it and the reducer only
   wrote a log line. Activating a layout that names a disconnected output
@@ -38,6 +45,29 @@ Sections under each release are populated on a best-effort basis — empty secti
   undoing the import.
 
 ### Fixed
+
+- **A failing config migration reports the problem instead of a traceback** (PERC-0059)
+  A missing migration step escaped as a bare `KeyError`. It is now a
+  `ConfigError` naming the file and the version gap, which is what docs/02
+  §Schema reference promises.
+
+- **A typo'd top-level section is reported instead of ignored** (PERC-0059)
+  Unknown keys inside `[general]` and `[exclusions]` were rejected, but an
+  unknown table at the top level was not — so `[[rule]]` for `[[rules]]`
+  meant every rule in the file went unread with no error. `schema_version
+  = true` was also accepted, because a bool is an int in Python.
+
+- **A hand edit to config.toml is no longer discarded silently** (PERC-0059)
+  The settings dialog parses config.toml when it opens and writes it whole
+  on Apply, so anything edited on disk in between was lost. Perch offers
+  hand-editing as a supported workflow, so Apply now compares the file
+  against what it read and asks before replacing it.
+
+- **Editing a profile in the dialog is validated the way adding one is** (PERC-0059)
+  Renaming a profile to a name another already uses, or giving it a
+  topology that is a duplicate or malformed, went through none of the
+  checks `add_profile` applies. The dialog wrote it and the loader refused
+  the file on the next start, with nothing said at the time.
 
 - **X11: a window is moved to its target desktop before it is placed** (PERC-0068)
   The two v1 backends disagreed — KWin sent the desktop change first, X11

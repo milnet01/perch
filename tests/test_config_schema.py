@@ -134,3 +134,20 @@ def test_profile_default_layout_must_name_a_declared_layout() -> None:
                 ]
             }
         )
+
+
+def test_boolean_schema_version_is_rejected() -> None:
+    """``bool`` is an ``int`` in Python, so the isinstance check alone let
+    ``schema_version = true`` through and then compared it as 1."""
+    with pytest.raises(SchemaError, match="schema_version"):
+        validate({"schema_version": True})
+
+
+def test_unknown_top_level_table_is_rejected() -> None:
+    """docs/07 §Validation: Perch does not silently drop bad rules.
+
+    Unknown keys inside [general] and [exclusions] were already rejected;
+    a typo'd top-level table was a whole section going unread.
+    """
+    with pytest.raises(SchemaError, match="unknown top-level"):
+        validate({"rule": [{"match": {"app_id": "firefox"}}]})

@@ -37,6 +37,7 @@ from perch.core.actions import (
 )
 from perch.core.layouts import LayoutEntry
 from perch.core.matching import MatchPattern
+from perch.core.profiles import ProfileValidationError, validate_topology_key
 
 from .schema import VALID_THEMES
 
@@ -448,6 +449,14 @@ def _profiles_aot(document: TOMLDocument, *, create: bool = False) -> Any:
     return aot
 
 
+def _check_topology_key(caller: str, topology: str) -> None:
+    """Validate a topology key with the parser's own rule, not a copy."""
+    try:
+        validate_topology_key(f"{caller}: topology", topology)
+    except ProfileValidationError as exc:
+        raise ConfigEditError(str(exc)) from exc
+
+
 def add_profile(
     document: TOMLDocument,
     *,
@@ -467,6 +476,7 @@ def add_profile(
         raise ConfigEditError(
             f"add_profile: topology must not be empty for profile {name!r}"
         )
+    _check_topology_key("add_profile", topology)
     aot = _profiles_aot(document, create=True)
     for existing in aot:
         if existing.get("name") == name:
@@ -541,6 +551,22 @@ def set_profile_field(
         raise ConfigEditError(
             f"set_profile_field: {key!r} must not be empty"
         )
+    # The same rules ``add_profile`` applies. Editing an existing profile
+    # went through none of them, so the dialog could write a duplicate or a
+    # malformed topology that the loader then rejects on the next start —
+    # where ``docs/09-layouts-profiles.md`` §Edge cases promises the dialog
+    # flags it.
+    if key == "topology" and isinstance(value, str):
+        _check_topology_key("set_profile_field", value)
+    if key in ("name", "topology") and isinstance(value, str):
+        for i, existing in enumerate(aot):
+            if i == index or existing.get(key) != value:
+                continue
+            other = existing.get("name") or "<unnamed>"
+            raise ConfigEditError(
+                f"set_profile_field: {key} {value!r} already used by "
+                f"profile {other!r}"
+            )
     entry[key] = value
 
 

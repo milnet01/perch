@@ -113,7 +113,7 @@ def parse_profiles(raw: list[dict[str, Any]]) -> list[Profile]:
         seen_names.add(name)
 
         topology = _require_str(entry, "topology", prefix)
-        _validate_topology_key(f"{prefix}.topology", topology)
+        validate_topology_key(f"{prefix}.topology", topology)
         if topology in seen_topologies:
             raise ProfileValidationError(
                 f"{prefix}.topology {topology!r} already used by "
@@ -188,7 +188,13 @@ def _require_str(entry: dict[str, Any], key: str, prefix: str) -> str:
     return value
 
 
-def _validate_topology_key(prefix: str, key: str) -> None:
+def validate_topology_key(prefix: str, key: str) -> None:
+    """Raise :class:`ProfileValidationError` unless ``key`` is canonical.
+
+    Public because the config-edit helpers validate a topology before
+    writing it, and a second copy of this rule would be a second answer
+    to what a topology key is.
+    """
     segments = key.split(TOPOLOGY_SEPARATOR)
     if len(segments) != len(set(segments)):
         raise ProfileValidationError(

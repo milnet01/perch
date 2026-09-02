@@ -94,3 +94,34 @@ def test_default_config_roundtrips(tmp_path: Path) -> None:
     document = load_document(target)
     write_document(target, document)
     assert target.read_text(encoding="utf-8") == original
+
+
+def test_rename_layout_keeps_comments_with_their_tables() -> None:
+    """docs/02 §Read / write split — a rename must not orphan a comment.
+
+    ``rename_layout`` rebuilds the whole ``[layouts]`` table by deleting and
+    re-adding every key, and tomlkit holds standalone comments outside that
+    key map. The comments stay with the tables they annotate; the rebuild
+    does insert a blank line after each one, which is whitespace only.
+    """
+    import tomlkit
+
+    from perch.config.edit import rename_layout
+
+    doc = tomlkit.parse(
+        "schema_version = 1\n"
+        "\n"
+        "# Comment above coding.\n"
+        "[layouts.coding]\n"
+        'description = "Editor left."\n'
+        "\n"
+        "# Comment above writing.\n"
+        "[layouts.writing]\n"
+        'description = "Full-width editor."\n'
+    )
+    rename_layout(doc, "coding", "dev")
+    out = tomlkit.dumps(doc)
+
+    assert out.index("# Comment above coding.") < out.index("[layouts.dev]")
+    assert out.index("[layouts.dev]") < out.index("# Comment above writing.")
+    assert out.index("# Comment above writing.") < out.index("[layouts.writing]")

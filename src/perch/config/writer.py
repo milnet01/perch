@@ -13,6 +13,7 @@ ordering, and formatting survive.
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -23,6 +24,21 @@ from tomlkit.toml_document import TOMLDocument
 def load_document(path: Path) -> TOMLDocument:
     """Parse ``path`` with tomlkit, preserving comments and layout."""
     return tomlkit.parse(path.read_text(encoding="utf-8"))
+
+
+def document_digest(path: Path) -> str | None:
+    """SHA-256 of ``path``'s bytes, or ``None`` when it does not exist.
+
+    ``docs/02-state-format.md`` offers hand-editing ``config.toml`` as a
+    supported workflow, and every writer here replaces the document whole.
+    A writer that parsed the file earlier compares this before replacing it,
+    so an edit made in between is reported rather than discarded. Content
+    rather than mtime, so a hand edit that was reverted is not a conflict.
+    """
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
 
 
 def atomic_write(path: Path, text: str) -> None:

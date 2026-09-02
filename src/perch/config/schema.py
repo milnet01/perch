@@ -153,6 +153,19 @@ def _parse_table_of_tables(name: str, raw: Any) -> dict[str, dict[str, Any]]:
     return out
 
 
+KNOWN_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
+    {
+        "schema_version",
+        "general",
+        "exclusions",
+        "snaps",
+        "rules",
+        "layouts",
+        "profiles",
+    }
+)
+
+
 def _parse_array_of_tables(name: str, raw: Any) -> list[dict[str, Any]]:
     if raw is None:
         return []
@@ -172,8 +185,21 @@ def validate(document: dict[str, Any]) -> Config:
     if not isinstance(document, dict):
         raise SchemaError("top-level config must be a table")
 
+    unknown_tables = set(document) - KNOWN_TOP_LEVEL_KEYS
+    if unknown_tables:
+        # docs/07-rules-engine.md §Validation: Perch does not silently drop
+        # bad rules. A typo'd ``[[rule]]`` is a whole section of the user's
+        # config going unread, and the unknown-key checks inside [general]
+        # and [exclusions] would already have caught it one level down.
+        raise SchemaError(
+            f"unknown top-level keys {sorted(unknown_tables)!r} "
+            f"(known: {sorted(KNOWN_TOP_LEVEL_KEYS)})"
+        )
+
     version = document.get("schema_version", CURRENT_SCHEMA_VERSION)
-    if not isinstance(version, int):
+    # ``bool`` is an ``int`` in Python, so the isinstance check alone accepts
+    # ``schema_version = true`` and then compares it as 1.
+    if isinstance(version, bool) or not isinstance(version, int):
         raise SchemaError(
             f"schema_version must be an integer (got {type(version).__name__})"
         )

@@ -19,12 +19,25 @@ Migration = Callable[[dict[str, Any]], dict[str, Any]]
 MIGRATIONS: dict[int, Migration] = {}
 
 
+class MigrationError(Exception):
+    """Raised when a document cannot be migrated to the current version.
+
+    Its own class rather than ``KeyError`` so the loader can turn it into
+    the ``ConfigError`` that ``docs/02-state-format.md`` §Schema reference
+    promises — a pinpoint log line and a non-zero exit, not a traceback.
+    Defined here rather than imported from the loader, which imports this
+    module.
+    """
+
+
 def migrate(document: dict[str, Any], from_version: int, to_version: int) -> dict[str, Any]:
     """Apply the registered migrations in order, returning the upgraded doc."""
     current = document
     for v in range(from_version, to_version):
         step = MIGRATIONS.get(v)
         if step is None:
-            raise KeyError(f"no migration registered for schema v{v} -> v{v + 1}")
+            raise MigrationError(
+                f"no migration registered for schema v{v} -> v{v + 1}"
+            )
         current = step(current)
     return current

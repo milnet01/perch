@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,6 +35,39 @@ class StateLoadError(ValueError):
     :meth:`StateStore.load` catches this per candidate file and falls through
     to ``state.json.bak``; it is not itself the both-files-failed signal.
     """
+
+
+StateMigration = Callable[[dict[str, Any]], dict[str, Any]]
+
+# ``docs/02-state-format.md`` §Versioning and migration applies to both
+# files: a state document older than this build is migrated in memory and
+# written back at the current version on the next flush. Wired and empty at
+# schema version 1; a future step lands here as ``{1: _v1_to_v2}``.
+STATE_MIGRATIONS: dict[int, StateMigration] = {}
+
+
+class StateMigrationError(StateLoadError):
+    """Raised when a state document cannot be brought to the current version.
+
+    Handled like :class:`StateSchemaTooNew` rather than like a parse
+    failure: falling through to ``.bak`` would only meet the same missing
+    step, and rotating a file this build cannot read would destroy it.
+    """
+
+
+def migrate_state(
+    raw: dict[str, Any], from_version: int, to_version: int
+) -> dict[str, Any]:
+    """Apply the registered state migrations in order."""
+    current = raw
+    for v in range(from_version, to_version):
+        step = STATE_MIGRATIONS.get(v)
+        if step is None:
+            raise StateMigrationError(
+                f"no state migration registered for v{v} -> v{v + 1}"
+            )
+        current = step(current)
+    return current
 
 
 class StateSchemaTooNew(StateLoadError):
@@ -115,6 +149,9 @@ class PersistedState:
                 f"state.json schema_version {version} is newer than this "
                 f"Perch understands ({CURRENT_STATE_SCHEMA_VERSION})"
             )
+        if version < CURRENT_STATE_SCHEMA_VERSION:
+            raw = migrate_state(raw, version, CURRENT_STATE_SCHEMA_VERSION)
+            version = CURRENT_STATE_SCHEMA_VERSION
         windows_raw = raw.get("windows", {})
         if not isinstance(windows_raw, dict):
             raise StateLoadError("state.json 'windows' must be an object")
@@ -183,10 +220,11 @@ class StateStore:
                 self.state = PersistedState.from_json(raw)
                 log.info("loaded %s (%d windows)", label, len(self.state.windows))
                 return
-            except StateSchemaTooNew as exc:
-                # Must precede the StateLoadError arm below — it is a subclass.
-                # Returning here rather than trying .bak is deliberate: any
-                # write we then made would rotate the newer primary away.
+            except (StateSchemaTooNew, StateMigrationError) as exc:
+                # Must precede the StateLoadError arm below — both are
+                # subclasses. Returning here rather than trying .bak is
+                # deliberate: any write we then made would rotate away a file
+                # this build could not read.
                 self._read_only = True
                 log.error(
                     "%s: %s — running with empty state and writing nothing, "

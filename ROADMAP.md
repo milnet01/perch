@@ -1145,7 +1145,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lanes ui-shell, ui-dialog).
 
-- 📋 [PERC-0059] **Close the remaining config robustness findings.**
+- ✅ [PERC-0059] **Close the remaining config robustness findings.**
   Four findings left after the 2026-09-01 pass. There is no stale-document
   or concurrent-writer guard: the dialog parses the document at open time
   and writes it whole on Apply, and atomic_write compares no mtime, so a
@@ -1160,6 +1160,42 @@ Goal: fewer first-run support tickets; the config is safe.
   footgun release-blocking and it needs a fixture to confirm. Separately,
   state.json has no migration registry at all, while docs/02 describes one
   for both files.
+  Resolved (2026-09-02): five of the six fixed, one dismissed on evidence.
+
+  set_profile_field now applies add_profile's rules -- duplicate name,
+  duplicate topology, and the topology-key shape, the last through
+  profiles.validate_topology_key rather than a second copy of the rule
+  (add_profile was not checking the shape either). The stale-document hole
+  is closed by writer.document_digest: the dialog fingerprints the file it
+  parsed and asks before replacing it, and re-fingerprints after its own
+  write and after the wizard's, so the ordinary path stays silent.
+  schema.validate rejects a bool schema_version and any unknown top-level
+  table, so a typo'd [[rule]] is reported rather than dropped -- docs/07
+  §Validation. A missing config migration raises MigrationError, which the
+  loader turns into the ConfigError docs/02 §Schema reference promises,
+  rather than a bare KeyError. And state.json has the registry docs/02
+  describes for both files: STATE_MIGRATIONS plus migrate_state, with an
+  unmigratable document latching the store read-only on the same reasoning
+  as the too-new case.
+
+  Dismissed: rename_layout does NOT detach comments. Probed directly --
+  each standalone comment stays with the table it annotates across a
+  rename; what the rebuild adds is a blank line after it, which is
+  whitespace. The fixture the finding asked for is written and locks the
+  attachment.
+
+  Also settled, from the same lane's open questions: duplicate topology is
+  a REFUSAL, not first-wins. parse_profiles has always raised, and
+  select_profile's own docstring says the scan is unambiguous because of
+  it, so docs/09 §Edge cases was the wrong side and now says so.
+
+  Fourteen tests; eleven fail against the pre-fix tree. The three that pass
+  there are two over-rejection guards and the rename_layout fixture, which
+  passes because the finding does not reproduce.
+
+  Not covered here: state_store.py's fixed temp filename and missing writer
+  lock, which this bullet inherited from the lane. That is a second-instance
+  question and belongs to PERC-0049.
   **Layman:** Editing config.toml by hand while the dialog is open still loses your edit.
   Kind: fix.
   Source: review-code 2026-08-31 (lane config).

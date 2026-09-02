@@ -88,7 +88,7 @@ from perch.config.edit import (
     set_layout_description,
 )
 from perch.config.schema import VALID_THEMES, GeneralSettings
-from perch.config.writer import load_document, write_document
+from perch.config.writer import document_digest, load_document, write_document
 from perch.core.identity import compute_identity
 from perch.core.layouts import Layout, LayoutEntry
 from perch.core.profiles import Profile, ProfileOverride
@@ -2495,6 +2495,10 @@ class ConfigDialog(QDialog):
         self._state = _DialogState(
             config=config, document=self._load_doc(config_path)
         )
+        # Fingerprint of the file the document above was parsed from. Apply
+        # replaces config.toml whole, so anything edited on disk in the
+        # meantime would be discarded without this.
+        self._loaded_digest = document_digest(config_path)
         self._save = save_callback or write_document
 
         self._sidebar = QListWidget(self)
@@ -2602,13 +2606,43 @@ class ConfigDialog(QDialog):
             save_callback=self._save,
         )
         self._general_page.reload(outcome.config.general)
-        # The wizard wrote config behind the dialog's back; tell the app so
-        # the tray snapshot, autostart and theme reconcile as on any save.
+        # The wizard wrote config behind the dialog's back, so the file no
+        # longer matches what this dialog parsed. Adopt the new bytes as the
+        # baseline or the next Apply reports the wizard's own write as an
+        # external edit.
+        self._loaded_digest = document_digest(self._config_path)
+        # Tell the app so the tray snapshot, autostart and theme reconcile
+        # as on any save.
         self.saved.emit()
 
     def _on_ok(self) -> None:
         if self._commit_and_save():
             self.accept()
+
+    def _confirm_no_external_edit(self) -> bool:
+        """True if it is safe to replace ``config.toml`` with the staged doc.
+
+        Apply writes the document whole, so anything edited on disk since
+        this dialog parsed it is discarded. ``docs/02-state-format.md``
+        offers hand-editing as a supported workflow, so the user is asked
+        rather than told after the fact.
+        """
+        if document_digest(self._config_path) == self._loaded_digest:
+            return True
+        choice = QMessageBox.warning(
+            self,
+            self.tr("Perch — config.toml changed on disk"),
+            self.tr(
+                "config.toml has been edited since this window opened. "
+                "Saving now replaces that file with what is shown here, "
+                "and the other edit is lost.\n\n"
+                "Cancel, then close and reopen this window to work from "
+                "the current file."
+            ),
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        return choice == QMessageBox.StandardButton.Save
 
     def _commit_and_save(self) -> bool:
         """Commit dirty pages into the document and persist to disk.
@@ -2647,6 +2681,10 @@ class ConfigDialog(QDialog):
             )
             return False
 
+        if not self._confirm_no_external_edit():
+            self._state.document = original_document
+            return False
+
         try:
             self._save(self._config_path, staged)
         except Exception:
@@ -2661,6 +2699,8 @@ class ConfigDialog(QDialog):
                 ),
             )
             return False
+
+        self._loaded_digest = document_digest(self._config_path)
 
         # Only now is it true that the pages' edits are on disk, so only now
         # may they stop reporting dirty. Both failure paths above return with

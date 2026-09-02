@@ -57,11 +57,33 @@ def test_schema_error_falls_back_to_backup(tmp_path: Path) -> None:
     assert config.general.theme == "auto"
 
 
-def test_missing_migration_raises_keyerror(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The migration registry is empty in M1; dispatching a bogus range explodes loudly."""
+def test_missing_migration_raises_migration_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing step is a config failure, not a programming error.
+
+    docs/02 §Schema reference promises a failing migration surfaces as a
+    ConfigError with a pinpoint line. A bare KeyError reached the user as
+    a traceback and could not be told apart from a dict lookup gone wrong.
+    """
     monkeypatch.setattr(migrations_mod, "MIGRATIONS", {})
-    with pytest.raises(KeyError):
+    with pytest.raises(migrations_mod.MigrationError):
         migrations_mod.migrate({}, from_version=1, to_version=2)
+
+
+def test_failing_migration_surfaces_as_config_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "perch.config.schema.CURRENT_SCHEMA_VERSION", 2, raising=False
+    )
+    monkeypatch.setattr("perch.config.loader.CURRENT_SCHEMA_VERSION", 2)
+    monkeypatch.setattr(migrations_mod, "MIGRATIONS", {})
+    primary = tmp_path / "config.toml"
+    primary.write_text("schema_version = 1\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="no migration registered"):
+        load_or_create(config_path=primary, backup_path=tmp_path / "nope.bak")
 
 
 def test_migration_registry_empty_at_current_version() -> None:

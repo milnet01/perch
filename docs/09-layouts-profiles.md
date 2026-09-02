@@ -149,7 +149,7 @@ This allows one layout name ("coding") to mean different pixel-precise arrangeme
 
 - **Rapid dock/undock** (cable wiggle): the 300 ms output debounce prevents thrash. Profile activation is idempotent anyway.
 - **Profile matches but monitors are in a temporary "reconfiguring" state** (KWin reports outputs mid-transition): the backend queues topology changes until a 200 ms quiet period; Perch only sees the settled state.
-- **User has two profiles with the same topology key**: the first one in config order wins. The dialog flags this as a validation error.
+- **User has two profiles with the same topology key**: the config loader rejects the file. Two profiles claiming one topology are two answers to one question, and picking one silently is not a choice Perch makes. The dialog refuses to write it — both when adding a profile and when editing an existing one — so the rejection is reached only by hand-editing.
 - **Adding a third monitor that changes the key**: the old profile stops matching; Perch switches to "unknown topology" until the user names the new one. Last-seen restores still work because `state.json` records geometries with explicit monitor names, not profile names.
 
 ## What profiles are *not*
