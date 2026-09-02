@@ -896,7 +896,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, core-state, config, backend-kwin).
 
-- 📋 [PERC-0050] **Close the audit's security findings.**
+- ✅ [PERC-0050] **Close the audit's security findings.**
   All calibrate low against docs/security-standards.md, which puts a
   same-UID attacker out of scope — filed because each is cheap and one is
   arguably not that case. The KWin D-Bus service resolves any caller's
@@ -917,6 +917,48 @@ Goal: fewer first-run support tickets; the config is safe.
   FIRST read, so a file changing between the two is written unvalidated,
   against the security standard's claim that every loaded document is
   validated.
+  Resolved (2026-09-02): five closed here, one closed in half, one split out.
+
+  paths.ensure_dir creates 0700 and re-applies the mode to a directory an
+  older install left at the umask default. The config temp file is opened
+  O_NOFOLLOW -- the target is still resolved deliberately, since a
+  symlinked config.toml is the supported dotfiles workflow and a symlinked
+  .tmp never is. Hyprland's instance signature is validated against
+  ^[A-Za-z0-9_.-]+$ before it is joined under $XDG_RUNTIME_DIR or /tmp.
+  PerchKWin1 pins the unique bus name that sends ScriptReady -- the script
+  Perch loaded itself -- and drops every later call from anywhere else,
+  which covers CommandDone and every other method feeding the reducer and
+  the state store, not just the one the finding named. And the import path
+  validates the bytes it will write: loader.validate_text takes the text
+  already read, where _load_and_validate re-read the file, so a file
+  changing between the two reads was written unvalidated.
+
+  The GNOME extension is closed in half. set_geometry now checks its
+  arguments -- integer coordinates and positive extents in range, a
+  non-negative desktop index, a string monitor -- rather than handing
+  JSON.parse's output to Mutter. Authenticating the CALLER is PERC-0070: the
+  extension exports through Gio.DBusExportedObject.wrapJSObject, whose
+  handlers never see the invocation, so there is no sender to compare
+  without rewriting the D-Bus plumbing, and it cannot be written blind
+  without a GNOME session to test on.
+
+  The title-regex ReDoS is PERC-0069, split out because no cheap guard
+  closes it. A pattern-length cap does not help -- `(a+)+$` is eight
+  characters -- and capping the subject reduces the blowup without removing
+  it while silently breaking long titles. Python's re has no step budget
+  and no timeout, and a thread running it cannot be killed. The three real
+  candidates are recorded there; one has to be chosen before anything is
+  written.
+
+  Ten tests; seven fail against the pre-fix tree. The three that pass there
+  are guards -- a valid signature still accepted, socket probing still
+  declining without one, and an in-process call still allowed when there is
+  no D-Bus sender to compare. node --check confirms the extension parses.
+
+  Noticed next door, not fixed: tests/backend/kwin/test_backend.py leaks a
+  KGlobalAccelProvider._pump_signals task that prints a cross-loop
+  RuntimeError at teardown. Pre-existing -- it reproduces with this run's
+  tests deselected -- and it belongs to the test-suite review, PERC-0063.
   **Layman:** Tightening a few places where Perch trusts input it should check first.
   Kind: security.
   Source: review-code 2026-08-31 (lanes backend-kwin, compositor-scripts, backend-iface-stubs, config).
@@ -1452,6 +1494,52 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Four things the audit could not decide, now decided.
   Kind: fix.
   Source: review-code 2026-08-31 (lane core-state, OPEN QUESTIONS block).
+
+- 📋 [PERC-0069] **Bound how long a user's title regex may run before it blocks the tray.**
+  A `title` pattern from config.toml is compiled and run with re.search
+  against window titles -- attacker-controlled by any application the user
+  runs -- on the single thread driving both Qt and asyncio. A
+  catastrophic-backtracking pattern freezes the whole tray, and the vector
+  is config import, which the UI offers as a feature.
+
+  Split out of PERC-0050 because no cheap guard closes it and shipping one
+  that looks like a fix is worse than shipping none. A pattern-length cap
+  does not help: `(a+)+$` is eight characters. Capping the title fed to
+  search reduces the blowup and does not remove it, and it silently stops
+  long titles matching. Python's `re` has no step budget and no timeout,
+  and a thread running it cannot be killed.
+
+  So the fix is a decision, and there are three candidates. Depend on the
+  `regex` package, which takes `timeout=` on a match call -- a runtime
+  dependency for one guard, against docs/dependency-policy.md. Reject
+  nested quantifiers at parse time -- a heuristic that also rejects
+  legitimate patterns. Or match in a subprocess with a deadline -- correct,
+  and far too heavy for a per-window-event path. Pick one before writing
+  anything.
+  **Layman:** Stop a badly-written rule from freezing Perch while it tries to match a window title.
+  Kind: security.
+  Source: review-code 2026-08-31 (lane core-state), split out of PERC-0050.
+
+- 📋 [PERC-0070] **Let the GNOME Shell extension tell Perch's calls from anyone else's.**
+  The extension exports set_geometry, set_state and close_window on the
+  session bus, so any peer at the same UID can drive them -- including a
+  Flatpak holding --socket=session-bus, which is the case that is not
+  simply the same-UID attacker docs/security-standards.md puts out of
+  scope.
+
+  The argument half is closed under PERC-0050: geometry fields are
+  validated before they reach Mutter. The caller half is not, and it needs
+  plumbing rather than a check. The extension exports through
+  Gio.DBusExportedObject.wrapJSObject, whose handlers never see the
+  invocation, so there is no sender to compare; reaching one means
+  registering the object against the connection directly and rewriting
+  every method signature. The KWin service pins its caller on first
+  contact (PERC-0050) and the same shape would work here, but it cannot be
+  written blind -- it needs a GNOME session to test on, which is also why
+  the Mutter backend is a community stub.
+  **Layman:** On GNOME, any other program on your desktop can currently ask Perch's helper to move or close your windows.
+  Kind: security.
+  Source: review-code 2026-08-31 (lane compositor-scripts), split out of PERC-0050.
 
 ## v1.2 — Smarts
 

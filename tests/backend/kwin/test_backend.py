@@ -786,3 +786,61 @@ def test_capabilities_match_doc() -> None:
     assert caps.can_register_hotkeys is True
     assert "Plasma" in caps.notes
     assert "KGlobalAccel" in caps.notes
+
+
+# ── Caller pinning on the session bus (PERC-0050) ─────────────────────────
+def test_service_drops_calls_from_a_foreign_sender(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The service is on the session bus, so any same-UID peer can call it.
+
+    Perch loads the script itself, so the sender that says ScriptReady is
+    the real one and every later call has to match it.
+    """
+    from perch.backend.kwin import service as service_mod
+
+    class _Sink:
+        def __init__(self) -> None:
+            self.added: list[dict[str, Any]] = []
+
+        def on_window_added(self, data: dict[str, Any]) -> None:
+            self.added.append(data)
+
+        def __getattr__(self, _name: str) -> Any:
+            return lambda *a, **kw: None
+
+    sink = _Sink()
+    service = service_mod.PerchKWin1(cast(Any, sink))
+    service._script_sender = ":1.42"
+
+    monkeypatch.setattr(service_mod, "_current_sender", lambda: ":1.99")
+    asyncio.run(service.WindowAdded('{"id": "w1"}'))
+    assert sink.added == []
+    assert service.counters.foreign_calls == 1
+
+    monkeypatch.setattr(service_mod, "_current_sender", lambda: ":1.42")
+    asyncio.run(service.WindowAdded('{"id": "w1"}'))
+    assert len(sink.added) == 1
+
+
+def test_service_accepts_direct_calls_with_no_message_in_flight() -> None:
+    """The tests drive these methods in-process; there is no sender to
+    compare, and refusing would only break the caller already inside."""
+    from perch.backend.kwin import service as service_mod
+
+    class _Sink:
+        def __init__(self) -> None:
+            self.added: list[dict[str, Any]] = []
+
+        def on_window_added(self, data: dict[str, Any]) -> None:
+            self.added.append(data)
+
+        def __getattr__(self, _name: str) -> Any:
+            return lambda *a, **kw: None
+
+    sink = _Sink()
+    service = service_mod.PerchKWin1(cast(Any, sink))
+    service._script_sender = ":1.42"
+
+    asyncio.run(service.WindowAdded('{"id": "w1"}'))
+    assert len(sink.added) == 1

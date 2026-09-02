@@ -61,7 +61,16 @@ def atomic_write(path: Path, text: str) -> None:
     bak = target.with_suffix(target.suffix + ".bak")
 
     try:
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        # O_NOFOLLOW: the tmp name is predictable and sits in a directory
+        # the user's other processes can reach, so without it a symlink
+        # planted at that path redirects the write (CWE-59). The target
+        # itself is resolved above, deliberately — that one is a supported
+        # dotfiles workflow; this one never is.
+        fd = os.open(
+            tmp,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+            0o600,
+        )
         try:
             os.write(fd, text.encode("utf-8"))
             os.fsync(fd)

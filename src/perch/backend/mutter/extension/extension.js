@@ -33,6 +33,22 @@ const INTERFACE_NAME = 'io.github.milnet01.Perch.Mutter1';
 const OK = () => JSON.stringify({ok: true});
 const ERR = (kind, message) => JSON.stringify({ok: false, error: kind, message});
 
+// The service is on the session bus, so any peer at the same UID can call
+// it -- including a Flatpak holding --socket=session-bus. Geometry fields
+// therefore arrive untrusted and are checked before they reach Mutter,
+// rather than being handed to move_resize_frame as whatever JSON.parse
+// produced. A non-finite or absurd value is a caller error, not a window
+// to place somewhere impossible.
+const COORD_LIMIT = 1000000;
+
+function isCoord(value) {
+    return Number.isInteger(value) && Math.abs(value) <= COORD_LIMIT;
+}
+
+function isExtent(value) {
+    return Number.isInteger(value) && value > 0 && value <= COORD_LIMIT;
+}
+
 const INTERFACE_XML = `
 <node>
   <interface name="${INTERFACE_NAME}">
@@ -221,6 +237,15 @@ class PerchMutterService {
         let req;
         try { req = JSON.parse(request_json); }
         catch { return ERR('unsupported', 'invalid request JSON'); }
+        if (!isCoord(req.x) || !isCoord(req.y) || !isExtent(req.w) || !isExtent(req.h))
+            return ERR('unsupported', 'geometry must be integer x/y and positive w/h');
+        if (req.desktop !== null && req.desktop !== undefined
+            && !(Number.isInteger(req.desktop) && req.desktop >= 0))
+            return ERR('unsupported', 'desktop must be a non-negative integer');
+        if (req.monitor !== null && req.monitor !== undefined
+            && typeof req.monitor !== 'string')
+            return ERR('unsupported', 'monitor must be an output name');
+
         const w = this._windowById(req.id);
         if (!w) return ERR('unknown_window', `no window with id ${req.id}`);
 

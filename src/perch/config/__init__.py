@@ -6,7 +6,13 @@ stdlib :mod:`tomllib` via :mod:`perch.config.loader`; writes go through
 round-trips — see ``docs/02-state-format.md`` §Read / write split.
 """
 
-from .loader import ConfigError, load_or_create
+from .loader import ConfigError, load_or_create, validate_text
 from .schema import CURRENT_SCHEMA_VERSION, Config
 
-__all__ = ["CURRENT_SCHEMA_VERSION", "Config", "ConfigError", "load_or_create"]
+__all__ = [
+    "CURRENT_SCHEMA_VERSION",
+    "Config",
+    "ConfigError",
+    "load_or_create",
+    "validate_text",
+]

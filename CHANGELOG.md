@@ -257,6 +257,39 @@ Sections under each release are populated on a best-effort basis — empty secti
   losing every remembered geometry. The store now latches read-only, as
   `docs/02-state-format.md` §Versioning and migration always specified.
 
+### Security
+
+- **The GNOME Shell extension checks the geometry it is handed** (PERC-0050)
+  `set_geometry` passed whatever `JSON.parse` produced straight to Mutter.
+  Coordinates and extents must now be integers in a sane range, the desktop
+  index non-negative, and the monitor a string.
+
+- **Hyprland's instance signature is validated before it becomes a path** (PERC-0050)
+  It comes from the environment and is joined under `$XDG_RUNTIME_DIR` and,
+  on older Hyprland, `/tmp`. A value carrying a separator walked out of the
+  runtime directory and pointed the socket probe wherever the caller liked.
+
+- **Importing a config validates the bytes it will write** (PERC-0050)
+  The import path read the file once for the diff and again to validate it,
+  then wrote the first read. A file that changed in between was written
+  without ever having been checked.
+
+- **The KWin D-Bus service only accepts calls from the script it loaded** (PERC-0050)
+  The service sits on the session bus, and its methods feed the reducer and
+  the state store. It now pins the bus name that sends `ScriptReady` — the
+  script Perch loaded itself — and drops every later call from anywhere
+  else.
+
+- **The config temp file is opened `O_NOFOLLOW`** (PERC-0050)
+  Its name is predictable and its directory reachable, so a symlink planted
+  there redirected the write. The symlinked *target* is still resolved
+  deliberately — that one is the supported dotfiles workflow.
+
+- **Perch's config and state directories are created owner-only** (PERC-0050)
+  They were left at the umask default, so on a shared machine every other
+  account could read which applications you run and where you put their
+  windows. The mode is re-applied to a directory an older install created.
+
 ## [1.1.0] — 2026-08-28
 
 ### Added

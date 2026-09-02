@@ -26,6 +26,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import shutil
 from collections.abc import Coroutine
 from pathlib import Path
@@ -87,9 +88,25 @@ _CAPABILITIES = Capabilities(
 )
 
 
+#: Hyprland's instance signature is used as a path component under
+#: ``$XDG_RUNTIME_DIR`` and, on older versions, under ``/tmp``. It comes
+#: from the environment, so it is validated before it is joined: a value
+#: containing ``/`` or ``..`` would walk out of the runtime directory and
+#: point the socket probe at an attacker-chosen path.
+_SIGNATURE_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
 def _signature() -> str | None:
     sig = os.environ.get(HYPRLAND_SIGNATURE_ENV)
-    return sig if sig else None
+    if not sig:
+        return None
+    if not _SIGNATURE_RE.match(sig) or sig in (".", ".."):
+        log.warning(
+            "%s is not a plausible instance signature; ignoring it",
+            HYPRLAND_SIGNATURE_ENV,
+        )
+        return None
+    return sig
 
 
 def _socket_paths() -> tuple[Path, Path] | None:
@@ -122,8 +139,6 @@ def _parse_version(raw: str) -> tuple[int, int, int] | None:
     ``"v0.41.2-4-g1234abc"``; ``version`` is a human string. We parse the
     first ``vMAJOR.MINOR.PATCH`` we find. Returns ``None`` if nothing matches.
     """
-    import re
-
     m = re.search(r"v?(\d+)\.(\d+)\.(\d+)", raw)
     if not m:
         return None

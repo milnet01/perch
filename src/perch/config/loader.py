@@ -46,8 +46,7 @@ def _parse(path: Path) -> dict[str, object]:
         return tomllib.load(fh)
 
 
-def _load_and_validate(path: Path) -> Config:
-    document = _parse(path)
+def _migrate_and_validate(document: dict[str, object], source: str) -> Config:
     # Absent means v1, never "whatever this build is": schema_version is not a
     # required key, so defaulting to current would make every unversioned file
     # skip its migrations the day CURRENT_SCHEMA_VERSION moves past 1.
@@ -64,9 +63,26 @@ def _load_and_validate(path: Path) -> Config:
         except migrations.MigrationError as exc:
             # docs/02-state-format.md §Schema reference: a failing migration
             # surfaces as a ConfigError with a pinpoint line, not a traceback.
-            raise ConfigError(f"{path}: {exc}") from exc
+            raise ConfigError(f"{source}: {exc}") from exc
         document["schema_version"] = CURRENT_SCHEMA_VERSION
     return validate(document)
+
+
+def _load_and_validate(path: Path) -> Config:
+    return _migrate_and_validate(_parse(path), str(path))
+
+
+def validate_text(text: str, source: str) -> Config:
+    """Validate a config document already held in memory.
+
+    For a caller that has the exact bytes it intends to write — the
+    dialog's import path — and must validate *those*. Validating the file
+    instead reads it a second time, so a file that changed between the
+    two reads is written without ever having been checked, against
+    ``docs/security-standards.md``'s claim that every loaded document is
+    validated. ``source`` only names the document in error messages.
+    """
+    return _migrate_and_validate(tomllib.loads(text), source)
 
 
 def _seed_defaults(path: Path) -> Config:

@@ -2312,15 +2312,16 @@ class ImportExportPage(QWidget):
             )
             return
 
-        # Validate first. We deliberately import late so this page
-        # stays importable even when perch.config.loader pulls in
-        # heavy deps.
-        from perch.config.loader import _load_and_validate
+        # Validate the bytes just read, not the path — re-reading the file
+        # would let one that changed in between be written unvalidated.
+        # Imported late so this page stays importable even when
+        # perch.config.loader pulls in heavy deps.
+        from perch.config.loader import ConfigError, validate_text
         from perch.config.schema import SchemaError
 
         try:
-            _load_and_validate(source_path)
-        except SchemaError as exc:
+            validate_text(candidate_text, str(source_path))
+        except (SchemaError, ConfigError) as exc:
             QMessageBox.critical(
                 self,
                 self.tr("Invalid TOML"),

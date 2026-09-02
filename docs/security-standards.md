@@ -42,7 +42,19 @@ describes the actual code as it ships; aspirational items are labelled as such.
 - **Atomic writes + backup rotation.** All writes use tmp → `fsync` → rotate old
   file to `.bak` → `rename` → `fsync` dir (`config/writer.py`,
   `core/state_store.py`). A crash or power loss during a write cannot corrupt the
-  live file; the previous good copy always survives as `.bak`.
+  live file; the previous good copy always survives as `.bak`. The temp file is
+  opened `O_NOFOLLOW`: its name is predictable and its directory reachable, so
+  a symlink planted there would otherwise redirect the write. A symlinked
+  *target* is resolved deliberately — that one is the supported dotfiles
+  workflow.
+- **Perch's own directories are `0700`.** `paths.ensure_dir` creates them
+  owner-only and re-applies the mode to a directory an older install created
+  with the umask default. Config and state name the applications the user runs
+  and where they put their windows; on a shared machine `0755` hands that to
+  every other account.
+- **The import path validates the bytes it writes.** `loader.validate_text`
+  takes the text already read rather than re-reading the file, so a file that
+  changes between the check and the write cannot be written unvalidated.
 - **No secrets stored.** Perch persists window identities, geometries, rules, and
   layouts — no passwords, tokens, or credentials. No file is written more
   permissive than `0644`; the exact mode is umask-masked (so `0644` under the
@@ -62,6 +74,14 @@ describes the actual code as it ships; aspirational items are labelled as such.
 Perch trusts the session it runs in — the session bus, the X11 server, and the
 compositor are all already fully privileged over the user's windows. Perch is a
 client of them, not a sandbox around them.
+
+Perch's own bus services are still pinned to the caller they expect, because
+that costs nothing and one caller is not in fact the same-UID case above: a
+Flatpak holding `--socket=session-bus`. `PerchKWin1` records the unique bus
+name that sends `ScriptReady` — the script Perch loaded itself — and drops
+every later call from anywhere else. The GNOME extension validates its
+arguments but cannot yet do the same for its caller; `ROADMAP.md` PERC-0070
+carries why and what it would take.
 
 - **X11** ([04-backend-x11.md](04-backend-x11.md)): Perch speaks EWMH to the
   running WM via `python-xlib`. X11 offers no inter-client isolation by design;

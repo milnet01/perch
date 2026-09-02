@@ -60,5 +60,14 @@ def log_file() -> Path:
 
 
 def ensure_dir(path: Path) -> Path:
-    path.mkdir(parents=True, exist_ok=True)
+    """Create ``path`` (and parents) and make it owner-only.
+
+    ``0700`` rather than the umask default. Perch's config and state name
+    the applications the user runs and where they put their windows; at
+    ``0755`` every other account on a shared machine can read that. The
+    mode is re-applied to an existing directory too, since an install
+    predating this was created with the umask default.
+    """
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.chmod(0o700)
     return path

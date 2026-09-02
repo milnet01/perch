@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from sdbus import DbusInterfaceCommonAsync, dbus_method_async
+from sdbus import DbusInterfaceCommonAsync, dbus_method_async, get_current_message
 
 from . import INTERFACE_NAME, OBJECT_PATH, SERVICE_NAME
 from .protocol import encode_command, encode_nop
@@ -65,6 +65,7 @@ class ServiceCounters:
     poll_invalidated_returns: int = 0
     commands_dispatched: int = 0
     commands_completed: int = 0
+    foreign_calls: int = 0
     latencies_ns: list[int] = field(default_factory=list)
 
 
@@ -87,6 +88,10 @@ class PerchKWin1(
         self._next_seq: int = 0
         self._invalidated: asyncio.Event = asyncio.Event()
         self.script_ready: asyncio.Event = asyncio.Event()
+        # Unique bus name of the KWin script, pinned on its ScriptReady.
+        # ``None`` until then, and while it is None every caller is
+        # accepted — there is nothing yet to compare against.
+        self._script_sender: str | None = None
         self.counters: ServiceCounters = ServiceCounters()
 
     # ── Lifecycle helpers (called by the backend) ──────────────────────────
@@ -155,8 +160,38 @@ class PerchKWin1(
 
     # ── D-Bus methods invoked by the JS script ─────────────────────────────
 
+    def _from_script(self) -> bool:
+        """False when this call came from someone other than the script.
+
+        The service sits on the session bus, so any process at the same UID
+        can call it — and these methods feed the reducer and the state
+        store. Perch loads the script itself, so the first caller, the one
+        that sends ``ScriptReady``, is the real one; every later call has
+        to arrive from the same unique bus name.
+
+        ``docs/security-standards.md`` puts a same-UID attacker out of
+        scope, so this is cheap insurance rather than a boundary. A call
+        made with no D-Bus message in flight — the tests drive these
+        methods directly — is allowed through, because there is no sender
+        to compare and refusing would only break the caller that is
+        already inside the process.
+        """
+        expected = self._script_sender
+        if expected is None:
+            return True
+        sender = _current_sender()
+        if sender is None or sender == expected:
+            return True
+        self.counters.foreign_calls += 1
+        log.warning(
+            "dropping call from %r: the KWin script is %r", sender, expected
+        )
+        return False
+
     @dbus_method_async(input_signature="s", result_signature="")
     async def WindowAdded(self, payload: str) -> None:
+        if not self._from_script():
+            return
         self.counters.window_added += 1
         data = _safe_json(payload)
         if data is not None:
@@ -164,6 +199,8 @@ class PerchKWin1(
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def WindowRemoved(self, payload: str) -> None:
+        if not self._from_script():
+            return
         self.counters.window_removed += 1
         data = _safe_json(payload)
         if data is not None:
@@ -171,6 +208,8 @@ class PerchKWin1(
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def WindowGeometryChanged(self, payload: str) -> None:
+        if not self._from_script():
+            return
         self.counters.window_geometry_changed += 1
         data = _safe_json(payload)
         if data is not None:
@@ -178,6 +217,8 @@ class PerchKWin1(
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def WindowPropertiesChanged(self, payload: str) -> None:
+        if not self._from_script():
+            return
         self.counters.window_properties_changed += 1
         data = _safe_json(payload)
         if data is not None:
@@ -185,17 +226,28 @@ class PerchKWin1(
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def OutputsChanged(self, _payload: str) -> None:
+        if not self._from_script():
+            return
         self.counters.outputs_changed += 1
         self._sink.on_outputs_changed()
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def ScriptReady(self, payload: str) -> None:
+        # First contact pins the sender for every later call. A second
+        # ScriptReady from a different name is refused rather than allowed
+        # to re-pin, or the check would be one call away from useless.
+        if not self._from_script():
+            return
+        if self._script_sender is None:
+            self._script_sender = _current_sender()
         data = _safe_json(payload) or {}
         self.script_ready.set()
         self._sink.on_script_ready(data)
 
     @dbus_method_async(input_signature="", result_signature="s")
     async def PollCommand(self) -> str:
+        if not self._from_script():
+            return encode_nop(reason="unknown_caller")
         self.counters.poll_requests += 1
         invalidated = self._invalidated  # snapshot: survives swap from invalidate_polls()
         get_task = asyncio.create_task(self._queue.get())
@@ -220,6 +272,8 @@ class PerchKWin1(
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def CommandDone(self, payload: str) -> None:
+        if not self._from_script():
+            return
         self.counters.commands_completed += 1
         data = _safe_json(payload)
         if data is None:
@@ -240,6 +294,15 @@ class PerchKWin1(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+
+def _current_sender() -> str | None:
+    """The unique bus name of the caller, or ``None`` outside a dispatch."""
+    try:
+        message = get_current_message()
+    except LookupError:
+        return None
+    return getattr(message, "sender", None)
 
 
 def _safe_json(payload: str) -> dict[str, Any] | None:
