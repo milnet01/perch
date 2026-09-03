@@ -1254,6 +1254,16 @@ Goal: fewer first-run support tickets; the config is safe.
   portable_to_xdg is a zombie -- the live portal boundary uses a private
   copy. Plus untranslated user-facing strings across four lanes and two
   missing setAccessibleName calls.
+  Inherited from PERC-0047 (2026-09-03): portable_to_xdg splits its
+  accelerator on "+" and drops empty fields, so the legal PortableText
+  "Ctrl++" loses its key — the same defect fixed in the X11 hotkey parser
+  that day. It was left here rather than fixed there because this item
+  already owns the question of whether that function lives at all: the lane
+  found it is a zombie, with the live portal boundary using a private copy.
+  Decide the zombie first. If it stays, the fix is the one now in
+  backend/x11/hotkeys.py parse_portable_accel — a trailing "+" splits to two
+  empty fields, and that pair is the plus key rather than a dangling
+  separator. If it goes, the defect goes with it.
   **Layman:** Validation that shows nothing, a theme override that ignores your desktop, and keyboard gaps.
   Kind: fix.
   Source: review-code 2026-08-31 (lanes ui-shell, ui-dialog).
