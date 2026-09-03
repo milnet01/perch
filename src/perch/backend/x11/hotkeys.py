@@ -69,6 +69,9 @@ _KEY_ALIASES: dict[str, str] = {
     "Return": "Return",
     "Enter": "Return",
     "Space": "space",
+    # QKeySequence spells the plus key as a bare "+", so "Ctrl++" is the
+    # legal PortableText form for Ctrl and that key.
+    "+": "plus",
 }
 
 
@@ -101,12 +104,20 @@ def parse_portable_accel(accel: str) -> ParsedHotkey:
     """
     if not accel:
         raise HotkeyParseError("empty accelerator")
-    parts = [p.strip() for p in accel.split("+") if p.strip()]
-    if not parts:
+    # "+" is both the separator and a key name. Qt writes that key as a
+    # trailing "+", which splits to two empty trailing fields ("Ctrl++" →
+    # ["Ctrl", "", ""]). A single empty field is a dangling separator and
+    # stays an error.
+    raw_parts = accel.split("+")
+    literal_plus = raw_parts[-2:] == ["", ""]
+    if literal_plus:
+        raw_parts = raw_parts[:-2]
+    parts = [p.strip() for p in raw_parts if p.strip()]
+    if not (parts or literal_plus):
         raise HotkeyParseError(f"empty accelerator: {accel!r}")
 
     mods = 0
-    key_parts: list[str] = []
+    key_parts: list[str] = ["+"] if literal_plus else []
     for token in parts:
         lowered = token.lower()
         if lowered in _MOD_PORTABLE_TO_X:
@@ -117,32 +128,37 @@ def parse_portable_accel(accel: str) -> ParsedHotkey:
         raise HotkeyParseError(
             f"expected exactly one non-modifier key in {accel!r}, got {key_parts!r}"
         )
-    raw_key = key_parts[0]
+    return ParsedHotkey(
+        modifiers=mods, keysym_name=_resolve_keysym_name(key_parts[0], mods)
+    )
+
+
+def _resolve_keysym_name(raw_key: str, mods: int) -> str:
+    """Map one PortableText key name onto its X11 keysym name."""
     name = _KEY_ALIASES.get(raw_key)
-    if name is None:
-        if len(raw_key) == 1 and raw_key.isalpha():
-            # X11 keysyms are case-sensitive; a lone letter key in Qt is
-            # capitalised ("A") even when Shift is absent. Map to lowercase
-            # keysym — Shift is already in the modifier mask when the user
-            # intends the shifted variant.
-            name = raw_key.lower() if (mods & _X.ShiftMask) == 0 else raw_key
-        else:
-            name = raw_key
-    return ParsedHotkey(modifiers=mods, keysym_name=name)
+    if name is not None:
+        return name
+    if len(raw_key) == 1 and raw_key.isalpha():
+        # X11 keysyms are case-sensitive; a lone letter key in Qt is
+        # capitalised ("A") even when Shift is absent. Map to lowercase
+        # keysym — Shift is already in the modifier mask when the user
+        # intends the shifted variant.
+        return raw_key.lower() if (mods & _X.ShiftMask) == 0 else raw_key
+    return raw_key
 
 
 # ── NumLock mask discovery ─────────────────────────────────────────────────
 
 
-def compute_numlock_mask(display: Display) -> int:
-    """Return the X11 mod mask that corresponds to NumLock, or 0 if none.
+def _mask_for_keysym(display: Display, keysym_name: str) -> int:
+    """Return the mod mask carrying ``keysym_name``, or 0 if it carries none.
 
     Walks the modifier map (``d.get_modifier_mapping()``) looking for the
-    Num_Lock keysym's keycode. Mod bits Mod1..Mod5 live at indices 3..7 of
-    the mapping; Shift (0), Lock (1), Control (2) can never carry NumLock
-    and are skipped.
+    keysym's keycode. Mod bits Mod1..Mod5 live at indices 3..7 of the
+    mapping; Shift (0), Lock (1), Control (2) can never carry a lock key
+    other than CapsLock and are skipped.
     """
-    target = int(display.keysym_to_keycode(XK.string_to_keysym("Num_Lock")))
+    target = int(display.keysym_to_keycode(XK.string_to_keysym(keysym_name)))
     if target == 0:
         return 0
     mapping = display.get_modifier_mapping()
@@ -152,12 +168,37 @@ def compute_numlock_mask(display: Display) -> int:
     return 0
 
 
+def compute_numlock_mask(display: Display) -> int:
+    """Return the X11 mod mask that corresponds to NumLock, or 0 if none."""
+    return _mask_for_keysym(display, "Num_Lock")
+
+
+def compute_scrolllock_mask(display: Display) -> int:
+    """Return the X11 mod mask that corresponds to ScrollLock, or 0 if none.
+
+    ScrollLock is bound far less consistently than NumLock — often nowhere
+    at all, which is what the 0 means. It matters because a lock bit left
+    set silently changes ``KeyPress.state``, and a grab that does not cover
+    it never fires.
+    """
+    return _mask_for_keysym(display, "Scroll_Lock")
+
+
 # ── Grab / ungrab fan-out ──────────────────────────────────────────────────
 
 
-def _lock_masks(numlock: int) -> frozenset[int]:
-    """Every combination of lock bits we need to cover per grab."""
-    return frozenset({0, _X.LockMask, numlock, _X.LockMask | numlock})
+def _lock_masks(numlock: int, scrolllock: int = 0) -> frozenset[int]:
+    """Every combination of lock bits we need to cover per grab.
+
+    CapsLock, NumLock and ScrollLock can each be latched independently, so
+    the fan-out is the power set of the three bits — eight grabs where all
+    three are bound, fewer when a bit resolves to 0 and the set collapses.
+    """
+    masks = {0}
+    for bit in (_X.LockMask, numlock, scrolllock):
+        if bit:
+            masks |= {m | bit for m in masks}
+    return frozenset(masks)
 
 
 class HotkeyBusyError(Exception):
@@ -172,7 +213,7 @@ class HotkeyBusyError(Exception):
 
 
 def grab_hotkey(
-    display: Display, parsed: ParsedHotkey, numlock: int
+    display: Display, parsed: ParsedHotkey, numlock: int, scrolllock: int = 0
 ) -> int:
     """Install an ``XGrabKey`` and return the keycode for later ungrab.
 
@@ -191,7 +232,7 @@ def grab_hotkey(
 
     root = display.screen().root
     catch = _xerror.CatchError(_xerror.BadAccess)
-    for extra in _lock_masks(numlock):
+    for extra in _lock_masks(numlock, scrolllock):
         root.grab_key(
             keycode,
             parsed.modifiers | extra,
@@ -206,7 +247,7 @@ def grab_hotkey(
     err = catch.get_error()
     if err is not None:
         # Undo the partial grabs we might have installed.
-        _ungrab_locks(display, keycode, parsed.modifiers, numlock)
+        _ungrab_locks(display, keycode, parsed.modifiers, numlock, scrolllock)
         raise HotkeyBusyError(
             f"grab_key BadAccess for {parsed!r}; another client owns it"
         )
@@ -214,25 +255,35 @@ def grab_hotkey(
 
 
 def ungrab_hotkey(
-    display: Display, keycode: int, modifiers: int, numlock: int
+    display: Display,
+    keycode: int,
+    modifiers: int,
+    numlock: int,
+    scrolllock: int = 0,
 ) -> None:
     """Remove every lock-mask variant of a previous grab."""
-    _ungrab_locks(display, keycode, modifiers, numlock)
+    _ungrab_locks(display, keycode, modifiers, numlock, scrolllock)
     display.flush()
 
 
 def _ungrab_locks(
-    display: Display, keycode: int, modifiers: int, numlock: int
+    display: Display,
+    keycode: int,
+    modifiers: int,
+    numlock: int,
+    scrolllock: int = 0,
 ) -> None:
     root = display.screen().root
-    for extra in _lock_masks(numlock):
+    for extra in _lock_masks(numlock, scrolllock):
         root.ungrab_key(keycode, modifiers | extra)
 
 
-def normalise_modifier_state(state: int, numlock: int) -> int:
+def normalise_modifier_state(
+    state: int, numlock: int, scrolllock: int = 0
+) -> int:
     """Strip lock bits from a KeyPress ``state`` for table lookup.
 
     Lock bits vary with CapsLock / NumLock state and should never be part
     of the "what modifier set was held?" question.
     """
-    return int(state & ~(_X.LockMask | numlock))
+    return int(state & ~(_X.LockMask | numlock | scrolllock))

@@ -23,12 +23,15 @@ Module layout notes (confirmed 2026-04-20 against ``python-xlib`` 0.33):
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from perch.backend.types import Geometry, OutputInfo
 
 if TYPE_CHECKING:
     from Xlib.display import Display
+
+log = logging.getLogger(__name__)
 
 
 def refresh_mhz(dot_clock: int, h_total: int, v_total: int) -> int:
@@ -59,7 +62,15 @@ def list_outputs(display: Display) -> list[OutputInfo]:
     from Xlib.ext import randr
 
     root = display.screen().root
-    res = root.xrandr_get_screen_resources_current()
+    try:
+        res = root.xrandr_get_screen_resources_current()
+    except AttributeError as exc:
+        # python-xlib binds the xrandr_* methods only when the server has the
+        # extension, so its absence reads as a missing attribute. An empty
+        # list is the truthful answer and keeps start() alive; the core
+        # already handles a machine reporting no outputs.
+        log.warning("randr unavailable, cannot enumerate outputs: %s", exc)
+        return []
     config_ts = res.config_timestamp
     modes = {m["id"]: m for m in res.modes}
     primary = root.xrandr_get_output_primary().output
@@ -153,10 +164,20 @@ def apply_workarea(outputs: list[OutputInfo], workarea: Geometry) -> list[Output
 
 
 def _intersect(a: Geometry, b: Geometry) -> Geometry:
+    """Intersect ``a`` with ``b``, falling back to ``a`` when they are disjoint.
+
+    A disjoint pair is the routine multi-monitor case, not an error: plenty
+    of WMs publish a ``_NET_WORKAREA`` covering the primary output alone, so
+    a second output lies wholly outside it. Returning the empty rect there
+    put a zero-size ``work_area`` on that output, and every snap against it
+    produced a zero-size window. Falling back to ``a`` says the honest
+    thing — no struts are known on that output, so none are subtracted.
+    """
     x0 = max(a.x, b.x)
     y0 = max(a.y, b.y)
     x1 = min(a.x + a.w, b.x + b.w)
     y1 = min(a.y + a.h, b.y + b.h)
     if x1 <= x0 or y1 <= y0:
-        return Geometry(a.x, a.y, 0, 0)
+        log.debug("workarea %r does not meet output rect %r; using the rect", b, a)
+        return a
     return Geometry(x0, y0, x1 - x0, y1 - y0)

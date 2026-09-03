@@ -63,6 +63,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Close the remaining X11 EWMH and ICCCM defects.** (PERC-0047)
+  Hotkeys now fire with ScrollLock on, a held hotkey fires once instead of
+  repeating, and "Ctrl++" registers. A desktop without the RandR extension
+  starts instead of failing. Closing a window that offers no close protocol
+  reports that rather than killing the application. Restoring a minimised
+  window works, and a monitor the desktop reports no working area for keeps
+  its full size instead of collapsing to nothing.
+
 - **Module docstrings that described shipped code as still to come** (PERC-0062)
   The X11 and KWin backend docstrings said their commands and hotkey
   registration had not landed and would raise; both are v1 backends and

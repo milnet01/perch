@@ -15,6 +15,7 @@ without a display.
 from __future__ import annotations
 
 import contextlib
+import logging
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QSocketNotifier, Qt, QTimer
@@ -45,6 +46,7 @@ from .ewmh import (
     WM_STATE_ADD,
     WM_STATE_REMOVE,
     AtomTable,
+    build_active_window_message,
     build_change_state_message,
     build_close_message,
     build_moveresize_message,
@@ -58,17 +60,20 @@ from .hotkeys import (
     HotkeyParseError,
     ParsedHotkey,
     compute_numlock_mask,
+    compute_scrolllock_mask,
     grab_hotkey,
     normalise_modifier_state,
     parse_portable_accel,
     ungrab_hotkey,
 )
-from .identity import read_window_info
+from .identity import read_window_info, read_window_state
 from .outputs import apply_workarea, list_outputs
 
 if TYPE_CHECKING:
     from Xlib.display import Display
     from Xlib.xobject.drawable import Window
+
+log = logging.getLogger(__name__)
 
 _X11_CAPABILITIES = Capabilities(
     can_set_position=True,
@@ -136,8 +141,13 @@ class X11Backend(WindowBackend):
         # callback_id. Base mods have lock bits stripped so the table key is
         # invariant across CapsLock / NumLock state.
         self._hotkey_lookup: dict[tuple[int, int], str] = {}
-        # NumLock mask, resolved once at start().
+        # NumLock / ScrollLock masks, resolved once at start().
         self._numlock_mask: int = 0
+        self._scrolllock_mask: int = 0
+        # keycode → timestamp of its last KeyRelease. X autorepeat emits a
+        # KeyRelease and KeyPress sharing one timestamp; a genuine re-press
+        # never does (docs/04-backend-x11.md §Hotkeys).
+        self._key_release_times: dict[int, int] = {}
 
     @classmethod
     def is_available(cls) -> bool:
@@ -236,6 +246,7 @@ class X11Backend(WindowBackend):
         # Resolve NumLock's mod bit once — it drives the lock-mask fan-out
         # for every future XGrabKey call.
         self._numlock_mask = compute_numlock_mask(self._d)
+        self._scrolllock_mask = compute_scrolllock_mask(self._d)
 
         self._d.flush()
 
@@ -287,6 +298,7 @@ class X11Backend(WindowBackend):
         self._atoms = None
         self._info_cache.clear()
         self._outputs_cache.clear()
+        self._key_release_times.clear()
 
     @property
     def capabilities(self) -> Capabilities:
@@ -484,6 +496,18 @@ class X11Backend(WindowBackend):
                 build_wm_state_message(win, atoms, WM_STATE_REMOVE, fs),
                 event_mask=ev_mask,
             )
+            # Clearing those bits does nothing to an iconified window: the
+            # WM has unmapped it and _NET_WM_STATE_HIDDEN is the WM's to set.
+            # _NET_ACTIVE_WINDOW is the de-iconify request (wm-spec §5.7),
+            # and without it can_set_state=True over-claims — NORMAL could
+            # never undo MINIMIZED. Sent only when the window really is
+            # iconified, because activating also raises and focuses: doing
+            # that unconditionally would make applying a layout shuffle the
+            # focus across every window it touches.
+            if read_window_state(atoms, win) is WindowState.MINIMIZED:
+                root.send_event(
+                    build_active_window_message(win, atoms), event_mask=ev_mask
+                )
         else:
             raise BackendUnsupported(f"unknown WindowState: {state!r}")
         d.flush()
@@ -503,9 +527,15 @@ class X11Backend(WindowBackend):
             msg = build_close_message(win, atoms)
             win.send_event(msg, event_mask=0, propagate=False)
         else:
-            # XKillClient — the last-resort abrupt close. python-xlib exposes
-            # this as display.kill_client(resource). Matches what xkill does.
-            d.kill_client(win)
+            # No ICCCM close protocol. XKillClient would work, but it is not
+            # a close request: it tears down the client's whole connection,
+            # taking every other window that client owns with it and offering
+            # no save prompt. docs/03-backend-interface.md scopes close_window
+            # to a request, so refuse rather than destroy.
+            raise BackendUnsupported(
+                f"window {wid!r} does not advertise WM_DELETE_WINDOW; "
+                "X11 offers no way to request its close"
+            )
         d.flush()
 
     def _supports_delete_protocol(
@@ -534,7 +564,9 @@ class X11Backend(WindowBackend):
                 f"cannot register hotkey {accel!r}: {exc!s}"
             ) from exc
         try:
-            keycode = grab_hotkey(d, parsed, self._numlock_mask)
+            keycode = grab_hotkey(
+                d, parsed, self._numlock_mask, self._scrolllock_mask
+            )
         except HotkeyBusyError as exc:
             # Surface as a non-fatal backend warning; the core can prompt the
             # user to pick a different accelerator. Reraise as
@@ -555,7 +587,9 @@ class X11Backend(WindowBackend):
             return
         keycode, mods, _parsed = entry
         self._hotkey_lookup.pop((keycode, mods), None)
-        ungrab_hotkey(d, keycode, mods, self._numlock_mask)
+        ungrab_hotkey(
+            d, keycode, mods, self._numlock_mask, self._scrolllock_mask
+        )
 
     # ── Event loop ─────────────────────────────────────────────────────────
     def _init_randr_subscription(self) -> None:
@@ -572,9 +606,13 @@ class X11Backend(WindowBackend):
                 | randr.RRCrtcChangeNotifyMask
                 | randr.RROutputChangeNotifyMask
             )
-        except _xerror.BadAccess:
-            # No RandR on this server. Degrade gracefully — can_observe_outputs
-            # still holds for the static enumeration; hot-plug is simply blind.
+        except (AttributeError, _xerror.BadAccess) as exc:
+            # No RandR on this server. python-xlib binds the xrandr_* methods
+            # onto the drawable only once the extension is present, so an
+            # absent extension surfaces as AttributeError rather than the
+            # protocol error — and an unhandled one killed start() outright.
+            # Degrade instead: hot-plug is blind, but the backend runs.
+            log.warning("randr unavailable, output hot-plug disabled: %s", exc)
             return
         # Xlib assigns extension-event codes during init_extension('RANDR'),
         # accessed via the dynamic d.extension_event namespace.
@@ -595,6 +633,7 @@ class X11Backend(WindowBackend):
         except (_xerror.ConnectionClosedError, OSError) as exc:
             # The X server went away mid-drain — stop the backend cleanly.
             self._connected = False
+            log.warning("x11 connection lost while draining events: %s", exc)
             self.backend_disconnected.emit(f"x11 disconnected: {exc!s}")
 
     def _dispatch(self, event: Any) -> None:
@@ -615,6 +654,9 @@ class X11Backend(WindowBackend):
             return
         if etype == _X.KeyPress:
             self._on_key_press(event)
+            return
+        if etype == _X.KeyRelease:
+            self._on_key_release(event)
             return
         if etype == _X.DestroyNotify:
             # The window is provably gone: window_closed is terminal and safe.
@@ -652,8 +694,9 @@ class X11Backend(WindowBackend):
         # Build a fresh snapshot.
         try:
             outs = list_outputs(self._d) if self._d is not None else []
-        except _xerror.XError:
+        except _xerror.XError as exc:
             # RandR request failed mid-run; leave the cache alone.
+            log.warning("output refresh failed, keeping the last snapshot: %s", exc)
             return
         workarea = self._read_workarea()
         if workarea is not None:
@@ -722,7 +765,10 @@ class X11Backend(WindowBackend):
             prop = root.get_full_property(
                 atoms["_NET_CLIENT_LIST"], _X.AnyPropertyType
             )
-        except _xerror.XError:
+        except _xerror.XError as exc:
+            # Perch tracks windows off this property alone. Losing it means
+            # the window list silently stops updating, so say so.
+            log.warning("cannot read _NET_CLIENT_LIST, window list is stale: %s", exc)
             return
         now_ids = (
             [int(v) for v in prop.value] if prop is not None and prop.format == 32 else []
@@ -781,10 +827,24 @@ class X11Backend(WindowBackend):
             )
 
     def _on_key_press(self, event: Any) -> None:
-        base_mods = normalise_modifier_state(int(event.state), self._numlock_mask)
-        cb_id = self._hotkey_lookup.get((int(event.detail), base_mods))
+        keycode = int(event.detail)
+        # Autorepeat: the server emits KeyRelease + KeyPress with one shared
+        # timestamp, so a press matching the last release of the same key is
+        # the key still being held rather than a new press. Without this a
+        # held snap hotkey re-applies at the autorepeat rate.
+        if self._key_release_times.get(keycode) == int(event.time):
+            return
+        base_mods = normalise_modifier_state(
+            int(event.state), self._numlock_mask, self._scrolllock_mask
+        )
+        cb_id = self._hotkey_lookup.get((keycode, base_mods))
         if cb_id is not None:
             self.hotkey_fired.emit(cb_id)
+
+    def _on_key_release(self, event: Any) -> None:
+        # Remembered only so the next KeyPress can tell autorepeat from a
+        # deliberate re-press. Bounded by the number of grabbed keys.
+        self._key_release_times[int(event.detail)] = int(event.time)
 
     def _on_window_gone(self, event: Any) -> None:
         wid_str = str(event.window.id)

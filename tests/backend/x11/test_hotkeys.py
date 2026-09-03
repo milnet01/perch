@@ -169,9 +169,10 @@ def test_compute_numlock_mask_returns_zero_when_numlock_unbound_to_mod() -> None
 
 
 class _StubKeyPressEvent:
-    def __init__(self, detail: int, state: int) -> None:
+    def __init__(self, detail: int, state: int, time: int = 0) -> None:
         self.detail = detail
         self.state = state
+        self.time = time
 
 
 def test_on_key_press_emits_hotkey_fired_for_matching_entry() -> None:
@@ -183,6 +184,8 @@ def test_on_key_press_emits_hotkey_fired_for_matching_entry() -> None:
     # signal + lookup machinery).
     backend = X11Backend.__new__(X11Backend)
     backend._numlock_mask = _X.Mod2Mask
+    backend._scrolllock_mask = 0
+    backend._key_release_times = {}
     backend._hotkey_lookup = {(95, _X.ControlMask | _X.Mod1Mask): "cb-test"}
     backend.hotkey_fired = MagicMock()
 
@@ -202,6 +205,8 @@ def test_on_key_press_ignores_unregistered_combinations() -> None:
 
     backend = X11Backend.__new__(X11Backend)
     backend._numlock_mask = _X.Mod2Mask
+    backend._scrolllock_mask = 0
+    backend._key_release_times = {}
     backend._hotkey_lookup = {(95, _X.ControlMask | _X.Mod1Mask): "cb-test"}
     backend.hotkey_fired = MagicMock()
 
@@ -209,3 +214,131 @@ def test_on_key_press_ignores_unregistered_combinations() -> None:
     evt = _StubKeyPressEvent(detail=95, state=0)
     backend._on_key_press(evt)
     backend.hotkey_fired.emit.assert_not_called()
+
+
+# ── PERC-0047: literal "+" as the key ──────────────────────────────────────
+# QKeySequence PortableText spells the plus key as a bare "+", so "Ctrl++"
+# is the legal form docs/03-backend-interface.md names as the contract.
+# Splitting on "+" and dropping empties loses it entirely.
+
+
+def test_parse_accepts_literal_plus_as_the_key() -> None:
+    got = parse_portable_accel("Ctrl++")
+    assert got.modifiers == _X.ControlMask
+    assert got.keysym_name == "plus"
+
+
+def test_parse_accepts_bare_plus_with_no_modifier() -> None:
+    got = parse_portable_accel("+")
+    assert got.modifiers == 0
+    assert got.keysym_name == "plus"
+
+
+def test_parse_accepts_literal_plus_with_several_modifiers() -> None:
+    got = parse_portable_accel("Ctrl+Alt++")
+    assert got.modifiers == _X.ControlMask | _X.Mod1Mask
+    assert got.keysym_name == "plus"
+
+
+def test_parse_still_rejects_a_dangling_modifier_separator() -> None:
+    # "Ctrl+" names no key at all — that is malformed, not a plus key.
+    with pytest.raises(HotkeyParseError):
+        parse_portable_accel("Ctrl+")
+
+
+# ── PERC-0047: ScrollLock in the fan-out ───────────────────────────────────
+# docs/04-backend-x11.md §Hotkeys promises the grab covers every combination
+# of NumLock / CapsLock / ScrollLock. Four masks cover only the first two, so
+# a hotkey pressed with ScrollLock on is never delivered.
+
+
+def test_lock_masks_covers_all_eight_combinations_with_scrolllock() -> None:
+    got = _lock_masks(_X.Mod2Mask, _X.Mod5Mask)
+    assert got == frozenset({
+        0,
+        _X.LockMask,
+        _X.Mod2Mask,
+        _X.Mod5Mask,
+        _X.LockMask | _X.Mod2Mask,
+        _X.LockMask | _X.Mod5Mask,
+        _X.Mod2Mask | _X.Mod5Mask,
+        _X.LockMask | _X.Mod2Mask | _X.Mod5Mask,
+    })
+
+
+def test_normalise_strips_scrolllock_bit() -> None:
+    state = _X.Mod4Mask | _X.Mod5Mask
+    assert normalise_modifier_state(state, _X.Mod2Mask, _X.Mod5Mask) == _X.Mod4Mask
+
+
+def test_compute_scrolllock_mask_finds_its_mod_bit() -> None:
+    from perch.backend.x11.hotkeys import compute_scrolllock_mask
+
+    d = _StubDisplay(numlock_keycode=78, mapping={7: [78]})
+    assert compute_scrolllock_mask(d) == _X.Mod5Mask
+
+
+def test_compute_scrolllock_mask_returns_zero_when_unbound() -> None:
+    from perch.backend.x11.hotkeys import compute_scrolllock_mask
+
+    d = _StubDisplay(numlock_keycode=0, mapping={})
+    assert compute_scrolllock_mask(d) == 0
+
+
+# ── PERC-0047: autorepeat filter ───────────────────────────────────────────
+# docs/04-backend-x11.md §Hotkeys: "Key repeat delivers a rapid KeyRelease +
+# KeyPress pair with matching timestamps; filter these when we only want one
+# fire per press." Without the filter a held snap hotkey re-applies at the
+# autorepeat rate.
+
+
+class _StubKeyReleaseEvent:
+    def __init__(self, detail: int, state: int, time: int = 0) -> None:
+        self.detail = detail
+        self.state = state
+        self.time = time
+
+
+def _hotkey_backend() -> Any:
+    from unittest.mock import MagicMock
+
+    from perch.backend.x11.backend import X11Backend
+
+    backend = X11Backend.__new__(X11Backend)
+    backend._numlock_mask = _X.Mod2Mask
+    backend._scrolllock_mask = 0
+    backend._key_release_times = {}
+    backend._hotkey_lookup = {(95, _X.ControlMask): "cb-test"}
+    backend.hotkey_fired = MagicMock()
+    return backend
+
+
+def test_autorepeat_pair_with_matching_timestamp_fires_once() -> None:
+    backend = _hotkey_backend()
+    # Genuine press.
+    backend._on_key_press(_StubKeyPressEvent(95, _X.ControlMask, time=1000))
+    # X autorepeat: a KeyRelease and KeyPress sharing one timestamp.
+    backend._on_key_release(_StubKeyReleaseEvent(95, _X.ControlMask, time=1040))
+    backend._on_key_press(_StubKeyPressEvent(95, _X.ControlMask, time=1040))
+
+    backend.hotkey_fired.emit.assert_called_once_with("cb-test")
+
+
+def test_genuine_second_press_after_release_fires_again() -> None:
+    backend = _hotkey_backend()
+    backend._on_key_press(_StubKeyPressEvent(95, _X.ControlMask, time=1000))
+    # A real release, then a distinctly later press — two deliberate taps.
+    backend._on_key_release(_StubKeyReleaseEvent(95, _X.ControlMask, time=1100))
+    backend._on_key_press(_StubKeyPressEvent(95, _X.ControlMask, time=1400))
+
+    assert backend.hotkey_fired.emit.call_count == 2
+
+
+def test_release_of_one_key_does_not_suppress_another() -> None:
+    backend = _hotkey_backend()
+    backend._hotkey_lookup[(96, _X.ControlMask)] = "cb-other"
+    backend._on_key_release(_StubKeyReleaseEvent(95, _X.ControlMask, time=2000))
+    # Same timestamp, different keycode — not the repeat of that release.
+    backend._on_key_press(_StubKeyPressEvent(96, _X.ControlMask, time=2000))
+
+    backend.hotkey_fired.emit.assert_called_once_with("cb-other")

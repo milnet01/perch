@@ -188,6 +188,10 @@ class WindowBackend(QObject):
 
     async def close_window(self, wid: WindowId) -> None: ...
         # Requests the window close (WM_DELETE_WINDOW / xdg_toplevel close).
+        # A request only: where the window advertises no close protocol,
+        # raise BackendUnsupported rather than destroying it. Forcing the
+        # close (XKillClient and friends) takes down every other window the
+        # same client owns and offers no save prompt.
         # Not used in v1 features, but cheap to implement and useful for tooling.
 
     # ── Hotkeys (optional) ─────────────────────────────────────────────────

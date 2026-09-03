@@ -346,6 +346,28 @@ def build_wm_desktop_message(
     )
 
 
+def build_active_window_message(
+    window: Window,
+    atoms: AtomTable,
+    *,
+    source: int = SOURCE_PAGER,
+) -> ClientMessage:
+    """Build a ``_NET_ACTIVE_WINDOW`` event (activate, and so de-iconify).
+
+    wm-spec §5.7: a compliant WM un-iconifies the window before raising it,
+    which makes this the only EWMH route back out of the iconic state — the
+    ICCCM ``WM_CHANGE_STATE`` message that puts a window there has no
+    NormalState counterpart a pager may send.
+    """
+    from Xlib.protocol.event import ClientMessage
+
+    return ClientMessage(
+        window=window,
+        client_type=atoms["_NET_ACTIVE_WINDOW"],
+        data=(32, [source, 0, 0, 0, 0]),
+    )
+
+
 def build_close_message(window: Window, atoms: AtomTable) -> ClientMessage:
     """Build a ``WM_PROTOCOLS`` + ``WM_DELETE_WINDOW`` event (ICCCM close)."""
     from Xlib.protocol.event import ClientMessage

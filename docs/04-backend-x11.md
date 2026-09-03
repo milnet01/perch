@@ -86,6 +86,10 @@ For `can_set_state`:
 
 `output_added` / `output_removed` / `output_changed` are emitted on `RRScreenChangeNotify` + `RRCrtcChangeNotify`. Perch debounces these (200 ms) so unplugging a cable that triggers three sub-events is reported once.
 
+A server without the XRandR extension does not stop the backend. `python-xlib` binds its `xrandr_*` methods only when the extension is present, so an absent one surfaces as `AttributeError`; Perch logs a warning, `list_outputs()` returns an empty list, and hot-plug reporting is simply blind. Everything not needing output geometry keeps working.
+
+`_NET_WORKAREA` is a single root-level rect, and some WMs publish only the primary output's area. Where it misses an output entirely, that output keeps its full geometry as its work area rather than an empty rect — no struts are known there, so none are subtracted.
+
 ## Virtual desktops
 
 - `current_desktop()` → `_NET_CURRENT_DESKTOP`.
@@ -99,12 +103,16 @@ Some WMs (i3, bspwm) model workspaces non-linearly. Perch treats the EWMH deskto
 X11 global hotkeys use `XGrabKey` on the root window, with a **lock-mask fan-out** so the grab covers every combination of `NumLock` / `CapsLock` / `ScrollLock` the user might have set when pressing the key:
 
 ```python
-lock_masks = [0, X.LockMask, mod2_mask, X.LockMask | mod2_mask]  # Mod2 ≈ NumLock on most layouts
+# The power set of the three lock bits — eight grabs when all three are bound.
+lock_masks = [0]
+for bit in (X.LockMask, numlock_mask, scrolllock_mask):
+    if bit:
+        lock_masks += [m | bit for m in lock_masks]
 for extra in lock_masks:
     root.grab_key(keycode, mods | extra, 1, X.GrabModeAsync, X.GrabModeAsync)
 ```
 
-`mod2_mask` must be resolved dynamically at startup via `d.get_modifier_mapping()` — on some layouts NumLock lives under a different Mod bit.
+`numlock_mask` and `scrolllock_mask` are both resolved dynamically at startup via `d.get_modifier_mapping()` — layouts vary in which Mod bit carries each, and ScrollLock is often bound to none, in which case its mask is `0` and the set collapses.
 
 Perch:
 
@@ -147,6 +155,8 @@ Capabilities(
 | `pid` | `_NET_WM_PID`, else `None`. |
 | `type` | `_NET_WM_WINDOW_TYPE` → map to `WindowType`. |
 | `state` | `_NET_WM_STATE` flags → pick one per priority: fullscreen > maximised > minimised > normal. |
+
+Setting `MINIMIZED` sends the ICCCM `WM_CHANGE_STATE` message. Coming back out needs `_NET_ACTIVE_WINDOW` (wm-spec §5.7), because clearing `_NET_WM_STATE` bits does nothing to a window the WM has unmapped. `set_state(NORMAL)` therefore reads the window's current state and sends the activation only when it really is iconified — activating also raises and focuses, and doing that unconditionally would make applying a layout shuffle the focus across every window it touches.
 | `role` | `WM_WINDOW_ROLE`. |
 | `parent` | `WM_TRANSIENT_FOR`. |
 

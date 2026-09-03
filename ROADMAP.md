@@ -865,7 +865,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane compositor-scripts); check-code 2026-08-31 tool gap.
 
-- 📋 [PERC-0047] **Close the remaining X11 EWMH and ICCCM defects.**
+- ✅ [PERC-0047] **Close the remaining X11 EWMH and ICCCM defects.**
   Eight survive the 2026-09-01 fix pass, which took the unmap-as-close and
   the negative-coordinate OverflowError. ScrollLock is missing from the
   modifier-mask permutations, so a hotkey silently dies with ScrollLock on;
@@ -886,6 +886,58 @@ Goal: fewer first-run support tickets; the config is safe.
   _NET_FRAME_EXTENTS subtraction the code correctly does not do, and
   docs/04:32 bans d.sync() absolutely while docs/04:117 requires catching
   an asynchronous BadAccess, which needs it.
+  Resolved (2026-09-03): all eight closed.
+
+  ScrollLock now joins the fan-out — the grab set is the power set of the
+  three lock bits, compute_scrolllock_mask resolves the bit the way NumLock's
+  is resolved, and normalise_modifier_state strips all three. A server
+  without RandR degrades instead of killing start(): python-xlib binds the
+  xrandr_* methods only when the extension is present, so its absence
+  arrives as AttributeError rather than the BadAccess the handler named, and
+  both the event subscription and list_outputs now catch it and log.
+  Autorepeat is filtered by dispatching KeyRelease and remembering each
+  release timestamp — a KeyPress matching the last release of the same key
+  is the key still held. _intersect returns the output's own geometry when
+  the workarea misses it, rather than the zero-size rect that became
+  work_area and made every snap on that output produce a zero-size window.
+  close_window no longer calls kill_client: docs/03 scopes it to a request,
+  so a window advertising no WM_DELETE_WINDOW raises BackendUnsupported
+  instead of having its client's whole connection torn down. set_state
+  (NORMAL) sends _NET_ACTIVE_WINDOW, but only after reading the window's
+  state and finding it iconified — activating also raises and focuses, so
+  sending it unconditionally would shuffle focus across every window a
+  layout touches. The sites that swallowed a lost connection, a failed
+  _NET_CLIENT_LIST read or an unreadable window now say so, through a module
+  logger in each of the three files that has something to log. The other
+  three x11 modules have no except block at all — geometry.py's docstring
+  says its errors propagate to the caller — so a logger there would have
+  been unused code, and none was added.
+  "Ctrl++" parses: a trailing "+" is the plus key, not a dropped separator.
+
+  Verified: every new test was run against the pre-fix tree first and 15
+  failed there; two are over-rejection guards that passed pre-fix and are
+  labelled as such. The autorepeat premise was measured rather than assumed
+  — holding a grabbed key against a live Xvfb server delivered 15 KeyPress
+  events over 1.2 s, which the filter collapses to one. Suite 904 passed,
+  20 skipped, up from 886. ruff, mypy and the drift analyser clean; the
+  analyser's perch_drift count is unchanged.
+
+  Also settled: the lane's open question "does the hotkey path fire at all?"
+  is answered yes — an Xvfb probe confirmed a passive grab delivers KeyPress
+  to root without KeyPressMask, so root's mask needs no change. A live
+  autorepeat test was written and then withdrawn: openbox stops
+  XTEST-synthesised keys reaching the grab, which test_live_openbox.py's own
+  header already records, so the test would only have been flaky.
+
+  Not taken here. key_capture.py's portable_to_xdg has the same "+" defect,
+  but PERC-0058 owns that function as the zombie it names, so the fix
+  belongs with the decision on whether it lives. Left where the lane filed
+  them, outside this item's eight: the ICCCM timestamp in
+  build_close_message, AtomTable.name_for's linear scan, the latin-1 WM_NAME
+  decode, the unused caches, and the interlaced-mode refresh. Adding
+  build_active_window_message tips ewmh.py over the analyser's god-file
+  threshold; that module is a cohesive set of small protocol builders and
+  splitting it would be over-engineering.
   **Layman:** Several X11 corner cases where a hotkey stops working or Perch fails to start.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-x11).

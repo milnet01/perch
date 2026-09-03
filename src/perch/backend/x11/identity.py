@@ -16,6 +16,7 @@ client reparent race documented in ``docs/04-backend-x11.md`` §Edge cases).
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from Xlib import X as _X
@@ -45,6 +46,8 @@ if TYPE_CHECKING:
     from Xlib.display import Display
     from Xlib.xobject.drawable import Window
 
+log = logging.getLogger(__name__)
+
 
 # Errors that mean "window died between the _NET_CLIENT_LIST read and the
 # property fetch." Any of these: skip the window and keep going.
@@ -67,7 +70,9 @@ def read_window_info(
     #    attribute fetch is cheap and a False here saves ~10 round-trips.
     try:
         attrs = window.get_attributes()
-    except _DEAD:
+    except _DEAD as exc:
+        # Routine: the window died between being listed and being read.
+        log.debug("skipping window %s, attributes unreadable: %s", window.id, exc)
         return None
     if attrs.override_redirect:
         return None
@@ -75,7 +80,8 @@ def read_window_info(
     # 2. WM_CLASS / identity atoms. Dead windows get dropped.
     try:
         wm_class = window.get_wm_class()  # (instance, class) or None
-    except _DEAD:
+    except _DEAD as exc:
+        log.debug("skipping window %s, WM_CLASS unreadable: %s", window.id, exc)
         return None
     if wm_class is None:
         instance, klass = "", ""
@@ -91,7 +97,7 @@ def read_window_info(
 
     # 5. Window type and state.
     wtype = _read_window_type(atoms, window)
-    wstate = _read_window_state(atoms, window)
+    wstate = read_window_state(atoms, window)
 
     # 6. Role / parent (role is ICCCM WM_WINDOW_ROLE, parent is WM_TRANSIENT_FOR).
     role = _read_role(atoms, window)
@@ -168,7 +174,7 @@ def _read_window_type(atoms: AtomTable, window: Window) -> WindowType:
     return map_window_type(names)
 
 
-def _read_window_state(atoms: AtomTable, window: Window) -> WindowState:
+def read_window_state(atoms: AtomTable, window: Window) -> WindowState:
     try:
         prop = window.get_full_property(
             atoms["_NET_WM_STATE"], _X.AnyPropertyType

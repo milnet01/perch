@@ -87,3 +87,41 @@ def test_apply_workarea_skips_disconnected_outputs() -> None:
     assert got[0].work_area == Geometry(0, 0, 0, 0)
     assert got[0].is_connected is False
     assert got[1].work_area.h == 1400
+
+
+# ── PERC-0047: a workarea that misses an output entirely ───────────────────
+# _NET_WORKAREA is a single root-level rect. Plenty of WMs report only the
+# primary monitor's area, so a second output can sit wholly outside it. The
+# intersection is then empty, and a zero-size work_area makes every snap on
+# that output produce a zero-size window. The output's own geometry is the
+# honest fallback: no struts are known there, so none are subtracted.
+
+
+def test_apply_workarea_falls_back_to_geometry_when_disjoint() -> None:
+    left = OutputInfo(
+        name="DP-1",
+        geometry=Geometry(0, 0, 1920, 1080),
+        work_area=Geometry(0, 0, 1920, 1080),
+        scale=1.0,
+        refresh_mhz=60000,
+        is_primary=True,
+        is_connected=True,
+    )
+    right = OutputInfo(
+        name="DP-2",
+        geometry=Geometry(1920, 0, 1920, 1080),
+        work_area=Geometry(1920, 0, 1920, 1080),
+        scale=1.0,
+        refresh_mhz=60000,
+        is_primary=False,
+        is_connected=True,
+    )
+    # The WM reports a workarea covering the primary output alone.
+    got = apply_workarea([left, right], Geometry(0, 28, 1920, 1052))
+
+    by_name = {o.name: o for o in got}
+    assert by_name["DP-1"].work_area == Geometry(0, 28, 1920, 1052)
+    # DP-2 does not overlap the reported workarea at all.
+    assert by_name["DP-2"].work_area == right.geometry
+    assert by_name["DP-2"].work_area.w > 0
+    assert by_name["DP-2"].work_area.h > 0
