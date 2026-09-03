@@ -806,6 +806,13 @@ Goal: fewer first-run support tickets; the config is safe.
   running a feature against the promise made for it, and the four features here
   are documented-but-absent — so a run today would spend a full pass
   rediscovering exactly this bullet.
+  Progress (2026-09-02): the line-number warning above has aged again. The
+  numbers in .audit/review-code-2026-08-31-findings.md are as at e336950;
+  since then tranche 1, PERC-0056, and now PERC-0057, PERC-0068, PERC-0059,
+  PERC-0062 and PERC-0050 have all edited the files it cites. Treat every
+  line number there as a hint and locate by symbol or quoted text instead.
+  The findings themselves are still accurate where they have not been closed
+  -- check a bullet's status here before acting on one.
   **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
@@ -828,6 +835,18 @@ Goal: fewer first-run support tickets; the config is safe.
   movewindowpixel, resizewindowpixel and movetoworkspacesilent. The
   dispatch helper only checks the reply is "ok", so acting on the wrong
   window reports success.
+  Parked (2026-09-02), and not for lack of time. The fix means replacing
+  moveactive / resizeactive / movewindow / fullscreen with the
+  window-targeted dispatchers, and Hyprland's dispatcher grammar cannot be
+  verified from this machine -- there is no Hyprland session here, and the
+  repo has no reference for which dispatchers accept a `,<window>` selector.
+  The raw finding names three targeted forms (movewindowpixel,
+  resizewindowpixel, movetoworkspacesilent) and none for the monitor move or
+  for fullscreen, so those two need an answer before anything is written.
+  Guessing at another tool's CLI is how a backend silently moves the wrong
+  window and reports success, which is the defect this item exists to fix.
+  Start by settling the grammar against Hyprland's own dispatcher
+  documentation or a live session, then write it.
   **Layman:** On Hyprland, Perch moves whichever window has focus instead of the one it meant.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-iface-stubs).
