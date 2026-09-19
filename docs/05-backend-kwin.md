@@ -217,11 +217,17 @@ the portal is reachable and either we're inside a Flatpak sandbox
 (`/.flatpak-info` is present) or the caller explicitly injects a portal
 factory. Flow:
 
-1. `CreateSession(options)` returns a Request path; Perch subscribes to
-   `org.freedesktop.portal.Request.Response` on that path and reads the
-   resulting `session_handle`.
+1. `CreateSession(options)` answers with `org.freedesktop.portal.Request.Response`
+   on a Request path, and that reply can arrive before the call returns.
+   So Perch subscribes FIRST, at the path the portal will use — derived
+   from its unique bus name and the `handle_token` it puts in `options`
+   — then makes the call and reads `session_handle` from the reply.
+   `src/perch/portal.py::call_with_response` does this for every portal
+   call; a portal that ignores `handle_token` answers on another path,
+   and the subscription moves there.
 2. `BindShortcuts(session_handle, shortcuts, parent_window, options)`
-   registers each `(id, {preferred_trigger, description})` tuple.
+   registers each `(id, {preferred_trigger, description})` tuple, through
+   the same subscribe-first handshake.
    Triggers are translated into XDG form (`CTRL+SHIFT+Q`) by
    `_portable_to_xdg_accel` at the boundary.
 3. `GlobalShortcuts.Activated(session_handle, id, timestamp, opts)`
@@ -231,11 +237,14 @@ factory. Flow:
 The portal path covers the full xkbcommon keysym range (no Fn / letter
 / digit restriction) and works sandboxed. Unbind is modelled as a
 local-map eviction because the portal doesn't expose `UnbindShortcuts`
-— the portal's session-close is the authoritative cleanup; closing the
-session at `stop()` releases every binding at once.
+— the portal's session-close is the authoritative cleanup. `stop()`
+drops Perch's local state and does not call the session's `Close`; the
+session, and every binding with it, ends when Perch's bus connection
+closes.
 
 **Fallback: direct KGlobalAccel** (`org.kde.kglobalaccel` on the
-session bus). Used when the portal probe fails — non-Flatpak
+session bus). Used when the portal probe fails, or when the probe passes
+but the session cannot be created (logged as a warning) — non-Flatpak
 installs on Plasma without xdg-desktop-portal-kde ≥ 6, or lean sessions
 where only KGlobalAccel is available. Hotkeys show up in *System
 Settings → Shortcuts* under the "Perch" component.

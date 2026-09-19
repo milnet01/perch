@@ -63,6 +63,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Flatpak on KDE: registering shortcuts through the desktop portal no longer times out** (PERC-0048)
+  Perch now listens for the portal's answer before asking, so a quick
+  answer is no longer missed. If the portal still cannot set up
+  shortcuts, Perch falls back to KDE's own shortcut service instead of
+  failing to start its KDE support.
+
 - **Settings window and tray: errors you can see and hear, your desktop theme respected** (PERC-0058)
   The Auto theme no longer replaces your desktop's colours (Breeze,
   high-contrast) with Perch's own. Invalid match fields now get a red

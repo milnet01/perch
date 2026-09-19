@@ -17,6 +17,7 @@ import pytest
 from perch.backend.kwin.hotkeys import (
     PORTAL_RESPONSE_CANCELLED,
     PORTAL_RESPONSE_SUCCESS,
+    BackendDisconnectedProvider,
     HotkeyBusyError,
     HotkeyParseError,
     KGlobalAccelProvider,
@@ -29,6 +30,7 @@ from perch.backend.kwin.hotkeys import (
     generate_callback_id,
     parse_accel,
 )
+from perch.portal import request_path
 
 # ── parse_accel ───────────────────────────────────────────────────────────
 
@@ -260,26 +262,6 @@ def test_portable_to_xdg_keeps_the_plus_key() -> None:
 # ── Portal: PortalGlobalShortcutsProvider flow (fake portal) ──────────────
 
 
-class _FakeRequestProxy:
-    """In-memory stand-in for a portal Request object.
-
-    Exposes a ``response`` property with a ``catch()`` coroutine iterator
-    yielding a single scripted (status, results) payload, mirroring the
-    real sdbus signal iterator contract closely enough for the provider
-    code to consume.
-    """
-
-    def __init__(self, payload: tuple[int, dict[str, tuple[str, Any]]]) -> None:
-        self._payload = payload
-
-    @property
-    def response(self) -> _FakeRequestProxy:
-        return self
-
-    def catch(self) -> _FakeAsyncIterator:
-        return _FakeAsyncIterator([self._payload])
-
-
 class _FakeAsyncIterator:
     def __init__(self, items: list[tuple[int, dict[str, tuple[str, Any]]]]) -> None:
         self._items = list(items)
@@ -300,11 +282,32 @@ class _FakeAsyncIterator:
         raise StopAsyncIteration
 
 
+_FAKE_SENDER = ":1.42"
+
+
+class _FakeWaiter:
+    def __init__(self) -> None:
+        self.queue: asyncio.Queue[tuple[int, dict[str, Any]]] = asyncio.Queue()
+        self.closed = False
+
+    async def wait(self, timeout_s: float) -> tuple[int, dict[str, Any]] | None:
+        try:
+            return await asyncio.wait_for(self.queue.get(), timeout=timeout_s)
+        except TimeoutError:
+            return None
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class _FakePortal:
     """Minimal GlobalShortcuts portal fake.
 
     Records every call the provider makes so tests can assert protocol
-    shape; scripts per-request payloads for the Response-signal iterator.
+    shape. It answers the way a fast real portal can: the Response is
+    emitted DURING the method call, at the path derived from the caller's
+    handle_token, and reaches only a subscription already in place — a
+    caller that subscribes afterwards never sees it.
     """
 
     def __init__(
@@ -317,9 +320,8 @@ class _FakePortal:
         self.bind_calls: list[
             tuple[str, list[Any], str, dict[str, tuple[str, Any]]]
         ] = []
-        self._next_request_path = iter(
-            f"/org/freedesktop/portal/desktop/request/_{n}" for n in range(1000)
-        )
+        self.events: list[str] = []
+        self._subscriptions: dict[str, _FakeWaiter] = {}
         self._session_response = session_response or (
             PORTAL_RESPONSE_SUCCESS,
             {"session_handle": ("o", "/org/freedesktop/portal/desktop/session/abc")},
@@ -327,13 +329,32 @@ class _FakePortal:
         self._bind_response = bind_response or (PORTAL_RESPONSE_SUCCESS, {})
         self._activated = _FakeAsyncIterator([])
 
+    async def sender(self) -> str:
+        return _FAKE_SENDER
+
+    async def subscribe(self, path: str) -> _FakeWaiter:
+        self.events.append(f"subscribe {path}")
+        waiter = _FakeWaiter()
+        self._subscriptions[path] = waiter
+        return waiter
+
+    def _respond(
+        self,
+        options: dict[str, tuple[str, Any]],
+        payload: tuple[int, dict[str, Any]],
+    ) -> str:
+        path = request_path(_FAKE_SENDER, options["handle_token"][1])
+        self.events.append(f"call {path}")
+        waiter = self._subscriptions.get(path)
+        if waiter is not None and not waiter.closed:
+            waiter.queue.put_nowait(payload)
+        return path
+
     async def create_session(
         self, options: dict[str, tuple[str, Any]]
     ) -> str:
         self.create_session_calls.append(options)
-        path = next(self._next_request_path)
-        self._latest_session_request = path
-        return path
+        return self._respond(options, self._session_response)
 
     async def bind_shortcuts(
         self,
@@ -343,9 +364,7 @@ class _FakePortal:
         options: dict[str, tuple[str, Any]],
     ) -> str:
         self.bind_calls.append((session_handle, shortcuts, parent_window, options))
-        path = next(self._next_request_path)
-        self._latest_bind_request = path
-        return path
+        return self._respond(options, self._bind_response)
 
     @property
     def activated(self) -> _FakeAsyncIterator:
@@ -354,16 +373,14 @@ class _FakePortal:
         # iterator directly — see _FakeAsyncIterator.catch pattern.
         return self._activated
 
-    def request_factory(self, path: str) -> _FakeRequestProxy:
-        """Per-request proxy. Matches by path suffix to dispatch the
-        correct scripted response."""
-        if path == getattr(self, "_latest_session_request", None):
-            return _FakeRequestProxy(self._session_response)
-        if path == getattr(self, "_latest_bind_request", None):
-            return _FakeRequestProxy(self._bind_response)
-        # Unknown path — return a response that looks like "success,
-        # empty results" so unrelated tests don't hang.
-        return _FakeRequestProxy((PORTAL_RESPONSE_SUCCESS, {}))
+    def provider(self, **kwargs: Any) -> PortalGlobalShortcutsProvider:
+        return PortalGlobalShortcutsProvider(
+            portal_factory=lambda: self,  # type: ignore[arg-type,return-value]
+            response_subscriber=self.subscribe,
+            sender_name=self.sender,
+            response_timeout_s=1.0,
+            **kwargs,
+        )
 
 
 # Teach _FakeAsyncIterator to act as its own catch() return so the
@@ -375,11 +392,7 @@ _FakeAsyncIterator.catch = lambda self: self  # type: ignore[attr-defined]
 
 async def test_portal_provider_happy_path_creates_session_and_binds() -> None:
     fake = _FakePortal()
-    provider = PortalGlobalShortcutsProvider(
-        portal_factory=lambda: fake,  # type: ignore[arg-type,return-value]
-        request_factory=fake.request_factory,  # type: ignore[arg-type]
-        response_timeout_s=1.0,
-    )
+    provider = fake.provider()
     await provider.start(on_fired=lambda _cid: None)
     assert provider._session_handle == "/org/freedesktop/portal/desktop/session/abc"
     assert len(fake.create_session_calls) == 1
@@ -402,13 +415,26 @@ async def test_portal_provider_happy_path_creates_session_and_binds() -> None:
     await provider.stop()
 
 
+async def test_portal_provider_subscribes_before_each_call() -> None:
+    """PERC-0048: a Response can arrive before the method returns, so the
+    match must be installed first — at the path predicted from the
+    handle_token — or the reply is lost and the call times out."""
+    fake = _FakePortal()
+    provider = fake.provider()
+    await provider.start(on_fired=lambda _cid: None)
+    await provider.register("perch-quit", "Ctrl+Q")
+    assert len(fake.events) == 4
+    for sub, call in (fake.events[0:2], fake.events[2:4]):
+        assert sub.startswith("subscribe ")
+        assert call == "call " + sub.removeprefix("subscribe ")
+    # Both calls carry a handle_token, which is what makes the path known.
+    assert "handle_token" in fake.bind_calls[0][3]
+    await provider.stop()
+
+
 async def test_portal_provider_bind_cancelled_raises_busy() -> None:
     fake = _FakePortal(bind_response=(PORTAL_RESPONSE_CANCELLED, {}))
-    provider = PortalGlobalShortcutsProvider(
-        portal_factory=lambda: fake,  # type: ignore[arg-type,return-value]
-        request_factory=fake.request_factory,  # type: ignore[arg-type]
-        response_timeout_s=1.0,
-    )
+    provider = fake.provider()
     await provider.start(on_fired=lambda _cid: None)
     with pytest.raises(HotkeyBusyError):
         await provider.register("perch-quit", "Ctrl+Q")
@@ -417,11 +443,7 @@ async def test_portal_provider_bind_cancelled_raises_busy() -> None:
 
 async def test_portal_provider_unregister_drops_from_local_map() -> None:
     fake = _FakePortal()
-    provider = PortalGlobalShortcutsProvider(
-        portal_factory=lambda: fake,  # type: ignore[arg-type,return-value]
-        request_factory=fake.request_factory,  # type: ignore[arg-type]
-        response_timeout_s=1.0,
-    )
+    provider = fake.provider()
     await provider.start(on_fired=lambda _cid: None)
     await provider.register("perch-quit", "Ctrl+Q")
     assert "perch-quit" in provider._bindings
@@ -494,6 +516,32 @@ async def test_choose_provider_portal_probe_failure_falls_back_to_kglobalaccel(
     )
     assert provider is kglob_like
     assert portal_like.started is False
+
+
+async def test_choose_provider_falls_back_when_the_portal_session_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PERC-0048: the probe only proves CreateSession exists. A session
+    that then fails raised out of the backend's start() instead of taking
+    the documented KGlobalAccel fallback."""
+    monkeypatch.delenv("PERCH_HOTKEY_PROVIDER", raising=False)
+    kglob_like = MockHotkeyProvider()
+
+    class _FailingPortal(MockHotkeyProvider):
+        async def start(self, on_fired: Any) -> None:
+            raise BackendDisconnectedProvider("portal CreateSession: no response")
+
+    async def _probe_yes() -> bool:
+        return True
+
+    provider = await choose_provider(
+        lambda _cid: None,
+        kglobal_factory=lambda: kglob_like,
+        portal_factory=_FailingPortal,
+        portal_available=_probe_yes,
+    )
+    assert provider is kglob_like
+    assert kglob_like.started is True
 
 
 async def test_choose_provider_env_kglobalaccel_skips_probe(

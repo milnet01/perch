@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import secrets
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -34,6 +33,8 @@ from sdbus import (
     dbus_method_async,
     dbus_signal_async,
 )
+
+from perch import portal
 
 log = logging.getLogger("perch.backend.kwin.hotkeys")
 
@@ -457,18 +458,6 @@ class PortalGlobalShortcutsProxy(
     ) -> tuple[str, str, int, dict[str, tuple[str, Any]]]: ...
 
 
-class PortalRequestProxy(
-    DbusInterfaceCommonAsync,
-    interface_name="org.freedesktop.portal.Request",
-):
-    """Proxy for per-request objects (``/org/freedesktop/portal/desktop/request/...``)."""
-
-    @dbus_signal_async(signal_name="Response")
-    def response(  # type: ignore[empty-body]
-        self,
-    ) -> tuple[int, dict[str, tuple[str, Any]]]: ...
-
-
 def _unwrap_variant(value: Any) -> Any:
     """Unwrap a sdbus-python variant tuple ``(sig, value)`` to its value.
 
@@ -483,16 +472,10 @@ def _unwrap_variant(value: Any) -> Any:
 
 #: Factory type for a portal proxy — tests inject fakes here.
 PortalProxyFactory = Callable[[], "PortalGlobalShortcutsProxy"]
-#: Factory type for a per-request proxy — tests inject fakes here.
-RequestProxyFactory = Callable[[str], "PortalRequestProxy"]
 
 
 def _default_portal_factory() -> PortalGlobalShortcutsProxy:
     return PortalGlobalShortcutsProxy.new_proxy(PORTAL_SERVICE, PORTAL_OBJECT)
-
-
-def _default_request_factory(path: str) -> PortalRequestProxy:
-    return PortalRequestProxy.new_proxy(PORTAL_SERVICE, path)
 
 
 @dataclass
@@ -506,7 +489,8 @@ class PortalGlobalShortcutsProvider:
 
     parent_window: str = ""
     portal_factory: PortalProxyFactory = field(default=_default_portal_factory)
-    request_factory: RequestProxyFactory = field(default=_default_request_factory)
+    response_subscriber: portal.Subscriber | None = None
+    sender_name: portal.SenderName | None = None
     response_timeout_s: float = 10.0
 
     _portal: PortalGlobalShortcutsProxy | None = None
@@ -555,10 +539,15 @@ class PortalGlobalShortcutsProvider:
                 "preferred_trigger": ("s", trigger),
             },
         )
-        request_path = await self._portal.bind_shortcuts(
-            self._session_handle, [shortcut], self.parent_window, {}
+        portal_proxy, session_handle = self._portal, self._session_handle
+        response = await self._call(
+            lambda token: portal_proxy.bind_shortcuts(
+                session_handle,
+                [shortcut],
+                self.parent_window,
+                {"handle_token": ("s", token)},
+            )
         )
-        response = await self._await_response(request_path)
         if response is None:
             raise HotkeyBusyError(
                 f"portal refused to bind {accel!r}: no response"
@@ -586,14 +575,16 @@ class PortalGlobalShortcutsProvider:
 
     async def _create_session(self) -> str:
         assert self._portal is not None
-        handle_token = _secure_token()
-        session_token = _secure_token()
-        options: dict[str, tuple[str, Any]] = {
-            "handle_token": ("s", handle_token),
-            "session_handle_token": ("s", session_token),
-        }
-        request_path = await self._portal.create_session(options)
-        response = await self._await_response(request_path)
+        portal_proxy = self._portal
+        session_token = portal.new_token()
+        response = await self._call(
+            lambda token: portal_proxy.create_session(
+                {
+                    "handle_token": ("s", token),
+                    "session_handle_token": ("s", session_token),
+                }
+            )
+        )
         if response is None:
             raise BackendDisconnectedProvider(
                 "portal CreateSession: no response"
@@ -610,27 +601,24 @@ class PortalGlobalShortcutsProvider:
             )
         return handle
 
-    async def _await_response(
-        self, request_path: str
+    async def _call(
+        self, invoke: Callable[[str], Awaitable[str]]
     ) -> tuple[int, dict[str, Any]] | None:
-        """Subscribe to Request.Response on ``request_path`` and return the
-        first signal received, unwrapped.
+        """Run one portal method through the subscribe-first handshake.
 
-        Returns ``None`` on timeout so callers can surface a clean
-        :class:`HotkeyBusyError` instead of a bare ``TimeoutError``.
+        Returns ``(status, results)`` with the results variant-unwrapped,
+        or ``None`` on timeout so callers can raise their own error.
         """
-        request = self.request_factory(request_path)
-        iterator = request.response.catch()
-        try:
-            payload = await asyncio.wait_for(
-                iterator.__anext__(), timeout=self.response_timeout_s
-            )
-        except TimeoutError:
+        response = await portal.call_with_response(
+            invoke,
+            timeout_s=self.response_timeout_s,
+            subscriber=self.response_subscriber,
+            sender=self.sender_name,
+        )
+        if response is None:
             return None
-        status, results = payload
-        # Variant-unwrap the dict values so the caller sees raw Python types.
-        unwrapped = {k: _unwrap_variant(v) for k, v in results.items()}
-        return int(status), unwrapped
+        status, results = response
+        return status, {k: _unwrap_variant(v) for k, v in results.items()}
 
     async def _pump_activated(self) -> None:
         """Long-lived task: fan ``Activated`` signals into ``on_fired``."""
@@ -648,17 +636,8 @@ class BackendDisconnectedProvider(RuntimeError):
 
     Separate from :class:`BackendDisconnected` in ``perch.backend.base``
     because this layer doesn't import backend types. :func:`choose_provider`
-    catches it and falls back to KGlobalAccel.
+    catches it on the probed path and falls back to KGlobalAccel.
     """
-
-
-def _secure_token() -> str:
-    """Return a portal-safe handle token.
-
-    Portal tokens must match ``^[a-zA-Z0-9_]+$``. :mod:`secrets.token_hex`
-    already satisfies this and gives us 16 hex chars of entropy.
-    """
-    return secrets.token_hex(8)
 
 
 def _is_portal_available(factory: PortalProxyFactory) -> Awaitable[bool]:
@@ -673,9 +652,9 @@ def _is_portal_available(factory: PortalProxyFactory) -> Awaitable[bool]:
 
     async def _probe() -> bool:
         try:
-            portal = factory()
-            handle_token = _secure_token()
-            session_token = _secure_token()
+            proxy = factory()
+            handle_token = portal.new_token()
+            session_token = portal.new_token()
             options: dict[str, tuple[str, Any]] = {
                 "handle_token": ("s", handle_token),
                 "session_handle_token": ("s", session_token),
@@ -684,7 +663,7 @@ def _is_portal_available(factory: PortalProxyFactory) -> Awaitable[bool]:
             # is missing we see an sdbus DbusUnknownMethodError here.
             # We don't actually wait for the response — its existence
             # proves GlobalShortcuts is wired.
-            await portal.create_session(options)
+            await proxy.create_session(options)
             return True
         except Exception as exc:
             log.debug("portal GlobalShortcuts probe failed: %s", exc)
@@ -743,10 +722,20 @@ async def choose_provider(
             lambda: _is_portal_available(_default_portal_factory)
         )
         if await probe():
-            return await _start_portal(on_fired, portal_factory)
-        log.info(
-            "portal GlobalShortcuts unavailable; falling back to KGlobalAccel"
-        )
+            try:
+                return await _start_portal(on_fired, portal_factory)
+            except BackendDisconnectedProvider as exc:
+                # The probe only proves the method exists; the session can
+                # still fail. Degrade rather than abort the backend start.
+                log.warning(
+                    "portal GlobalShortcuts session failed (%s); "
+                    "falling back to KGlobalAccel",
+                    exc,
+                )
+        else:
+            log.info(
+                "portal GlobalShortcuts unavailable; falling back to KGlobalAccel"
+            )
     return await _start_kglobalaccel(on_fired, kglobal_factory)
 
 

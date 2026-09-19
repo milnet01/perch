@@ -942,7 +942,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-x11).
 
-- 📋 [PERC-0048] **Fix the KWin portal Request/Response ordering and its uncaught fallback.**
+- ✅ [PERC-0048] **Fix the KWin portal Request/Response ordering and its uncaught fallback.**
   _await_response installs the signal match after issuing the call that
   triggers it, which for CreateSession completes immediately; the module's
   own comment states the required order. The documented fallback to
@@ -950,6 +950,18 @@ Goal: fewer first-run support tickets; the config is safe.
   BackendDisconnectedProvider exists anywhere in src/, so the failure
   aborts startup instead of degrading. Derive the request path from
   handle_token and subscribe before the call.
+  Resolved (2026-09-19): new src/perch/portal.py call_with_response
+  subscribes at the path predicted from the unique bus name and
+  handle_token, then calls, and follows a portal that ignores the token.
+  CreateSession and BindShortcuts both go through it (BindShortcuts
+  carried no handle_token before). choose_provider now catches
+  BackendDisconnectedProvider on the probed path and falls back to
+  KGlobalAccel; an explicit PERCH_HOTKEY_PROVIDER=portal still raises.
+  Both defects proved red against the old provider with a fake portal
+  that replies during the call. docs/05 corrected on the flow, on the
+  fallback, and on stop(), which never closed the session. PERC-0064's
+  note that this file already solved the ordering was wrong; autostart
+  can now reuse the helper.
   **Layman:** On Flatpak, the preferred way of registering shortcuts times out instead of working.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-kwin).
