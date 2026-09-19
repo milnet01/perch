@@ -813,6 +813,18 @@ Goal: fewer first-run support tickets; the config is safe.
   line number there as a hint and locate by symbol or quoted text instead.
   The findings themselves are still accurate where they have not been closed
   -- check a bullet's status here before acting on one.
+  Progress (2026-09-19): two of the four shipped. (1) `perch --settings`:
+  the instance-lock holder listens on a QLocalServer at perch.sock beside
+  the lock (src/perch/instance.py InstanceChannel); a second
+  `perch --settings` asks it to open the dialog and exits 0, and with no
+  Perch running it starts and opens the dialog. Verified end to end with
+  two real processes for the running case; the not-running case shares
+  open_dialog and was not run end to end. (2) compositor_missing is set
+  in UI-only mode (MockBackend, initially or after a failed start), and a
+  save now refreshes only the config fields of TrayState, so
+  backend_degraded / awaiting_extension survive (lane 9 open question).
+  Still open: the tray's Windows submenu and the Rules dry-run toggle +
+  trace panel.
   **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).

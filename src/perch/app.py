@@ -23,6 +23,7 @@ import signal
 import subprocess
 import sys
 from collections.abc import Callable, Coroutine
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,7 @@ from .core.reducer import Reducer
 from .core.state import AppState
 from .core.state_store import StateStore
 from .i18n import install_translators
+from .instance import InstanceChannel
 from .ui.dialog import ConfigDialog
 from .ui.icons import load_tray_icons
 from .ui.intents import (
@@ -91,7 +93,10 @@ def _maybe_show_appindicator_hint(parent: QCoreApplication | None) -> None:
 
 
 def _initial_tray_state(
-    config: Config, *, awaiting_extension: bool = False
+    config: Config,
+    *,
+    backend: WindowBackend,
+    awaiting_extension: bool = False,
 ) -> TrayState:
     return TrayState(
         active_profile=None,
@@ -99,6 +104,22 @@ def _initial_tray_state(
         available_layouts=tuple(config.layouts.keys()),
         user_snaps=tuple(config.snaps.values()),
         awaiting_extension=awaiting_extension,
+        # MockBackend is UI-only mode: nothing is managed, and docs/08-ui.md
+        # §Icon states gives that the error icon and tooltip.
+        compositor_missing=isinstance(backend, MockBackend),
+    )
+
+
+def _with_config(state: TrayState, config: Config) -> TrayState:
+    """``state`` with the config-derived fields refreshed after a save.
+
+    The status flags (degraded, awaiting extension, compositor missing)
+    describe the session, not the config, so a save must not reset them.
+    """
+    return replace(
+        state,
+        available_layouts=tuple(config.layouts.keys()),
+        user_snaps=tuple(config.snaps.values()),
     )
 
 
@@ -328,6 +349,8 @@ async def main(
     *,
     have_sni_host: bool | None = None,
     gnome_wayland: bool | None = None,
+    settings_requests: InstanceChannel | None = None,
+    open_settings: bool = False,
 ) -> int:
     """Run Perch. Returns the process exit code.
 
@@ -428,7 +451,7 @@ async def main(
         _maybe_show_appindicator_hint(app)
 
     tray_state = _initial_tray_state(
-        config, awaiting_extension=awaiting_extension
+        config, backend=backend, awaiting_extension=awaiting_extension
     )
     controller = TrayController(tray_state)
 
@@ -455,6 +478,7 @@ async def main(
         with contextlib.suppress(Exception):
             await backend.stop()
         backend = MockBackend()
+        controller.set_state(replace(controller.state, compositor_missing=True))
         wire_backend_status(backend, controller, tray)
         await backend.start()
     # From here on the backend is running, so every exit — including a
@@ -504,7 +528,7 @@ async def main(
                 dialog.select_section(section)
             def _on_saved() -> None:
                 fresh = load_or_create()
-                controller.set_state(_initial_tray_state(fresh))
+                controller.set_state(_with_config(controller.state, fresh))
                 # Toggle autostart in sync with the just-saved config so the
                 # "Start at login" checkbox has immediate effect — no restart
                 # needed.
@@ -524,8 +548,16 @@ async def main(
 
         # "Show me what else Perch can do" on the wizard's last page. Deferred
         # to here because ``open_dialog`` does not exist while the wizard runs.
-        if wizard_outcome is not None and wizard_outcome.show_config_dialog:
+        if (wizard_outcome is not None and wizard_outcome.show_config_dialog) or open_settings:
             open_dialog(None)
+        # `perch --settings` from a second process (docs/01 §Startup step 1).
+        if settings_requests is not None:
+
+            def _on_settings_request() -> None:
+                log.info("opening settings: requested by `perch --settings`")
+                open_dialog(None)
+
+            settings_requests.settings_requested.connect(_on_settings_request)
 
         controller.intent.connect(
             lambda intent: _handle_intent(

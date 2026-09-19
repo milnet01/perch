@@ -84,3 +84,33 @@ async def test_backend_is_stopped_when_startup_fails_after_it_started(
     with pytest.raises(OSError, match="state flush failed"):
         await perch_app.main(have_sni_host=True, gnome_wayland=False)
     assert stopped == [True]
+
+
+# ── PERC-0043: the tray's error state ──────────────────────────────────────
+
+
+def test_ui_only_mode_shows_the_error_state(xdg_env: Path) -> None:
+    """compositor_missing was set nowhere, so the documented error icon and
+    "no compatible compositor detected" tooltip could never appear."""
+    del xdg_env
+    from perch.ui.tray import TrayIconState
+
+    config = load_or_create()
+    state = perch_app._initial_tray_state(config, backend=MockBackend())
+    assert state.icon_state is TrayIconState.ERROR
+
+
+def test_saving_settings_keeps_the_live_status_flags(xdg_env: Path) -> None:
+    """A save rebuilt TrayState from defaults, wiping backend_degraded and
+    awaiting_extension until the next restart."""
+    del xdg_env
+    config = load_or_create()
+    live = replace(
+        perch_app._initial_tray_state(config, backend=MockBackend()),
+        backend_degraded=True,
+        awaiting_extension=True,
+    )
+    refreshed = perch_app._with_config(live, config)
+    assert refreshed.backend_degraded is True
+    assert refreshed.awaiting_extension is True
+    assert refreshed.compositor_missing is True

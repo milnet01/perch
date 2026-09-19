@@ -10,6 +10,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Added
 
+- **`perch --settings` opens the settings window, even when the tray icon is hidden** (PERC-0043)
+  Run `perch --settings` to open Perch's settings. If Perch is already
+  running, its settings window opens; if not, Perch starts and opens it.
+  This is the way in on desktops that hide tray icons, such as GNOME
+  without the AppIndicator extension. The tray icon now also shows its
+  error state when Perch found no desktop it can manage, and saving your
+  settings no longer clears the tray's warning state.
+
 - **`scripts/install-gnome-extension.py` installs the bundled GNOME Shell extension** (PERC-0062)
   The dev path docs/06 §Flatpak has described all along, and the only
   consumer of the `BUNDLED_EXTENSION_DIR` and `EXTENSION_UUID` constants,

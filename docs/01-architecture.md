@@ -80,7 +80,7 @@ The interface is defined in [03-backend-interface.md](03-backend-interface.md). 
 
 ### Startup
 
-1. Parse CLI args (`--version`, `--debug`, `--check-config`), then take the single-instance lock; a held lock ends startup here.
+1. Parse CLI args (`--version`, `--debug`, `--check-config`, `--settings`), then take the single-instance lock; a held lock ends startup here. The lock holder also listens on a local socket beside the lock (`perch.sock`), so `perch --settings` run while Perch is up asks the running copy to open its settings window and exits 0, instead of being refused. Run while Perch is not up, `--settings` starts Perch and opens the window once startup finishes.
 2. Load config; if absent, create defaults.
 3. Detect the session:
    - `$XDG_SESSION_TYPE` — `x11` vs `wayland`.

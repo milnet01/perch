@@ -4,48 +4,48 @@
 <context>
     <name>ConfigDialog</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2498"/>
+        <location filename="../src/perch/ui/dialog.py" line="2488"/>
         <source>Perch — Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2515"/>
+        <location filename="../src/perch/ui/dialog.py" line="2505"/>
         <source>Sections</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2656"/>
+        <location filename="../src/perch/ui/dialog.py" line="2646"/>
         <source>Perch — config.toml changed on disk</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2658"/>
+        <location filename="../src/perch/ui/dialog.py" line="2648"/>
         <source>config.toml has been edited since this window opened. Saving now replaces that file with what is shown here, and the other edit is lost.
 
 Cancel, then close and reopen this window to work from the current file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2704"/>
-        <location filename="../src/perch/ui/dialog.py" line="2715"/>
-        <location filename="../src/perch/ui/dialog.py" line="2734"/>
+        <location filename="../src/perch/ui/dialog.py" line="2694"/>
+        <location filename="../src/perch/ui/dialog.py" line="2705"/>
+        <location filename="../src/perch/ui/dialog.py" line="2724"/>
         <source>Perch — save failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2705"/>
+        <location filename="../src/perch/ui/dialog.py" line="2695"/>
         <source>{reason}
 
 Your changes were not saved.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2717"/>
+        <location filename="../src/perch/ui/dialog.py" line="2707"/>
         <source>Could not apply your changes to the config. See the log for details. Your changes were not saved.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2736"/>
+        <location filename="../src/perch/ui/dialog.py" line="2726"/>
         <source>Could not write config.toml. See the log for details. Your changes were not saved.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -143,7 +143,7 @@ Your changes were not saved.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/entry_editor.py" line="202"/>
+        <location filename="../src/perch/ui/entry_editor.py" line="203"/>
         <source>Invalid entry</source>
         <translation type="unfinished"></translation>
     </message>
@@ -166,22 +166,22 @@ Your changes were not saved.</source>
 <context>
     <name>ExclusionsPage</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="835"/>
+        <location filename="../src/perch/ui/dialog.py" line="826"/>
         <source>Exclusion patterns</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="838"/>
+        <location filename="../src/perch/ui/dialog.py" line="829"/>
         <source>Windows matching any pattern are ignored by Perch. Use Delete or Backspace to remove the selected pattern.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="850"/>
+        <location filename="../src/perch/ui/dialog.py" line="841"/>
         <source>Delete pattern</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="864"/>
+        <location filename="../src/perch/ui/dialog.py" line="855"/>
         <source>Windows matching any of these patterns are ignored by Perch.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -286,12 +286,12 @@ Your changes were not saved.</source>
 <context>
     <name>HotkeysPage</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2137"/>
+        <location filename="../src/perch/ui/dialog.py" line="2127"/>
         <source>Define snap presets under [snaps] in config.toml to assign hotkeys here.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2146"/>
+        <location filename="../src/perch/ui/dialog.py" line="2136"/>
         <source>Bindings are saved to config.toml and picked up at the next backend start.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -299,117 +299,117 @@ Your changes were not saved.</source>
 <context>
     <name>ImportExportPage</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2214"/>
+        <location filename="../src/perch/ui/dialog.py" line="2204"/>
         <source>Export writes the current config.toml to a file of your choice. Import loads a file, validates it, and shows a diff before replacing your current config.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2221"/>
+        <location filename="../src/perch/ui/dialog.py" line="2211"/>
         <source>Export…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2222"/>
+        <location filename="../src/perch/ui/dialog.py" line="2212"/>
         <source>Import…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2233"/>
-        <location filename="../src/perch/ui/dialog.py" line="2425"/>
+        <location filename="../src/perch/ui/dialog.py" line="2223"/>
+        <location filename="../src/perch/ui/dialog.py" line="2415"/>
         <source>Pick a file with Import… to see what would change.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2241"/>
+        <location filename="../src/perch/ui/dialog.py" line="2231"/>
         <source>Dry-run diff appears here after you pick a file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2243"/>
+        <location filename="../src/perch/ui/dialog.py" line="2233"/>
         <source>Import differences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2248"/>
+        <location filename="../src/perch/ui/dialog.py" line="2238"/>
         <source>Confirm import</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2249"/>
+        <location filename="../src/perch/ui/dialog.py" line="2239"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2276"/>
+        <location filename="../src/perch/ui/dialog.py" line="2266"/>
         <source>Export config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2278"/>
-        <location filename="../src/perch/ui/dialog.py" line="2310"/>
+        <location filename="../src/perch/ui/dialog.py" line="2268"/>
+        <location filename="../src/perch/ui/dialog.py" line="2300"/>
         <source>TOML files (*.toml);;All files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2286"/>
-        <location filename="../src/perch/ui/dialog.py" line="2293"/>
+        <location filename="../src/perch/ui/dialog.py" line="2276"/>
+        <location filename="../src/perch/ui/dialog.py" line="2283"/>
         <source>Export failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2298"/>
+        <location filename="../src/perch/ui/dialog.py" line="2288"/>
         <source>Export complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2299"/>
+        <location filename="../src/perch/ui/dialog.py" line="2289"/>
         <source>Wrote {target}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2308"/>
+        <location filename="../src/perch/ui/dialog.py" line="2298"/>
         <source>Import config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2320"/>
-        <location filename="../src/perch/ui/dialog.py" line="2395"/>
+        <location filename="../src/perch/ui/dialog.py" line="2310"/>
+        <location filename="../src/perch/ui/dialog.py" line="2385"/>
         <source>Import failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2336"/>
-        <location filename="../src/perch/ui/dialog.py" line="2343"/>
+        <location filename="../src/perch/ui/dialog.py" line="2326"/>
+        <location filename="../src/perch/ui/dialog.py" line="2333"/>
         <source>Invalid TOML</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2337"/>
+        <location filename="../src/perch/ui/dialog.py" line="2327"/>
         <source>Schema error: {err}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2344"/>
+        <location filename="../src/perch/ui/dialog.py" line="2334"/>
         <source>Parse error: {err}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2365"/>
+        <location filename="../src/perch/ui/dialog.py" line="2355"/>
         <source>(no differences — current file and import are identical)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2376"/>
+        <location filename="../src/perch/ui/dialog.py" line="2366"/>
         <source>Pending import: {source}. Click Confirm import to replace the current config, or Cancel to discard.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2400"/>
+        <location filename="../src/perch/ui/dialog.py" line="2390"/>
         <source>Import complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2402"/>
+        <location filename="../src/perch/ui/dialog.py" line="2392"/>
         <source>Imported from {source}. This dialog will close; reopen it to edit the new config.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -417,117 +417,117 @@ Your changes were not saved.</source>
 <context>
     <name>LayoutsPage</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="975"/>
-        <location filename="../src/perch/ui/dialog.py" line="997"/>
+        <location filename="../src/perch/ui/dialog.py" line="965"/>
+        <location filename="../src/perch/ui/dialog.py" line="987"/>
         <source>Layouts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="977"/>
+        <location filename="../src/perch/ui/dialog.py" line="967"/>
         <source>User-defined named layouts.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="983"/>
-        <location filename="../src/perch/ui/dialog.py" line="1104"/>
+        <location filename="../src/perch/ui/dialog.py" line="973"/>
+        <location filename="../src/perch/ui/dialog.py" line="1094"/>
         <source>Add layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="984"/>
+        <location filename="../src/perch/ui/dialog.py" line="974"/>
         <source>Rename</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="985"/>
-        <location filename="../src/perch/ui/dialog.py" line="1026"/>
+        <location filename="../src/perch/ui/dialog.py" line="975"/>
+        <location filename="../src/perch/ui/dialog.py" line="1016"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1004"/>
+        <location filename="../src/perch/ui/dialog.py" line="994"/>
         <source>Short description of this layout (optional)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1009"/>
+        <location filename="../src/perch/ui/dialog.py" line="999"/>
         <source>Layout entries</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1024"/>
+        <location filename="../src/perch/ui/dialog.py" line="1014"/>
         <source>Add entry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1025"/>
+        <location filename="../src/perch/ui/dialog.py" line="1015"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1027"/>
+        <location filename="../src/perch/ui/dialog.py" line="1017"/>
         <source>Move up</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1028"/>
+        <location filename="../src/perch/ui/dialog.py" line="1018"/>
         <source>Move down</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1044"/>
+        <location filename="../src/perch/ui/dialog.py" line="1034"/>
         <source>Description:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1046"/>
+        <location filename="../src/perch/ui/dialog.py" line="1036"/>
         <source>Entries:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1105"/>
+        <location filename="../src/perch/ui/dialog.py" line="1095"/>
         <source>Layout name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1113"/>
+        <location filename="../src/perch/ui/dialog.py" line="1103"/>
         <source>Invalid name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1114"/>
+        <location filename="../src/perch/ui/dialog.py" line="1104"/>
         <source>Layout name must not be empty.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1120"/>
-        <location filename="../src/perch/ui/dialog.py" line="1147"/>
+        <location filename="../src/perch/ui/dialog.py" line="1110"/>
+        <location filename="../src/perch/ui/dialog.py" line="1137"/>
         <source>Duplicate name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1121"/>
-        <location filename="../src/perch/ui/dialog.py" line="1148"/>
+        <location filename="../src/perch/ui/dialog.py" line="1111"/>
+        <location filename="../src/perch/ui/dialog.py" line="1138"/>
         <source>A layout with that name already exists.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1135"/>
+        <location filename="../src/perch/ui/dialog.py" line="1125"/>
         <source>Rename layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1136"/>
+        <location filename="../src/perch/ui/dialog.py" line="1126"/>
         <source>New name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1190"/>
+        <location filename="../src/perch/ui/dialog.py" line="1180"/>
         <source>Delete layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1191"/>
+        <location filename="../src/perch/ui/dialog.py" line="1181"/>
         <source>Delete layout {name}?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -563,103 +563,103 @@ Your changes were not saved.</source>
 <context>
     <name>ProfilesPage</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1473"/>
-        <location filename="../src/perch/ui/dialog.py" line="1488"/>
+        <location filename="../src/perch/ui/dialog.py" line="1463"/>
+        <location filename="../src/perch/ui/dialog.py" line="1478"/>
         <source>Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1477"/>
-        <location filename="../src/perch/ui/dialog.py" line="1633"/>
+        <location filename="../src/perch/ui/dialog.py" line="1467"/>
+        <location filename="../src/perch/ui/dialog.py" line="1623"/>
         <source>Add profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1478"/>
-        <location filename="../src/perch/ui/dialog.py" line="1532"/>
+        <location filename="../src/perch/ui/dialog.py" line="1468"/>
+        <location filename="../src/perch/ui/dialog.py" line="1522"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1494"/>
+        <location filename="../src/perch/ui/dialog.py" line="1484"/>
         <source>Profile name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1499"/>
+        <location filename="../src/perch/ui/dialog.py" line="1489"/>
         <source>name:WxH@X,Y;name:WxH@X,Y (sorted, joined by ;)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1504"/>
+        <location filename="../src/perch/ui/dialog.py" line="1494"/>
         <source>&lt;none&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1513"/>
+        <location filename="../src/perch/ui/dialog.py" line="1503"/>
         <source>Layout overrides</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1530"/>
+        <location filename="../src/perch/ui/dialog.py" line="1520"/>
         <source>Add override</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1531"/>
+        <location filename="../src/perch/ui/dialog.py" line="1521"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1546"/>
+        <location filename="../src/perch/ui/dialog.py" line="1536"/>
         <source>Name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1547"/>
+        <location filename="../src/perch/ui/dialog.py" line="1537"/>
         <source>Topology:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1549"/>
+        <location filename="../src/perch/ui/dialog.py" line="1539"/>
         <source>Default layout:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1554"/>
+        <location filename="../src/perch/ui/dialog.py" line="1544"/>
         <source>Per-layout overrides:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1574"/>
-        <location filename="../src/perch/ui/dialog.py" line="1627"/>
+        <location filename="../src/perch/ui/dialog.py" line="1564"/>
+        <location filename="../src/perch/ui/dialog.py" line="1617"/>
         <source>&lt;unnamed&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1634"/>
+        <location filename="../src/perch/ui/dialog.py" line="1624"/>
         <source>Profile name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1644"/>
-        <location filename="../src/perch/ui/dialog.py" line="1693"/>
+        <location filename="../src/perch/ui/dialog.py" line="1634"/>
+        <location filename="../src/perch/ui/dialog.py" line="1683"/>
         <source>Duplicate name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1645"/>
-        <location filename="../src/perch/ui/dialog.py" line="1694"/>
+        <location filename="../src/perch/ui/dialog.py" line="1635"/>
+        <location filename="../src/perch/ui/dialog.py" line="1684"/>
         <source>A profile with that name already exists.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1662"/>
+        <location filename="../src/perch/ui/dialog.py" line="1652"/>
         <source>Delete profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1663"/>
+        <location filename="../src/perch/ui/dialog.py" line="1653"/>
         <source>Delete this profile?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -856,42 +856,42 @@ Your changes were not saved.</source>
 <context>
     <name>_OverrideEditorDialog</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1998"/>
+        <location filename="../src/perch/ui/dialog.py" line="1988"/>
         <source>Edit override</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2000"/>
+        <location filename="../src/perch/ui/dialog.py" line="1990"/>
         <source>Add override</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2020"/>
+        <location filename="../src/perch/ui/dialog.py" line="2010"/>
         <source>Override entries</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2036"/>
+        <location filename="../src/perch/ui/dialog.py" line="2026"/>
         <source>Add entry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2037"/>
+        <location filename="../src/perch/ui/dialog.py" line="2027"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2038"/>
+        <location filename="../src/perch/ui/dialog.py" line="2028"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2058"/>
+        <location filename="../src/perch/ui/dialog.py" line="2048"/>
         <source>Layout:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="2062"/>
+        <location filename="../src/perch/ui/dialog.py" line="2052"/>
         <source>Override entries:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -913,12 +913,12 @@ Your changes were not saved.</source>
 <context>
     <name>perch.app</name>
     <message>
-        <location filename="../src/perch/app.py" line="228"/>
+        <location filename="../src/perch/app.py" line="249"/>
         <source>About Perch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/app.py" line="233"/>
+        <location filename="../src/perch/app.py" line="254"/>
         <source>&lt;h3&gt;Perch {version}&lt;/h3&gt;&lt;p&gt;Persistent, compositor-aware window geometry manager for Linux desktops.&lt;/p&gt;&lt;p&gt;License: GPL-3.0-or-later&lt;br&gt;Home: &lt;a href=&quot;https://github.com/milnet01/perch&quot;&gt;github.com/milnet01/perch&lt;/a&gt;&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -946,7 +946,7 @@ Your changes were not saved.</source>
 <context>
     <name>perch.cli</name>
     <message>
-        <location filename="../src/perch/__main__.py" line="137"/>
+        <location filename="../src/perch/__main__.py" line="160"/>
         <source>Perch is already running. Look for its icon in the system tray.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -954,22 +954,22 @@ Your changes were not saved.</source>
 <context>
     <name>perch.ui.dialog</name>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1422"/>
+        <location filename="../src/perch/ui/dialog.py" line="1412"/>
         <source>Match</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1423"/>
+        <location filename="../src/perch/ui/dialog.py" line="1413"/>
         <source>Apply</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1961"/>
+        <location filename="../src/perch/ui/dialog.py" line="1951"/>
         <source>Layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/perch/ui/dialog.py" line="1962"/>
+        <location filename="../src/perch/ui/dialog.py" line="1952"/>
         <source>Entries</source>
         <translation type="unfinished"></translation>
     </message>

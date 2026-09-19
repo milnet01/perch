@@ -52,6 +52,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "Used by packaging self-tests and CI smoke."
         ),
     )
+    parser.add_argument(
+        "--settings",
+        action="store_true",
+        help=(
+            "Open the settings window: in the running Perch if there is one, "
+            "otherwise start Perch and open it."
+        ),
+    )
     return parser
 
 
@@ -96,12 +104,22 @@ def cli(argv: list[str] | None = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     _ = app
 
-    from .instance import acquire_instance_lock
+    from .instance import InstanceChannel, acquire_instance_lock, request_settings
 
     instance_lock = acquire_instance_lock()
     if instance_lock is None:
+        if args.settings and request_settings():
+            log.info("asked the running Perch to open its settings window")
+            return 0
         _report_already_running()
         return 1
+    # Lets a later `perch --settings` reach this copy (docs/01 §Startup).
+    channel = InstanceChannel()
+    if not channel.listen():
+        log.warning(
+            "could not listen for `perch --settings` requests: %s",
+            channel.error_string(),
+        )
 
     # The SNI probe uses sdbus's sync API and must run *before* the
     # asyncio loop starts — sdbus refuses to run sync reads with an
@@ -113,7 +131,12 @@ def cli(argv: list[str] | None = None) -> int:
 
     try:
         return asyncio.run(
-            app_main(have_sni_host=have_host, gnome_wayland=gnome_wayland),
+            app_main(
+                have_sni_host=have_host,
+                gnome_wayland=gnome_wayland,
+                settings_requests=channel,
+                open_settings=args.settings,
+            ),
             loop_factory=QEventLoop,
         )
     except ConfigError as exc:
