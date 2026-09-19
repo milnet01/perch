@@ -1546,7 +1546,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane app-shell).
 
-- 📋 [PERC-0065] **Close the tooling lane's LOW/INFO tail, which PERC-0056 did not cover.**
+- ✅ [PERC-0065] **Close the tooling lane's LOW/INFO tail, which PERC-0056 did not cover.**
   PERC-0056 closed the lane's HIGH and MEDIUM findings; these are the
   rest, and they are recorded here because .audit/ is gitignored.
 
@@ -1579,6 +1579,23 @@ Goal: fewer first-run support tickets; the config is safe.
   it goes into both or neither. And obs.sh derives the version by
   grep|cut in two places, a third parsing method alongside build.sh's
   tomllib and bump.json's regex; they agree today.
+  Resolved (2026-09-19): all eight, and the three open questions
+  answered. python-post-edit.sh says so on stderr without jq.
+  docs_check.py scans packaging/appimage/README.md and
+  packaging/flathub/SUBMISSION.md, runs the drift rules (so the Python
+  floor) over pyproject, the RPM spec, both PKGBUILDs and the Flatpak
+  manifest, and caches anchors per target. aur.sh runs
+  version_lockstep_check for perch and diffs .SRCINFO against makepkg
+  --printsrcinfo where makepkg exists (warns otherwise). obs.sh no longer
+  assigns USER, refuses an empty username, reads the version with the
+  same tomllib parse as build.sh, and lost an ls|grep (SC2010).
+  i18n-update.sh updates every translations/perch_*.ts. pyproject's dead
+  [tool.hatch.version] table removed. DATE_RE removed. Questions:
+  release.yml's dispatch path stays on the branch (the recipe may
+  postdate the tag) but a new step refuses a pyproject version that is
+  not the tag's, and versioning-release-standards.md now says so;
+  version_lockstep_check joined BOTH gates (ci.yml docs job,
+  local_CI.sh) with the ci_lockstep_check mapping.
   **Layman:** Small leftovers in the release and check scripts — none of them break a build, but each one hides something.
   Kind: fix.
   Source: review-code 2026-08-31 (lane tooling, LOW/INFO tail); deferred by the PERC-0056 pass 2026-09-02.

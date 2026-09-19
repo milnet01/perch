@@ -36,6 +36,19 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The dispatch path builds a branch, not the tag, so the version it
+      # ships is whatever pyproject says there. Refuse to attach a build whose
+      # version is not the tag's -- that would put Perch-X on release Y.
+      - name: Version matches the release tag
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::pyproject.toml is $version but the release tag is $TAG"
+            exit 1
+          fi
+
       # build.sh runs the AlmaLinux 8 harvest in a container; Docker is
       # preinstalled on the runner and build.sh auto-detects it (podman||docker).
       - name: Build AppImage

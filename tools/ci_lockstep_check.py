@@ -60,6 +60,7 @@ EQUIVALENT: dict[str, list[str]] = {
     "CI/local lockstep": ["CI/local lockstep"],
     "pytest": ["pytest"],
     "docs check (links + drift)": ["docs check (links + drift)"],
+    "version lockstep": ["version lockstep"],
     "appstream-util validate (metainfo)": ["appstreamcli validate (metainfo)"],
     "desktop-file-validate": ["desktop-file-validate"],
     "yamllint (Flatpak manifest)": ["yamllint (Flatpak manifest)"],

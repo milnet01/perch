@@ -22,6 +22,7 @@ Usage: python tools/docs_check.py   (exit 0 clean, 1 with findings)
 
 from __future__ import annotations
 
+import functools
 import re
 import sys
 from dataclasses import dataclass
@@ -39,6 +40,21 @@ SCANNED = [
     ROOT / "CODE_OF_CONDUCT.md",
     ROOT / "CHANGELOG.md",
     ROOT / "CLAUDE.md",
+    # Packaging prose a reader follows. SUBMISSION.md is the Flathub
+    # submission record; the AppImage README carries a version bump.json
+    # rewrites.
+    ROOT / "packaging/appimage/README.md",
+    ROOT / "packaging/flathub/SUBMISSION.md",
+]
+
+# Not documents, so no link check — but each states the Python floor, which
+# is exactly where a stale floor would ship.
+DRIFT_ONLY = [
+    ROOT / "pyproject.toml",
+    ROOT / "packaging/rpm/perch.spec",
+    ROOT / "packaging/aur/PKGBUILD",
+    ROOT / "packaging/aur/perch-git/PKGBUILD",
+    ROOT / "packaging/flathub/io.github.milnet01.Perch.yml",
 ]
 
 # [text](target) — skip images, which carry the same shape behind a `!`.
@@ -86,15 +102,18 @@ def slug(heading: str) -> str:
     return re.sub(r"\s", "-", text.strip())
 
 
-def anchors(path: Path) -> set[str]:
+@functools.cache
+def anchors(path: Path) -> frozenset[str]:
+    # Cached: one document is the target of many links, and re-reading and
+    # re-slugging it per link made the check scale with the link count.
     if path.suffix != ".md" or not path.is_file():
-        return set()
+        return frozenset()
     found = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         match = HEADING.match(line)
         if match:
             found.add(slug(match.group(1)))
-    return found
+    return frozenset(found)
 
 
 def check_links(findings: list[str]) -> None:
@@ -124,7 +143,7 @@ def check_links(findings: list[str]) -> None:
 
 def check_drift(findings: list[str]) -> None:
     for rule in DRIFT_RULES:
-        for doc in SCANNED:
+        for doc in (*SCANNED, *DRIFT_ONLY):
             if not doc.is_file():
                 continue
             rel = doc.relative_to(ROOT)
@@ -146,7 +165,10 @@ def main() -> int:
         for finding in findings:
             print(f"  - {finding}")
         return 1
-    print(f"docs_check: clean ({len(SCANNED)} documents scanned)")
+    print(
+        f"docs_check: clean ({len(SCANNED)} documents and "
+        f"{len(DRIFT_ONLY)} manifests scanned)"
+    )
     return 0
 
 

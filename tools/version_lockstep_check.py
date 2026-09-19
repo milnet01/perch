@@ -45,7 +45,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / ".claude/bump.json"
 
 VERSION_RE = r"(\d+\.\d+\.\d+)"
-DATE_RE = r"\d{4}-\d{2}-\d{2}"
 
 
 def canonical_version(recipe: dict) -> str:

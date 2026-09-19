@@ -124,6 +124,10 @@ verdict() {  # verdict "<label>" -- print the summary and exit
 # whether a swapped library in prose is history or a live claim) needs a reader
 # and stays in the /perch-docs-check skill.
 run "docs check (links + drift)" "$PYTHON" tools/docs_check.py
+# Mirrors ci.yml's docs job: every file .claude/bump.json lists carries
+# pyproject's version, so a hand edit that breaks the lockstep is caught
+# before push rather than at release time.
+run "version lockstep" "$PYTHON" tools/version_lockstep_check.py
 
 $DOCS_ONLY && verdict "docs"
 

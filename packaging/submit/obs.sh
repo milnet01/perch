@@ -78,8 +78,14 @@ if [[ -z $OSCRC ]]; then
 fi
 
 API="${OBS_API:-https://api.opensuse.org}"
-USER="${OBS_USER:-$(awk -F= '/^user/ { gsub(/ /, "", $2); print $2; exit }' "$OSCRC")}"
-PROJECT="${OBS_PROJECT:-home:$USER:perch}"
+# Not $USER: assigning that clobbers the login name for osc, curl and every
+# child process.
+OBS_USER_NAME="${OBS_USER:-$(awk -F= '/^user/ { gsub(/ /, "", $2); print $2; exit }' "$OSCRC")}"
+if [[ -z "$OBS_USER_NAME" && -z "${OBS_PROJECT:-}" ]]; then
+    echo "error: no OBS username -- set OBS_USER or add 'user =' to $OSCRC" >&2
+    exit 1
+fi
+PROJECT="${OBS_PROJECT:-home:$OBS_USER_NAME:perch}"
 PACKAGE="perch"
 
 echo ">> OBS project: $PROJECT"
@@ -105,7 +111,8 @@ if [[ ! -d "$PACKAGE" ]]; then
 fi
 cd "$PACKAGE"
 
-VERSION="$(grep -m1 '^version' "$REPO_ROOT/pyproject.toml" | cut -d'"' -f2)"
+# Same parse as packaging/appimage/build.sh, so the two cannot disagree.
+VERSION="$(cd "$REPO_ROOT" && python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
 TARBALL="perch-${VERSION}.tar.gz"
 TARBALL_URL="https://github.com/milnet01/perch/archive/v${VERSION}/${TARBALL}"
 
@@ -122,8 +129,9 @@ fi
 # Drop a stale _service and any older tarball -- OBS keeps whatever was
 # committed before, and a leftover source is a build that succeeds against
 # the wrong version.
-for stale in _service $(ls perch-*.tar.gz 2>/dev/null | grep -Fxv "$TARBALL"); do
-    [[ -e $stale ]] && osc rm --force "$stale" >/dev/null 2>&1 || true
+for stale in _service perch-*.tar.gz; do
+    [[ "$stale" == "$TARBALL" || ! -e "$stale" ]] && continue
+    osc rm --force "$stale" >/dev/null 2>&1 || true
 done
 
 # Only "already tracked" is tolerable. Any other failure means osc commit would
@@ -151,7 +159,7 @@ case "$confirm" in
     *) echo "aborted."; exit 1 ;;
 esac
 
-osc commit -m "release: v$(grep -m1 '^version' "$REPO_ROOT/pyproject.toml" | cut -d'"' -f2)"
+osc commit -m "release: v$VERSION"
 
 echo ">> committed. OBS will run the source service + build on its nodes."
 echo ">> track build: $API/package/show/$PROJECT/$PACKAGE"

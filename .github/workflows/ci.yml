@@ -84,6 +84,12 @@ jobs:
       - name: docs check (links + drift)
         run: python3 tools/docs_check.py
 
+      # Every version-bearing file .claude/bump.json lists carries
+      # pyproject's version. Stdlib-only; a manual AUR/README edit that
+      # breaks the lockstep fails here instead of at release time.
+      - name: version lockstep
+        run: python3 tools/version_lockstep_check.py
+
   packaging:
     # Packaging-artefact validation: the metainfo + desktop entry + the
     # Flatpak manifest + the RPM spec all have to stay well-formed so a

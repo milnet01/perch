@@ -12,8 +12,14 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
+# Every catalogue, so a locale added under translations/ is kept current
+# rather than silently left behind.
+shopt -s nullglob
+catalogues=(translations/perch_*.ts)
+[[ ${#catalogues[@]} -gt 0 ]] || catalogues=(translations/perch_en.ts)
+
 pyside6-lupdate -extensions py src/perch \
-    -ts translations/perch_en.ts \
+    -ts "${catalogues[@]}" \
     -source-language en_US \
     "$@"
 

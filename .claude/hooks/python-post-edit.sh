@@ -6,11 +6,17 @@
 # later in CI. Silent on success.
 #
 # No-op outside the project root, outside Python files, or when ruff isn't
-# installed (e.g. before M1 creates the dev venv).
+# installed (e.g. before M1 creates the dev venv). Without jq it cannot read
+# the payload at all, so it says so on stderr instead of going silent.
 
 set -euo pipefail
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "[python-post-edit] jq not installed; post-edit ruff check skipped" >&2
+    exit 0
+fi
 
 # Parse the hook payload (JSON on stdin) for the edited file path.
 file_path=$(jq -r '.tool_input.file_path // empty' 2>/dev/null || true)

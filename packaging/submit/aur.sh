@@ -58,6 +58,22 @@ if [[ ! -f "$PKG_DIR/.SRCINFO" ]]; then
     exit 1
 fi
 
+# .SRCINFO is what the AUR actually reads, and it is copied verbatim below,
+# so check it before anything leaves the machine. The version lockstep covers
+# pkgver and source for the release package; regenerating .SRCINFO covers
+# everything else (depends, sums) wherever makepkg exists.
+if [[ "$PKGNAME" == "perch" ]]; then
+    python3 tools/version_lockstep_check.py
+fi
+if command -v makepkg >/dev/null 2>&1; then
+    if ! diff -u "$PKG_DIR/.SRCINFO" <(cd "$PKG_DIR" && makepkg --printsrcinfo); then
+        echo "error: $PKG_DIR/.SRCINFO does not match its PKGBUILD -- regenerate it" >&2
+        exit 1
+    fi
+else
+    echo "warning: makepkg not found; .SRCINFO checked for version only, not regenerated and compared" >&2
+fi
+
 REMOTE="${AUR_REMOTE:-ssh://aur@aur.archlinux.org/$PKGNAME.git}"
 
 # Use a scratch clone so the user's main checkout is not touched.

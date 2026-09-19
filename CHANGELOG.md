@@ -68,6 +68,13 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Release and check scripts no longer hide their own mistakes** (PERC-0065)
+  Behind-the-scenes fixes to the tools that build, check and publish
+  Perch: a mismatched version is caught before a push rather than at
+  release, a manual rebuild of an old release refuses to attach the
+  wrong version, and the AUR and openSUSE submission scripts check what
+  they upload. No change to the app itself.
+
 - **A layout no longer stacks two windows of the same app on one spot** (PERC-0066)
   When a layout has one spot for an app and two of that app's windows
   are open, Perch now moves only the one you're using, or the first one

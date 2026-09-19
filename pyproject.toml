@@ -69,9 +69,6 @@ Documentation = "https://github.com/milnet01/perch/tree/main/docs"
 [project.scripts]
 perch = "perch.__main__:cli"
 
-[tool.hatch.version]
-path = "src/perch/__init__.py"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/perch"]
 
