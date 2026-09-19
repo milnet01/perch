@@ -1480,7 +1480,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-code 2026-08-31 (coverage gap, stated in the run's report).
 
-- 📋 [PERC-0064] **Close the app-shell and autostart findings the tranche-1 pass left open.**
+- ✅ [PERC-0064] **Close the app-shell and autostart findings the tranche-1 pass left open.**
   Six findings, none closed on 2026-09-01. autostart.py subscribes to the
   Background portal's Response only after RequestBackground has returned,
   so once a permission is stored the signal can fire first and the task
@@ -1499,6 +1499,17 @@ Goal: fewer first-run support tickets; the config is safe.
   calls, so a SIGINT failure silently skips SIGTERM -- the signal the
   session manager sends at logout; two asserts vanish under python -O; and
   a relative $XDG_CONFIG_HOME is honoured where the spec says to ignore it.
+  Resolved (2026-09-19): all six findings. autostart.py now uses the
+  shared perch.portal.call_with_response (subscribe first, with a
+  handle_token), replacing its private copy; this item's claim that the
+  KWin sibling already did this was wrong, and PERC-0048 fixed both.
+  is_enabled() is deleted rather than repaired: it had no caller, and
+  docs/08 cited it only to say the badge does not use it. app.main's
+  teardown now covers everything after backend.start(); signal handlers
+  install independently via _install_signal_handlers; the QApplication
+  asserts are a RuntimeError. paths.xdg_base ignores a relative $XDG_*
+  value, and autostart_dir and the icon loader use the same rule.
+  Tests: tests/test_app_startup.py, test_paths.py, test_autostart.py.
   **Layman:** Turning autostart on under Flatpak can report failure for something that worked.
   Kind: fix.
   Source: review-code 2026-08-31 (lane app-shell).

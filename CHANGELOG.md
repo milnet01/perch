@@ -63,6 +63,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Autostart and startup: no false "failed" under Flatpak, clean exit on a startup error** (PERC-0064)
+  Turning "Start at login" on or off under Flatpak no longer waits five
+  minutes and logs a failure for a change that worked. If startup fails
+  after Perch has connected to your desktop, it now disconnects cleanly
+  instead of leaving its KDE helper loaded. Logging out now always stops
+  Perch properly. A relative path in an XDG folder variable is ignored,
+  as the standard requires.
+
 - **Flatpak on KDE: registering shortcuts through the desktop portal no longer times out** (PERC-0048)
   Perch now listens for the portal's answer before asking, so a quick
   answer is no longer missed. If the portal still cannot set up

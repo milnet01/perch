@@ -25,6 +25,8 @@ from pathlib import Path
 
 from PySide6.QtGui import QIcon
 
+from perch.paths import xdg_base
+
 log = logging.getLogger(__name__)
 
 
@@ -59,9 +61,9 @@ def _xdg_icon_dirs() -> tuple[Path, ...]:
     ``XDG_DATA_DIRS`` lists and ``sys.prefix`` cannot see.
     """
     raw = os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share"
-    roots = [Path(entry) for entry in raw.split(":") if entry]
-    home = os.environ.get("XDG_DATA_HOME")
-    roots.insert(0, Path(home) if home else Path.home() / ".local" / "share")
+    # Relative entries are invalid per the XDG spec and are skipped.
+    roots = [Path(entry) for entry in raw.split(":") if entry.startswith("/")]
+    roots.insert(0, xdg_base("XDG_DATA_HOME", ".local/share"))
     return tuple(root / _ICON_SUBPATH for root in roots)
 
 

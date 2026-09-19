@@ -402,6 +402,9 @@ effect immediately without a restart:
   the object path of an `org.freedesktop.portal.Request`, not the result —
   the outcome arrives as that request's `Response` signal, carrying
   `(uint32 response, a{sv} results)`, and `autostart` is read from there.
+  Once a permission is stored that reply can arrive before the call
+  returns, so Perch subscribes to the predicted Request path first
+  (`src/perch/portal.py::call_with_response`).
   The portal shows a permission prompt on first use and silently flips the
   flag thereafter, so the wait for the response is long. A refusal, a
   timeout, or an exception from the portal is logged at WARNING and

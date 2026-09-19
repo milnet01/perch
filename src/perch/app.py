@@ -351,8 +351,9 @@ async def main(
     )
 
     app = QApplication.instance()
-    assert app is not None, "QApplication must exist before main() runs"
-    assert isinstance(app, QApplication), "main() requires a QApplication"
+    if not isinstance(app, QApplication):
+        # Not an assert: ``python -O`` strips those.
+        raise RuntimeError("main() requires a QApplication to exist first")
 
     install_translators(app)
     apply_theme(app, config.general.theme)
@@ -385,12 +386,7 @@ async def main(
         log.info("signal received; shutting down")
         close_event.set()
 
-    loop = asyncio.get_running_loop()
-    with contextlib.suppress(NotImplementedError):
-        # Windows' ProactorEventLoop doesn't implement add_signal_handler;
-        # qasync on Linux does. Suppressing the error keeps this portable.
-        loop.add_signal_handler(signal.SIGINT, _handle_sigint)
-        loop.add_signal_handler(signal.SIGTERM, _handle_sigint)
+    _install_signal_handlers(asyncio.get_running_loop(), _handle_sigint)
 
     # SNI / GNOME probes land here as arguments — the sync D-Bus reads
     # that underpin them happen in ``__main__.cli`` before the asyncio
@@ -460,81 +456,86 @@ async def main(
         backend = MockBackend()
         wire_backend_status(backend, controller, tray)
         await backend.start()
-    state_store = StateStore(paths.state_dir() / "state.json")
+    # From here on the backend is running, so every exit — including a
+    # raise from reducer.start() or the dialog before the loop is reached —
+    # must pass through the teardown below. Otherwise the KWin script stays
+    # loaded and the bus name held.
+    reducer: Reducer | None = None
     try:
-        state_store.load()
-    except Exception:
-        # load() is contracted to degrade to an empty store rather than raise,
-        # but a store that somehow does raise must not take startup with it:
-        # the user loses restore-on-open, not the application.
-        log.exception("state.json could not be loaded; starting with empty state")
-    reducer = Reducer(
-        backend=backend,
-        config=config,
-        state_store=state_store,
-        notify_skipped=make_skipped_entries_notifier(tray),
-    )
-    reducer.bind_signals()
-    await reducer.start()
-
-    # Dialog lifetime is tied to ``main()`` so the C++ object stays alive
-    # across multiple opens. It is ``None`` until first-opened and then
-    # reused — re-opening the dialog reconstructs a fresh one so the
-    # working copy starts clean from disk each time.
-    dialog_ref: list[ConfigDialog | None] = [None]
-
-    def open_dialog(section: str | None) -> None:
-        current = dialog_ref[0]
-        if current is not None:
-            current.close()
-            current.deleteLater()
-        # Reload config so a just-saved file is re-parsed, and rebuild
-        # the state snapshot the dialog edits.
-        fresh_config = load_or_create()
-        dialog = ConfigDialog(
-            fresh_config,
-            paths.config_file(),
+        state_store = StateStore(paths.state_dir() / "state.json")
+        try:
+            state_store.load()
+        except Exception:
+            # load() is contracted to degrade to an empty store rather than raise,
+            # but a store that somehow does raise must not take startup with it:
+            # the user loses restore-on-open, not the application.
+            log.exception("state.json could not be loaded; starting with empty state")
+        reducer = Reducer(
             backend=backend,
+            config=config,
             state_store=state_store,
+            notify_skipped=make_skipped_entries_notifier(tray),
         )
-        if section is not None:
-            dialog.select_section(section)
-        def _on_saved() -> None:
-            fresh = load_or_create()
-            controller.set_state(_initial_tray_state(fresh))
-            # Toggle autostart in sync with the just-saved config so the
-            # "Start at login" checkbox has immediate effect — no restart
-            # needed.
-            autostart.sync_from_config(fresh)
-            # Re-apply the theme so a light↔dark flip on Apply takes
-            # effect live. Qt propagates the new palette to every
-            # top-level widget, so open dialogs re-paint without a
-            # reconstruction. ``"auto"`` re-probes the platform colour
-            # scheme.
-            apply_theme(app, fresh.general.theme)
+        reducer.bind_signals()
+        await reducer.start()
 
-        dialog.saved.connect(_on_saved)
-        dialog_ref[0] = dialog
-        dialog.show()
-        dialog.raise_()
-        dialog.activateWindow()
+        # Dialog lifetime is tied to ``main()`` so the C++ object stays alive
+        # across multiple opens. It is ``None`` until first-opened and then
+        # reused — re-opening the dialog reconstructs a fresh one so the
+        # working copy starts clean from disk each time.
+        dialog_ref: list[ConfigDialog | None] = [None]
 
-    # "Show me what else Perch can do" on the wizard's last page. Deferred
-    # to here because ``open_dialog`` does not exist while the wizard runs.
-    if wizard_outcome is not None and wizard_outcome.show_config_dialog:
-        open_dialog(None)
+        def open_dialog(section: str | None) -> None:
+            current = dialog_ref[0]
+            if current is not None:
+                current.close()
+                current.deleteLater()
+            # Reload config so a just-saved file is re-parsed, and rebuild
+            # the state snapshot the dialog edits.
+            fresh_config = load_or_create()
+            dialog = ConfigDialog(
+                fresh_config,
+                paths.config_file(),
+                backend=backend,
+                state_store=state_store,
+            )
+            if section is not None:
+                dialog.select_section(section)
+            def _on_saved() -> None:
+                fresh = load_or_create()
+                controller.set_state(_initial_tray_state(fresh))
+                # Toggle autostart in sync with the just-saved config so the
+                # "Start at login" checkbox has immediate effect — no restart
+                # needed.
+                autostart.sync_from_config(fresh)
+                # Re-apply the theme so a light↔dark flip on Apply takes
+                # effect live. Qt propagates the new palette to every
+                # top-level widget, so open dialogs re-paint without a
+                # reconstruction. ``"auto"`` re-probes the platform colour
+                # scheme.
+                apply_theme(app, fresh.general.theme)
 
-    controller.intent.connect(
-        lambda intent: _handle_intent(
-            intent,
-            close_event=close_event,
-            reducer=reducer,
-            open_dialog=open_dialog,
-            quit_app=app.quit,
+            dialog.saved.connect(_on_saved)
+            dialog_ref[0] = dialog
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
+
+        # "Show me what else Perch can do" on the wizard's last page. Deferred
+        # to here because ``open_dialog`` does not exist while the wizard runs.
+        if wizard_outcome is not None and wizard_outcome.show_config_dialog:
+            open_dialog(None)
+
+        controller.intent.connect(
+            lambda intent: _handle_intent(
+                intent,
+                close_event=close_event,
+                reducer=reducer,
+                open_dialog=open_dialog,
+                quit_app=app.quit,
+            )
         )
-    )
 
-    try:
         await close_event.wait()
     finally:
         # docs/01-architecture.md §Teardown order: cancel background tasks and
@@ -543,10 +544,11 @@ async def main(
         # Each stop is independent. reducer.stop() flushes state.json, which
         # raises OSError on a full or read-only $XDG_STATE_HOME — and that must
         # not leave the KWin script loaded and the bus name held.
-        try:
-            await reducer.stop()
-        except Exception:
-            log.exception("reducer shutdown failed; continuing to stop backend")
+        if reducer is not None:
+            try:
+                await reducer.stop()
+            except Exception:
+                log.exception("reducer shutdown failed; continuing to stop backend")
         try:
             await backend.stop()
         except Exception:
@@ -560,6 +562,20 @@ async def main(
     # completed").
     app.quit()
     return 0
+
+
+def _install_signal_handlers(
+    loop: asyncio.AbstractEventLoop, handler: Callable[[], None]
+) -> None:
+    """Route SIGINT and SIGTERM to ``handler``, each independently.
+
+    Windows' ProactorEventLoop does not implement add_signal_handler; qasync
+    on Linux does. One refusal must not skip the other signal — SIGTERM is
+    what the session manager sends at logout.
+    """
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        with contextlib.suppress(NotImplementedError):
+            loop.add_signal_handler(sig, handler)
 
 
 def allow_headless_bootstrap() -> None:

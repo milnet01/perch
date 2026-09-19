@@ -28,23 +28,28 @@ def is_flatpak() -> bool:
     return Path("/.flatpak-info").is_file()
 
 
-def _xdg_dir(env_var: str, fallback_relative: str) -> Path:
+def xdg_base(env_var: str, fallback_relative: str) -> Path:
+    """An XDG base directory: ``$env_var``, else ``~/fallback_relative``.
+
+    The XDG spec makes an unset, empty or RELATIVE value invalid, to be
+    ignored — a relative one would otherwise resolve against the cwd.
+    """
     raw = os.environ.get(env_var)
-    if raw:
+    if raw and Path(raw).is_absolute():
         return Path(raw)
     return Path.home() / fallback_relative
 
 
 def config_dir() -> Path:
-    return _xdg_dir("XDG_CONFIG_HOME", ".config") / APP_NAME
+    return xdg_base("XDG_CONFIG_HOME", ".config") / APP_NAME
 
 
 def state_dir() -> Path:
-    return _xdg_dir("XDG_STATE_HOME", ".local/state") / APP_NAME
+    return xdg_base("XDG_STATE_HOME", ".local/state") / APP_NAME
 
 
 def cache_dir() -> Path:
-    return _xdg_dir("XDG_CACHE_HOME", ".cache") / APP_NAME
+    return xdg_base("XDG_CACHE_HOME", ".cache") / APP_NAME
 
 
 def config_file() -> Path:

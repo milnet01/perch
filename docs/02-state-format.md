@@ -21,6 +21,8 @@ $XDG_CACHE_HOME/perch/                    (default: ~/.cache/perch/)
 └── icons/                                ← cached app icons for the config dialog
 ```
 
+An unset, empty or relative `$XDG_*` value is ignored and the default is used, as the XDG Base Directory spec requires (`src/perch/paths.py::xdg_base`).
+
 ### Why split config and state
 
 - **config.toml** is the *user's intent*: rules, preferences, layouts. Belongs in dotfile repos. Never written by Perch without user action.

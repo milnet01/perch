@@ -36,3 +36,16 @@ def test_ensure_dir_creates_nested(tmp_path: Path) -> None:
     target = tmp_path / "a" / "b" / "c"
     paths.ensure_dir(target)
     assert target.is_dir()
+
+
+def test_relative_env_is_ignored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PERC-0064: the XDG spec says a relative path in $XDG_* is invalid
+    and must be ignored — it would otherwise resolve against the cwd."""
+    from perch import autostart
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", "relative/cfg")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert paths.config_dir() == tmp_path / ".config" / "perch"
+    assert autostart.autostart_dir() == tmp_path / ".config" / "autostart"

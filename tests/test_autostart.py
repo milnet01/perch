@@ -10,6 +10,7 @@ import pytest
 
 from perch import autostart
 from perch.config.schema import Config, GeneralSettings
+from perch.portal import request_path
 
 
 def _conf(start_at_login: bool) -> Config:
@@ -148,59 +149,78 @@ def test_is_flatpak_false_on_dev_host() -> None:
 # ── Portal path (mocked) ─────────────────────────────────────────────────────
 
 
-class _FakeResponseSignal:
-    """Stands in for an sdbus signal descriptor: ``.catch()`` yields once."""
+_SENDER = ":1.1"
 
-    def __init__(self, payload: tuple[int, dict[str, Any]]) -> None:
-        self._payload = payload
 
-    def catch(self) -> Any:
-        async def _iter() -> Any:
-            yield self._payload
+class _FakeWaiter:
+    def __init__(self) -> None:
+        self.queue: asyncio.Queue[tuple[int, dict[str, Any]]] = asyncio.Queue()
+        self.closed = False
 
-        return _iter()
+    async def wait(self, timeout_s: float) -> tuple[int, dict[str, Any]] | None:
+        try:
+            return await asyncio.wait_for(self.queue.get(), timeout=timeout_s)
+        except TimeoutError:
+            return None
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class _FakePortal:
-    """Records RequestBackground calls and scripts the Request's Response.
+    """Records RequestBackground calls and answers the way a real portal can.
 
-    Doubles as the ``request_factory``: calling the instance with a path
-    hands back the same object, so a test builds one fake, not two.
+    Once a permission is stored the Response is emitted during the call,
+    at the path derived from the caller's handle_token, and reaches only
+    a subscription already in place. ``silent`` sends no Response at all.
     """
 
-    #: Shape the portal really uses — the value must never be treated as
-    #: the result dict, which is the defect PERC-0037 fixed.
-    REQUEST_PATH = "/org/freedesktop/portal/desktop/request/1_1/perch"
-
-    def __init__(self, *, granted: bool = True, response_code: int = 0) -> None:
+    def __init__(
+        self, *, granted: bool = True, response_code: int = 0, silent: bool = False
+    ) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
-        self.subscribed: list[str] = []
+        self.events: list[str] = []
+        self._subscriptions: dict[str, _FakeWaiter] = {}
         self._granted = granted
         self._response_code = response_code
+        self._silent = silent
+
+    async def sender(self) -> str:
+        return _SENDER
+
+    async def subscribe(self, path: str) -> _FakeWaiter:
+        self.events.append(f"subscribe {path}")
+        waiter = _FakeWaiter()
+        self._subscriptions[path] = waiter
+        return waiter
 
     async def request_background(
         self, parent_window: str, options: dict[str, Any]
     ) -> str:
         self.calls.append((parent_window, options))
-        return self.REQUEST_PATH
+        path = request_path(_SENDER, options["handle_token"][1])
+        self.events.append(f"call {path}")
+        waiter = self._subscriptions.get(path)
+        if waiter is not None and not self._silent:
+            # a{sv} — the value arrives variant-wrapped, as it does on the bus.
+            waiter.queue.put_nowait(
+                (self._response_code, {"autostart": ("b", self._granted)})
+            )
+        return path
 
-    def __call__(self, path: str) -> _FakePortal:
-        self.subscribed.append(path)
-        return self
-
-    @property
-    def response(self) -> _FakeResponseSignal:
-        # a{sv} — the value arrives variant-wrapped, as it does on the bus.
-        return _FakeResponseSignal(
-            (self._response_code, {"autostart": ("b", self._granted)})
-        )
+    def seams(self) -> dict[str, Any]:
+        return {
+            "factory": lambda: self,
+            "subscriber": self.subscribe,
+            "sender": self.sender,
+        }
 
 
 def test_portal_set_autostart_enabled() -> None:
     fake = _FakePortal()
     granted = asyncio.run(
         autostart.portal_set_autostart(
-            True, factory=lambda: fake, request_factory=fake
+            True, **fake.seams()
         )
     )
     assert granted is True
@@ -214,7 +234,7 @@ def test_portal_set_autostart_disabled_omits_commandline() -> None:
     fake = _FakePortal()
     asyncio.run(
         autostart.portal_set_autostart(
-            False, factory=lambda: fake, request_factory=fake
+            False, **fake.seams()
         )
     )
     _, options = fake.calls[0]
@@ -236,7 +256,9 @@ def test_portal_swallows_exceptions() -> None:
     assert (
         asyncio.run(
             autostart.portal_set_autostart(
-                True, factory=lambda: _ExplodingPortal()
+                True,
+                factory=lambda: _ExplodingPortal(),
+                sender=_FakePortal().sender,
             )
         )
         is False
@@ -251,14 +273,20 @@ def test_portal_reads_the_response_not_the_request_path() -> None:
     live-Flatpak failure PERC-0037 records.
     """
     fake = _FakePortal(granted=True)
-    granted = asyncio.run(
-        autostart.portal_set_autostart(
-            True, factory=lambda: fake, request_factory=fake
-        )
-    )
+    granted = asyncio.run(autostart.portal_set_autostart(True, **fake.seams()))
     assert granted is True
-    # The Response was awaited on the path the portal handed back.
-    assert fake.subscribed == [_FakePortal.REQUEST_PATH]
+
+
+def test_portal_subscribes_before_calling() -> None:
+    """PERC-0064: once a permission is stored the Response can arrive
+    before RequestBackground returns; subscribing afterwards lost it and
+    the task waited out the whole timeout, logging failure for a toggle
+    that had worked."""
+    fake = _FakePortal(granted=True)
+    assert asyncio.run(autostart.portal_set_autostart(True, **fake.seams())) is True
+    sub, call = fake.events
+    assert sub.startswith("subscribe ")
+    assert call == "call " + sub.removeprefix("subscribe ")
 
 
 def test_portal_denied_response_is_not_granted() -> None:
@@ -266,7 +294,7 @@ def test_portal_denied_response_is_not_granted() -> None:
     assert (
         asyncio.run(
             autostart.portal_set_autostart(
-                True, factory=lambda: fake, request_factory=fake
+                True, **fake.seams()
             )
         )
         is False
@@ -280,7 +308,7 @@ def test_portal_cancelled_request_is_not_granted() -> None:
     assert (
         asyncio.run(
             autostart.portal_set_autostart(
-                True, factory=lambda: fake, request_factory=fake
+                True, **fake.seams()
             )
         )
         is False
@@ -288,28 +316,10 @@ def test_portal_cancelled_request_is_not_granted() -> None:
 
 
 def test_portal_response_timeout_is_not_granted() -> None:
-    class _SilentRequest:
-        @property
-        def response(self) -> Any:
-            class _Never:
-                def catch(self) -> Any:
-                    async def _iter() -> Any:
-                        await asyncio.Event().wait()
-                        yield (0, {})
-
-                    return _iter()
-
-            return _Never()
-
-    fake = _FakePortal()
+    fake = _FakePortal(silent=True)
     assert (
         asyncio.run(
-            autostart.portal_set_autostart(
-                True,
-                factory=lambda: fake,
-                request_factory=lambda _path: _SilentRequest(),
-                timeout_s=0.01,
-            )
+            autostart.portal_set_autostart(True, **fake.seams(), timeout_s=0.01)
         )
         is False
     )
@@ -321,6 +331,7 @@ def test_sync_flatpak_routes_to_portal(monkeypatch: pytest.MonkeyPatch) -> None:
         True,
         flatpak=True,
         portal_factory=lambda: fake,
-        portal_request_factory=fake,
+        portal_subscriber=fake.subscribe,
+        portal_sender=fake.sender,
     )
     assert len(fake.calls) == 1
