@@ -68,6 +68,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **KDE: Perch now hears when you move or resize a window** (PERC-0046)
+  The helper script Perch runs inside KWin used a timer call that doesn't
+  exist there, so every window move or resize notification failed
+  silently. Perch never learned where you had put your windows. Windows
+  whose app name arrives late also went unreported. Both now work, which
+  means Perch remembers your moves on KDE Plasma. The helper script's
+  JavaScript is now checked by a linter on every push.
+
 - **The GNOME and Sway backends no longer claim abilities they lack** (PERC-0044)
   On GNOME and Sway, Perch cannot yet notice windows opening or monitors
   changing, and on GNOME it cannot register shortcuts. It now says so

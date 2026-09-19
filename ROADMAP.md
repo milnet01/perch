@@ -857,7 +857,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-iface-stubs).
 
-- 📋 [PERC-0046] **Give the compositor JavaScript a static-analysis gate, and fix what it finds.**
+- ✅ [PERC-0046] **Give the compositor JavaScript a static-analysis gate, and fix what it finds.**
   The repo has no package.json, so check-code's detection table never
   selected eslint or tsc and 750 lines of shipped JavaScript have had no
   static analysis. What one pass would have caught: setInterval used in
@@ -867,6 +867,22 @@ Goal: fewer first-run support tickets; the config is safe.
   that QTimer.triggered.connect works and that it does not, the Plasma 5
   name sendClientToScreen with a silent read-only-property fallback, and
   the GNOME extension discarding the accel argument it is passed.
+  Resolved (2026-09-19): ESLint 10 (package.json, eslint.config.js with
+  each runtime's own globals) runs in both gates; its first pass found
+  exactly the lane's lint-level findings. A probe of kwin_wayland
+  --virtual settled the rest: no setTimeout/setInterval/Qt; QTimer's
+  signal is `timeout`, and `triggered` is undefined, so the geometry
+  debounce threw on EVERY frameGeometryChanged -- Perch on KWin never
+  received WindowGeometryChanged. main.js now has one singleShot() helper
+  for the debounce and the WM_CLASS retry; sendClientToScreen does exist
+  on Plasma 6, and the read-only w.output fallback became an explicit
+  "unsupported" error; a swallowed poll exception is now printed. Script
+  version 1.1.3. Extension: console.warn for the deprecated log(), unused
+  monitor removed, register_hotkey refuses with a reason instead of
+  ignoring accel. New live test moves a real Qt window on the virtual
+  KWin and waits for the geometry event: red on the old script, green now.
+  The KWin test harness now uses sdbus's FreedesktopDbus (a hand-declared
+  org.freedesktop.DBus class clashed with the backend's).
   **Layman:** The code Perch runs inside your desktop has never been checked by any tool.
   Kind: fix.
   Source: review-code 2026-08-31 (lane compositor-scripts); check-code 2026-08-31 tool gap.

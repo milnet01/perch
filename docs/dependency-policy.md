@@ -93,6 +93,9 @@ manifests (CI actions, the RPM spec, PKGBUILDs, base images) are governed by the
 | `pytest>=8.4,<10` | dev | pytest 10 (8.x–9.x allowed) | pytest 10 ships → retest the suite |
 | `pytest-qt>=4.5,<5` | dev | pytest-qt 5 major | pytest-qt 5.0 ships |
 | `pytest-asyncio>=1.3,<2` | dev | pytest-asyncio 2 major | pytest-asyncio 2.0 ships |
+| `eslint ^10.11.0` | `package.json` dev | ESLint 11 major (rule and config changes) | ESLint 11 ships → retest the JS lint |
+| `@eslint/js ^10.0.1` | `package.json` dev | moves with ESLint's major | ESLint 11 ships |
+| `globals ^17.12.0` | `package.json` dev | globals 18 major | globals 18 ships |
 
 `python-xlib`, `pytest-xvfb`, `regex` and `types-regex` carry a lower bound only
 — no ceiling, nothing to track here. `regex` is versioned by release date, so it

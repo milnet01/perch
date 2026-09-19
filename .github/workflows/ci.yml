@@ -90,6 +90,14 @@ jobs:
       - name: version lockstep
         run: python3 tools/version_lockstep_check.py
 
+      # The JavaScript Perch runs inside KWin and GNOME Shell. eslint.config.js
+      # gives each file its runtime's globals, so a browser API used where the
+      # compositor has none fails here. Node is on the runner image.
+      - name: eslint (compositor JavaScript)
+        run: |
+          npm ci --no-audit --no-fund
+          npx eslint src/perch/backend/kwin/script src/perch/backend/mutter/extension
+
   packaging:
     # Packaging-artefact validation: the metainfo + desktop entry + the
     # Flatpak manifest + the RPM spec all have to stay well-formed so a

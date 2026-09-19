@@ -80,7 +80,7 @@ The script cannot export a D-Bus method, so Python→script commands flow via **
 
 1. At startup the script makes a `callDBus(PERCH, /KWin, ..., "PollCommand", callback)` call.
 2. Python **holds the reply** until a command is queued, or up to a heartbeat ceiling of ~5 s (after which it returns `{"nop": true}` so KWin doesn't GC the pending callback).
-3. When the callback fires, the script parses the JSON command, executes it (e.g. `w.frameGeometry = Qt.rect(...)`), calls `CommandDone(seq, "ok")`, and **re-arms the long-poll** by calling `PollCommand` again.
+3. When the callback fires, the script parses the JSON command, executes it (e.g. `w.frameGeometry = {x, y, width, height}` — a plain object, because the sandbox defines no `Qt`), calls `CommandDone` with one JSON string `{"seq": …, "result": …}`, and **re-arms the long-poll** by calling `PollCommand` again.
 
 Why long-poll, not tight polling:
 
@@ -92,6 +92,8 @@ Why long-poll, not tight polling:
 For bulk operations (apply a whole layout), Python emits a single command with a `batch: [...]` array and the script runs all sub-ops in one tick, landing in the same compositor frame.
 
 **JSON strings end-to-end, not typed D-Bus arguments.** `callDBus` in KWin's JS sandbox has a known footgun (KWin bug 486024): variadic args go through Qt's best-guess type coercion, which breaks for numeric D-Bus signatures (`i`, `u` vs. JS's unified `double`). Perch sidesteps this by making every argument to `WindowAdded` / `PollCommand` / `CommandDone` etc. a **string** (JSON-encoded payload, decoded on the Python side). Adds a few μs per call — negligible — and makes the script robust against KWin marshalling quirks.
+
+**What the sandbox has.** Probed on `kwin_wayland --virtual` (Plasma 6) on 2026-09-19: there is no `setTimeout`, `setInterval` or `Qt`. `QTimer` is constructible, and its signal is `timeout` — `triggered` is undefined, so connecting to it throws and kills the handler. `workspace.sendClientToScreen` exists and `sendClientToOutput` does not. `main.js`'s `singleShot()` helper is the one timer idiom. `eslint.config.js` encodes this list as the script's globals, so `npm run lint` (and both gates) reject a browser API here. `tests/backend/kwin/test_live_kwin.py` moves a real window on the virtual KWin and waits for `WindowGeometryChanged`, the event the `triggered` bug had silenced.
 
 **Outbound (what the script tells Perch):**
 

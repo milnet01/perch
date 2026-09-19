@@ -69,6 +69,12 @@ itself.
 The project `.venv` is still the environment to point an editor at — the gate
 does not use it for the test job.
 
+**The compositor JavaScript is linted with ESLint**, which needs Node.js and
+`npm` on `PATH`. The gate runs `npm ci` itself the first time (into the
+gitignored `node_modules/`) and whenever `package-lock.json` changes; the
+config is `eslint.config.js`, and `docs/05-backend-kwin.md` says why each KWin
+global is on its list.
+
 ### Documentation-only pushes
 
 `./local_CI.sh --docs` runs the docs job alone — `tools/docs_check.py`, which

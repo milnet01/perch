@@ -114,7 +114,7 @@ class PerchMutterService {
             Gio.BusNameOwnerFlags.NONE,
             null,
             null,
-            () => log('Perch: lost session bus name')
+            () => console.warn('Perch: lost session bus name')
         );
     }
 
@@ -139,7 +139,6 @@ class PerchMutterService {
     _describeWindow(w) {
         const rect = w.get_frame_rect();
         const monitorIndex = w.get_monitor();
-        const monitor = global.display.get_monitor_geometry(monitorIndex);
         const outputs = Meta.MonitorManager.get().get_logical_monitors();
         const mname = outputs[monitorIndex]?.get_monitors()?.[0]?.get_display_name?.()
                    ?? `Monitor-${monitorIndex}`;
@@ -311,10 +310,17 @@ class PerchMutterService {
         return OK();
     }
 
-    register_hotkey(callback_id, accel) {
+    register_hotkey(callback_id, _accel) {
         if (this._hotkeys.has(callback_id))
             return OK();  // idempotent — already registered
+        // addKeybinding takes its keys from a GSettings schema key, not from
+        // this call, and the schema is not shipped (STATUS.md §Schema). So
+        // the accelerator cannot be honoured: refuse, rather than bind
+        // whatever the schema happens to hold. The backend declares
+        // can_register_hotkeys = False for the same reason.
         const settings = this._getSettings();
+        if (settings === null)
+            return ERR('unsupported', 'no keybinding schema is installed, so the accelerator cannot be bound');
         try {
             const actionId = Main.wm.addKeybinding(
                 `perch-${callback_id}`,

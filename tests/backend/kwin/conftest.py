@@ -66,30 +66,17 @@ def _start_dbus_daemon() -> tuple[subprocess.Popen[bytes], str]:
 
 async def _wait_for_kwin(address: str, timeout: float = 15.0) -> None:
     """Poll ``org.kde.KWin`` on the private bus until it registers."""
-    from sdbus import (
-        DbusInterfaceCommonAsync,
-        dbus_method_async,
-        sd_bus_open_user,
-        set_default_bus,
-    )
-
-    class _DbusService(
-        DbusInterfaceCommonAsync,
-        interface_name="org.freedesktop.DBus",
-    ):
-        @dbus_method_async(
-            input_signature="", result_signature="as", method_name="ListNames"
-        )
-        async def list_names(self) -> list[str]:  # type: ignore[empty-body]
-            ...
+    # sdbus's own proxy, not a hand-declared class: sdbus allows one async
+    # interface class per D-Bus interface name per process, and the KWin
+    # backend uses this one too.
+    from sdbus import sd_bus_open_user, set_default_bus
+    from sdbus_async.dbus_daemon import FreedesktopDbus
 
     env_backup = os.environ.get("DBUS_SESSION_BUS_ADDRESS")
     os.environ["DBUS_SESSION_BUS_ADDRESS"] = address
     try:
         set_default_bus(sd_bus_open_user())
-        svc = _DbusService.new_proxy(
-            "org.freedesktop.DBus", "/org/freedesktop/DBus"
-        )
+        svc = FreedesktopDbus()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
@@ -107,6 +94,11 @@ async def _wait_for_kwin(address: str, timeout: float = 15.0) -> None:
             os.environ["DBUS_SESSION_BUS_ADDRESS"] = env_backup
 
 
+def wayland_socket() -> str:
+    """The Wayland socket :func:`virtual_kwin_session` gives its KWin."""
+    return f"wayland-perch-{os.getpid()}"
+
+
 @pytest.fixture(scope="module")
 def virtual_kwin_session() -> Iterator[str]:
     """A private ``DBUS_SESSION_BUS_ADDRESS`` with a live virtual KWin.
@@ -121,7 +113,7 @@ def virtual_kwin_session() -> Iterator[str]:
 
     # Use a unique wayland socket so a concurrent Plasma session on the
     # same host doesn't collide.
-    socket = f"wayland-perch-{os.getpid()}"
+    socket = wayland_socket()
     env = {
         **{k: v for k, v in os.environ.items() if not k.startswith("WAYLAND_")},
         "DBUS_SESSION_BUS_ADDRESS": address,

@@ -128,3 +128,73 @@ def test_backend_connected_signal_fires_on_start() -> None:
             await b.stop()
 
     asyncio.run(run())
+
+
+# ── Events from a real window (PERC-0046) ─────────────────────────────────
+
+_CLIENT = """
+import sys, time
+from PySide6.QtWidgets import QApplication, QWidget
+app = QApplication(sys.argv)
+w = QWidget()
+w.setWindowTitle("perch-live-probe")
+w.resize(320, 240)
+w.show()
+deadline = time.monotonic() + 30
+while time.monotonic() < deadline:
+    app.processEvents()
+    time.sleep(0.02)
+"""
+
+
+def test_a_moved_window_reports_its_new_geometry() -> None:
+    """main.js debounced geometry through ``QTimer.triggered``, which KWin's
+    QJSEngine does not have (the signal is ``timeout``): the connect threw on
+    every geometry change, so Perch never heard a window move."""
+    import os
+    import subprocess
+    import sys
+
+    from perch.backend.types import Geometry
+
+    from .conftest import wayland_socket
+
+    async def run() -> None:
+        b = KWinBackend(hotkey_provider=MockHotkeyProvider())
+        opened: list[str] = []
+        moved: list[Geometry] = []
+        b.window_opened.connect(
+            lambda info: opened.append(info.id)
+            if info.title == "perch-live-probe"
+            else None
+        )
+        b.geometry_changed.connect(lambda _wid, geom, *_rest: moved.append(geom))
+        await b.start()
+        client = subprocess.Popen(
+            [sys.executable, "-c", _CLIENT],
+            env={
+                **os.environ,
+                "QT_QPA_PLATFORM": "wayland",
+                "WAYLAND_DISPLAY": wayland_socket(),
+            },
+        )
+        try:
+            for _ in range(200):
+                if opened:
+                    break
+                await asyncio.sleep(0.05)
+            assert opened, "the KWin script never reported the probe window"
+            moved.clear()
+            target = Geometry(100, 120, 400, 300)
+            await b.set_geometry(opened[0], target)
+            for _ in range(100):
+                if target in moved:
+                    break
+                await asyncio.sleep(0.05)
+            assert target in moved
+        finally:
+            client.kill()
+            client.wait()
+            await b.stop()
+
+    asyncio.run(run())

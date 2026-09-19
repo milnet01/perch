@@ -17,6 +17,19 @@ const OBJ = "/KWin";
 const IF  = "io.github.milnet01.Perch.KWin1";
 
 const GEOMETRY_DEBOUNCE_MS = 50;
+const WM_CLASS_RETRY_MS = 1000;
+
+// KWin's QJSEngine has no setTimeout / setInterval. QTimer is the timer, and
+// its signal is `timeout` — `triggered` is QAction's and is undefined here,
+// so connecting to it throws (probed on kwin_wayland, Plasma 6, 2026-09-19).
+function singleShot(ms, fn) {
+    const timer = new QTimer();
+    timer.interval = ms;
+    timer.singleShot = true;
+    timer.timeout.connect(fn);
+    timer.start();
+    return timer;
+}
 
 // ── Identity / serialisation ───────────────────────────────────────────────
 
@@ -98,10 +111,9 @@ function emitWindowAdded(w) {
     if (!w.resourceName && !w.resourceClass) {
         // Retry once after 1 s; if it's still empty, fire with empty app_id
         // and let Perch fall back to title-based identity.
-        const retry = setInterval(function () {
-            clearInterval(retry);
+        singleShot(WM_CLASS_RETRY_MS, function () {
             callDBus(SVC, OBJ, IF, "WindowAdded", JSON.stringify(describeWindow(w)));
-        }, 1000);
+        });
         return;
     }
     callDBus(SVC, OBJ, IF, "WindowAdded", JSON.stringify(describeWindow(w)));
@@ -123,16 +135,11 @@ function emitWindowGeometryChanged(w) {
         // Reset the timer instead of queueing another call.
         _geomTimers[id].stop();
     }
-    const timer = new QTimer();
-    timer.interval = GEOMETRY_DEBOUNCE_MS;
-    timer.singleShot = true;
-    timer.triggered.connect(function () {
+    _geomTimers[id] = singleShot(GEOMETRY_DEBOUNCE_MS, function () {
         delete _geomTimers[id];
         const payload = JSON.stringify(describeWindow(w));
         callDBus(SVC, OBJ, IF, "WindowGeometryChanged", payload);
     });
-    timer.start();
-    _geomTimers[id] = timer;
 }
 
 function emitWindowPropertiesChanged(w) {
@@ -204,12 +211,14 @@ function doSetFrameGeometry(op) {
         const s = findOutput(op.output);
         if (!s) return { ok: false, error: "unknown_output", output: op.output };
         // Move to the target output first so frameGeometry is applied in the
-        // correct coordinate space. workspace.sendClientToOutput (Plasma 6).
-        if (typeof workspace.sendClientToScreen === "function") {
-            workspace.sendClientToScreen(w, s);
-        } else if (typeof w.output !== "undefined") {
-            w.output = s;
+        // correct coordinate space. Plasma 6 still names this
+        // sendClientToScreen (probed 2026-09-19; sendClientToOutput is
+        // undefined). Window.output is read-only, so there is no fallback
+        // that works: say so rather than silently not moving.
+        if (typeof workspace.sendClientToScreen !== "function") {
+            return { ok: false, error: "unsupported", detail: "workspace.sendClientToScreen missing" };
         }
+        workspace.sendClientToScreen(w, s);
     }
     // KWin's JS sandbox does not export ``Qt.rect``; using it throws
     // "Qt is not defined" and the whole command is rejected. Assigning
@@ -222,13 +231,11 @@ function doSetFrameGeometry(op) {
         height: op.h | 0,
     };
     // ``op.preplace`` used to trigger a keepAbove dance to suppress
-    // first-frame flicker during RestoreLastSeen, but the required
-    // ``QTimer.triggered.connect(...)`` is not actually available in
-    // KWin's JS sandbox ("Cannot call method 'connect' of undefined")
-    // — which meant every call with preplace=true left the window
-    // stuck on top. The payload flag is still accepted from the
-    // Python side for backwards-compatibility with pinned test
-    // fixtures but is a no-op here; see
+    // first-frame flicker during RestoreLastSeen. It connected to
+    // ``QTimer.triggered``, which does not exist (the signal is
+    // ``timeout``), so the timer that was to clear keepAbove never ran
+    // and every such window stayed stuck on top. The flag is still
+    // accepted from the Python side but is a no-op here; see
     // ``can_preplace_windows = False`` in the backend capabilities.
     return { ok: true };
 }
@@ -360,7 +367,9 @@ function poll() {
                     JSON.stringify({ seq: cmd.seq, result: result }));
             }
         } catch (e) {
-            // Drop malformed replies and re-arm; Python will retry.
+            // Drop the malformed reply and re-arm; Python times the command
+            // out. Logged, because silently dropping one hid real bugs.
+            print("perch: dropped a command that failed: " + e);
         }
         poll();
     });
@@ -408,5 +417,5 @@ poll();
 // ``KPlugin.Version`` and ``perch.backend.kwin.BUNDLED_SCRIPT_VERSION``.
 // Kept as a literal here because KWin's JS sandbox has no JSON-file reader;
 // install-time parity is verified by ``tests/backend/kwin/test_bundled_script.py``.
-const SCRIPT_VERSION = "1.1.2";
+const SCRIPT_VERSION = "1.1.3";
 callDBus(SVC, OBJ, IF, "ScriptReady", JSON.stringify({ version: SCRIPT_VERSION }));

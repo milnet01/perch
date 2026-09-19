@@ -128,6 +128,14 @@ run "docs check (links + drift)" "$PYTHON" tools/docs_check.py
 # pyproject's version, so a hand edit that breaks the lockstep is caught
 # before push rather than at release time.
 run "version lockstep" "$PYTHON" tools/version_lockstep_check.py
+# Mirrors ci.yml's docs job. `npm ci` is skipped when node_modules is already
+# current, which keeps a repeat run fast.
+eslint_js() {
+    [[ -x node_modules/.bin/eslint && node_modules/.package-lock.json -nt package-lock.json ]] \
+        || npm ci --no-audit --no-fund --silent
+    npx eslint src/perch/backend/kwin/script src/perch/backend/mutter/extension
+}
+run "eslint (compositor JavaScript)" eslint_js
 
 $DOCS_ONLY && verdict "docs"
 
