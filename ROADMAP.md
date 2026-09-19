@@ -825,6 +825,12 @@ Goal: fewer first-run support tickets; the config is safe.
   backend_degraded / awaiting_extension survive (lane 9 open question).
   Still open: the tray's Windows submenu and the Rules dry-run toggle +
   trace panel.
+  Decided by the user (2026-09-19): the tray Windows submenu gets simple
+  per-window actions -- Forget this window, Exclude this window from
+  Perch, Show in settings -- and docs/08's editable-geometry popover is
+  trimmed to match. The Rules page is BUILT as documented: add and edit
+  rules (reusing MatchEditor / GeometryEditor), the dry-run toggle and the
+  trace panel.
   **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
@@ -1861,6 +1867,37 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Check whether windows land a few pixels off on older (X11) desktops because of their title bars.
   Kind: investigate.
   Source: in-session-2026-09-19, PERC-0061 vulture triage.
+
+- 📋 [PERC-0075] **Make a settings save take effect without restarting Perch.**
+  Found 2026-09-19 while starting PERC-0043's Windows submenu. app.main's
+  _on_saved refreshes the tray, autostart and theme, but the Reducer keeps
+  the Config it was constructed with: reducer.config is assigned only in
+  Reducer.__init__. So rules, layouts, exclusions, snaps and profiles
+  edited in the settings window do nothing until Perch restarts. Planned
+  fix: Reducer.set_config(config) that swaps the config, re-resolves
+  active_layout and active_profile by NAME against the new config
+  (dropping one that was deleted) and calls _recompute_effective_layout;
+  no reapply, so windows already placed stay put until their next
+  trigger. Call it from _on_saved. Test first: save a new exclusion or
+  rule through the dialog path and assert the next window event obeys
+  it. docs/08 should say a save applies immediately. Blocks the
+  Windows submenu's 'Exclude this window' action (PERC-0043).
+  **Layman:** Changes you make in Perch's settings only work after you restart Perch.
+  Kind: fix.
+  Source: in-session-2026-09-19.
+
+- 📋 [PERC-0076] **Cut the next release to GitHub.**
+  Requested by the user 2026-09-19. Current version is 1.1.0
+  (pyproject.toml); CHANGELOG.md [Unreleased] holds this session's
+  fixes plus two Added entries (perch --settings, and the tray error
+  state under PERC-0043), so the bump is a MINOR, 1.2.0, per
+  docs/versioning-release-standards.md. Run `cut-release --check` first
+  and decide with the user whether to ship before or after the
+  remaining PERC-0043 work and the settings-save fix above; the KWin
+  geometry-event fix (PERC-0046) is the strongest reason not to wait.
+  **Layman:** Publish a new version of Perch with this round of fixes.
+  Kind: release.
+  Source: user-request-2026-09-19.
 
 ## v1.2 — Smarts
 
