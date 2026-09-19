@@ -46,6 +46,8 @@ def _qapp(qapp: object) -> None:
 
 
 # Helper: pump Qt + asyncio events for ``duration_s`` or until ``cond()``.
+# A condition wait returns as soon as it holds, so its ceiling is generous:
+# a 3 s ceiling lost the race to xclock start-up on a loaded box (PERC-0071).
 async def _pump_until(cond: object, duration_s: float = 1.5) -> None:
     t0 = time.time()
     while time.time() - t0 < duration_s:
@@ -109,7 +111,7 @@ def test_window_opened_fires_on_xclock_spawn_and_geometry_round_trip(
             ["xclock", "-geometry", "100x100+500+300"], env=env
         )
         try:
-            await _pump_until(lambda: bool(opened), duration_s=3.0)
+            await _pump_until(lambda: bool(opened), duration_s=10.0)
             assert opened == ["xclock"]
 
             wins = await b.list_windows()
@@ -135,7 +137,7 @@ def test_window_opened_fires_on_xclock_spawn_and_geometry_round_trip(
 
         # window_closed should fire once xclock exits and Openbox removes
         # the entry from _NET_CLIENT_LIST.
-        await _pump_until(lambda: bool(closed), duration_s=3.0)
+        await _pump_until(lambda: bool(closed), duration_s=10.0)
         assert closed, "window_closed never fired for xclock"
 
         await b.stop()
@@ -157,7 +159,7 @@ def test_set_state_toggles_fullscreen_and_back(openbox_display: str) -> None:
         try:
             opened_ids: list[str] = []
             b.window_opened.connect(lambda info: opened_ids.append(info.id))
-            await _pump_until(lambda: bool(opened_ids), duration_s=3.0)
+            await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
             wid = opened_ids[0]
 
             await b.set_state(wid, WindowState.FULLSCREEN)
@@ -198,11 +200,11 @@ def test_close_window_causes_window_closed_signal(openbox_display: str) -> None:
         try:
             opened_ids: list[str] = []
             b.window_opened.connect(lambda info: opened_ids.append(info.id))
-            await _pump_until(lambda: bool(opened_ids), duration_s=3.0)
+            await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
             wid = opened_ids[0]
 
             await b.close_window(wid)
-            await _pump_until(lambda: bool(closed), duration_s=3.0)
+            await _pump_until(lambda: bool(closed), duration_s=10.0)
             assert wid in closed
         finally:
             # If close_window succeeded, xc has exited; .wait is instant.
@@ -292,7 +294,7 @@ def test_set_geometry_with_bogus_monitor_raises_unknown_output(
         try:
             opened_ids: list[str] = []
             b.window_opened.connect(lambda info: opened_ids.append(info.id))
-            await _pump_until(lambda: bool(opened_ids), duration_s=3.0)
+            await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
             wid = opened_ids[0]
 
             with pytest.raises(UnknownOutput):

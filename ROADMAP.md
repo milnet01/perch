@@ -1679,7 +1679,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: security.
   Source: review-code 2026-08-31 (lane compositor-scripts), split out of PERC-0050.
 
-- 📋 [PERC-0071] **Make the live Openbox tests wait for the window manager instead of racing it.**
+- ✅ [PERC-0071] **Make the live Openbox tests wait for the window manager instead of racing it.**
   tests/backend/x11/test_live_openbox.py failed one run in three on
   2026-09-19 and passed on re-run, with no X11 code changed. Two sites:
   test_start_emits_backend_connected_and_lists_virtual_output asserts
@@ -1688,6 +1688,11 @@ Goal: fewer first-run support tickets; the config is safe.
   opened_ids[0] after a fixed 3 s wait for xclock. Both should wait on
   the condition, and the fixture should not hand over the display until
   Openbox has set its root properties.
+  Resolved (2026-09-19): _wait_for_wm now also waits for
+  _NET_NUMBER_OF_DESKTOPS, and the condition waits on window open/close
+  have a 10 s ceiling (they return as soon as the condition holds, so a
+  fast run is unchanged). Six sequential and three concurrent runs all
+  passed.
   **Layman:** One of Perch's automatic tests sometimes fails for timing reasons, not because anything is broken.
   Kind: test.
   Source: in-session-2026-09-19, full-suite run during PERC-0060.

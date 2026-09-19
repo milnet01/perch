@@ -61,7 +61,12 @@ def _start_xvfb() -> tuple[subprocess.Popen[bytes], str]:
 
 
 def _wait_for_wm(display_name: str, timeout: float = 10.0) -> None:
-    """Poll ``_NET_SUPPORTING_WM_CHECK`` on root until the WM has set it."""
+    """Poll root until the WM has finished publishing its EWMH state.
+
+    ``_NET_SUPPORTING_WM_CHECK`` alone is not enough: Openbox can set it
+    before ``_NET_NUMBER_OF_DESKTOPS``, and a test reading the desktop
+    count in that gap sees none (PERC-0071).
+    """
     from Xlib import Xatom
     from Xlib import display as _display
 
@@ -70,11 +75,18 @@ def _wait_for_wm(display_name: str, timeout: float = 10.0) -> None:
         try:
             d = _display.Display(display_name)
             try:
-                atom = d.intern_atom("_NET_SUPPORTING_WM_CHECK", only_if_exists=True)
-                if atom != 0:
-                    prop = d.screen().root.get_full_property(atom, Xatom.WINDOW)
-                    if prop is not None and prop.value:
-                        return
+                root = d.screen().root
+                ready = True
+                for name, kind in (
+                    ("_NET_SUPPORTING_WM_CHECK", Xatom.WINDOW),
+                    ("_NET_NUMBER_OF_DESKTOPS", Xatom.CARDINAL),
+                ):
+                    atom = d.intern_atom(name, only_if_exists=True)
+                    prop = root.get_full_property(atom, kind) if atom else None
+                    if prop is None or not prop.value:
+                        ready = False
+                if ready:
+                    return
             finally:
                 d.close()
         except Exception:
