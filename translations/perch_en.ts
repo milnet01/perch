@@ -930,6 +930,28 @@ Your changes were not saved.</source>
     </message>
 </context>
 <context>
+    <name>perch.backend</name>
+    <message>
+        <location filename="../src/perch/backend/kwin/backend.py" line="304"/>
+        <source>KWin restarted and Perch could not reconnect to it: {err}</source>
+        <extracomment>How long we&apos;ll wait for the JS script&apos;s ``ScriptReady`` ping after calling ``run()``. Matches the ceiling used in the M2.5 spike. Default timeout for a single ``execute`` round-trip (query or command). A query that takes longer than this on a non-stressed KWin is almost always a symptom of a dead script rather than a slow one. Yields ``(old_owner, new_owner)`` each time ``org.kde.KWin`` changes hands.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/perch/backend/kwin/backend.py" line="599"/>
+        <source>Hotkey unavailable: {err}</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>perch.cli</name>
+    <message>
+        <location filename="../src/perch/__main__.py" line="137"/>
+        <source>Perch is already running. Look for its icon in the system tray.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>perch.ui.dialog</name>
     <message>
         <location filename="../src/perch/ui/dialog.py" line="1422"/>

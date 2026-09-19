@@ -96,6 +96,13 @@ def cli(argv: list[str] | None = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     _ = app
 
+    from .instance import acquire_instance_lock
+
+    instance_lock = acquire_instance_lock()
+    if instance_lock is None:
+        _report_already_running()
+        return 1
+
     # The SNI probe uses sdbus's sync API and must run *before* the
     # asyncio loop starts — sdbus refuses to run sync reads with an
     # asyncio loop attached ("Used sync __get__ method in async
@@ -113,6 +120,28 @@ def cli(argv: list[str] | None = None) -> int:
         log.error("config error: %s", exc)
         print(f"perch: config error: {exc}", file=sys.stderr)
         return 1
+    finally:
+        instance_lock.unlock()
+
+
+def _report_already_running() -> None:
+    """Say why this copy is exiting — on stderr, in the log, and on screen.
+
+    A copy started from the app menu has no terminal, so without the dialog
+    the click would appear to do nothing.
+    """
+    from PySide6.QtCore import QCoreApplication
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QMessageBox
+
+    message = QCoreApplication.translate(
+        "perch.cli",
+        "Perch is already running. Look for its icon in the system tray.",
+    )
+    log.error("another Perch is already running; exiting")
+    print(f"perch: {message}", file=sys.stderr)
+    if QGuiApplication.platformName() != "offscreen":
+        QMessageBox.information(None, "Perch", message)
 
 
 if __name__ == "__main__":

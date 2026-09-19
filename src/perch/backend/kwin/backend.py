@@ -740,26 +740,29 @@ class KWinBackend(WindowBackend):
 async def _default_bus_setup(service_name: str) -> None:
     """Open the session bus and claim ``service_name``.
 
-    Idempotent within a single process: if a previous ``start()`` already
-    acquired the name and we haven't exited, ``request_default_bus_name``
-    raises :class:`SdBusRequestNameExistsError` — we treat that as success
-    rather than fighting for a name we already own.
+    Each start() opens a fresh connection, so a restart within one process
+    finds the name still held by its own earlier connection and sdbus
+    raises :class:`SdBusRequestNameExistsError`. That case is success. The
+    same error with the name held by ANOTHER process means a second Perch;
+    swallowing it there let this copy believe it owned the service while
+    every command timed out, so it is re-raised.
     """
-    import contextlib
-
     from sdbus import (
         request_default_bus_name_async,
         sd_bus_open_user,
         set_default_bus,
     )
     from sdbus.sd_bus_internals import SdBusRequestNameExistsError
+    from sdbus_async.dbus_daemon import FreedesktopDbus
 
     set_default_bus(sd_bus_open_user())
-    # Idempotent: if we already own the name from a previous start() in
-    # this process, sdbus raises SdBusRequestNameExistsError — that's
-    # success, not failure.
-    with contextlib.suppress(SdBusRequestNameExistsError):
+    try:
         await request_default_bus_name_async(service_name)
+    except SdBusRequestNameExistsError:
+        daemon = FreedesktopDbus()
+        owner = await daemon.get_name_owner(service_name)
+        if await daemon.get_connection_pid(owner) != os.getpid():
+            raise
 
 
 async def _default_kwin_owner_changes() -> AsyncIterator[tuple[str, str]]:

@@ -34,7 +34,7 @@ Perch is a single long-running user-session process with this internal layout:
                                  └───────────────┘
 ```
 
-There is **one** process, **one** active backend, and **one** Qt event loop.
+There is **one** process, **one** active backend, and **one** Qt event loop — and one Perch per user session. A second copy started while one is running refuses to start: it takes a `QLockFile` at `$XDG_RUNTIME_DIR/perch.lock` (falling back to the state directory), and when the lock is held it says "Perch is already running", logs it and exits with status 1. A lock left behind by a crashed copy is recovered, because Qt checks whether the holding process still exists. The guard is `src/perch/instance.py`. Two copies would otherwise both write `state.json` and both claim the KWin bus name. A Flatpak and a native install do not see each other's lock, so running both at once is not guarded.
 
 ## Why one process
 
@@ -80,7 +80,7 @@ The interface is defined in [03-backend-interface.md](03-backend-interface.md). 
 
 ### Startup
 
-1. Parse CLI args (none in v1; `--version`, `--debug` later).
+1. Parse CLI args (`--version`, `--debug`, `--check-config`), then take the single-instance lock; a held lock ends startup here.
 2. Load config; if absent, create defaults.
 3. Detect the session:
    - `$XDG_SESSION_TYPE` — `x11` vs `wayland`.

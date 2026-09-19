@@ -63,6 +63,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Starting Perch twice no longer runs two copies that fight over your windows** (PERC-0049)
+  If Perch is already running, a second launch now says so and exits,
+  instead of starting a second copy that fights the first over your
+  windows and the saved-positions file. A copy that crashed does not
+  block the next start.
+
 - **KDE: Perch reconnects after KWin restarts, and never acts on a stale command** (PERC-0060)
   If KWin crashes or restarts, Perch now notices, reloads its helper
   script and reconnects, instead of silently doing nothing while the

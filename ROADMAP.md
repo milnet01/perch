@@ -966,7 +966,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-kwin).
 
-- 📋 [PERC-0049] **Decide the single-instance question and implement the answer.**
+- ✅ [PERC-0049] **Decide the single-instance question and implement the answer.**
   Four independent lanes looked for a guard and found none: no QLockFile,
   no flock, no pidfile anywhere in src/. docs/01-architecture.md:37 simply
   asserts "There is one process". Consequences already identified: two
@@ -975,6 +975,17 @@ Goal: fewer first-run support tickets; the config is safe.
   believe it owns the bus name so every command times out. The 2026-09-01
   pass made the startup failure survivable; it did not answer whether the
   second instance should refuse or degrade.
+  Decided by the user (2026-09-19): a second instance REFUSES to start,
+  with a short message, and exits.
+  Resolved (2026-09-19): src/perch/instance.py takes a QLockFile at
+  $XDG_RUNTIME_DIR/perch.lock (state dir if unset or relative), stale
+  time 0 so only a dead holder is recovered; cli() reports on stderr, in
+  the log and in a dialog, then exits 1. kwin _default_bus_setup now
+  re-raises SdBusRequestNameExistsError unless the owner's PID is this
+  process (a restart within one run). Tests: tests/test_instance.py and
+  tests/backend/kwin/test_bus_name.py on a private dbus-daemon; the
+  bus-name test proved red against the old suppression. docs/01 states
+  the rule, and that a Flatpak and a native copy do not share the lock.
   **Layman:** Nothing stops two copies of Perch running and fighting over the same saved file.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, core-state, config, backend-kwin).
@@ -1584,6 +1595,9 @@ Goal: fewer first-run support tickets; the config is safe.
   anything is built, and settling it may extend WindowBackend, which
   CLAUDE.md routes through a doc PR. Until then a layout entry matching
   two windows stacks both on one rectangle.
+  Decided by the user (2026-09-19): move the currently focused matching
+  window if there is one, otherwise the first match found; leave the
+  others alone. No focus-history tracking.
   **Layman:** When two windows of the same app are open, decide which one a layout moves.
   Kind: implement.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.
@@ -1597,6 +1611,8 @@ Goal: fewer first-run support tickets; the config is safe.
   is a product decision, not an edit: either give last_seen a reader (age
   eviction at load) or drop the field. docs/02 needs the answer before
   the code does.
+  Decided by the user (2026-09-19): forget a remembered app not seen for
+  90 days, evicted at load; last_seen becomes its reader.
   **Layman:** Decide how long Perch should remember a window it has not seen in a long time.
   Kind: implement.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.
@@ -1654,6 +1670,8 @@ Goal: fewer first-run support tickets; the config is safe.
   legitimate patterns. Or match in a subprocess with a deadline -- correct,
   and far too heavy for a per-window-event path. Pick one before writing
   anything.
+  Decided by the user (2026-09-19): depend on the `regex` package and
+  match titles with a timeout.
   **Layman:** Stop a badly-written rule from freezing Perch while it tries to match a window title.
   Kind: security.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0050.
@@ -1696,6 +1714,22 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** One of Perch's automatic tests sometimes fails for timing reasons, not because anything is broken.
   Kind: test.
   Source: in-session-2026-09-19, full-suite run during PERC-0060.
+
+- 📋 [PERC-0072] **Gently ask for a donation every 150 launches, with an "Already donated" way out.**
+  Requested by the user 2026-09-19. Count launches in state.json. On
+  every 150th, show a small, dismissable window with one button per
+  platform (GitHub Sponsors, Patreon, PayBru), each opening that
+  platform's page directly, plus "Not now" and "Already donated".
+  "Already donated" stops every future prompt. Perch cannot see who has
+  donated, so that button is the only way to know; the per-platform
+  direct links already exist as the tray's Donate submenu
+  (src/perch/ui/links.py, kept in step with .github/FUNDING.yml by
+  tests/ui/test_links.py) and the window reuses FUNDING_LINKS rather
+  than a second list. Never on the first launch or during the setup
+  wizard; docs/08-ui.md needs the section first (docs-first rule).
+  **Layman:** Every so often Perch politely asks whether you'd like to support it, and stops asking once you say you already have.
+  Kind: feature.
+  Source: user-request-2026-09-19.
 
 ## v1.2 — Smarts
 
