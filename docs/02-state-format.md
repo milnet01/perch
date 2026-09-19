@@ -226,6 +226,10 @@ identity = "app:<app_id>" [ "::title:<title_regex>" ] [ "::rolespecific:<X>" ]
 
 This ensures two Firefox windows with different profiles can be remembered separately if the user has asked for title-based distinction, but otherwise collapse into one remembered geometry.
 
+### Retention
+
+A remembered window is forgotten once it has not been seen for **90 days**. `StateStore.load()` drops every `windows` entry whose `last_seen` is older than that and schedules a write, so the file does not keep an app the user stopped using. `last_seen` is set whenever Perch records the window's geometry. An entry whose `last_seen` cannot be parsed is kept rather than guessed at. The constant is `RETENTION_DAYS` in `src/perch/core/state_store.py`. Entries are keyed by application rather than by window instance (see §Identity keying), so without this the file would still grow by only one entry per distinct app.
+
 ## Atomic writes
 
 Every disk write follows the same recipe to survive crashes and power loss:

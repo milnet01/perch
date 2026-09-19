@@ -8,6 +8,7 @@ via the reducer integration tests.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,9 @@ from perch.core.state_store import (
     StateLoadError,
     StateStore,
 )
+
+#: A last_seen inside the retention window, so load() keeps the record.
+_RECENT = datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 @pytest.fixture
@@ -48,7 +52,7 @@ def test_load_valid_state(state_path: Path) -> None:
                         "geometry": {"x": 10, "y": 20, "w": 800, "h": 600},
                         "monitor": "DP-1",
                         "desktop": 1,
-                        "last_seen": "2026-04-20T12:00:00+00:00",
+                        "last_seen": _RECENT,
                     }
                 },
             }
@@ -75,7 +79,7 @@ def test_load_falls_back_to_bak(state_path: Path) -> None:
                         "geometry": {"x": 0, "y": 0, "w": 400, "h": 300},
                         "monitor": "DP-1",
                         "desktop": 0,
-                        "last_seen": "2026-04-20T12:00:00+00:00",
+                        "last_seen": _RECENT,
                     }
                 },
             }
@@ -231,7 +235,7 @@ def test_malformed_record_falls_back_to_bak(state_path: Path) -> None:
                         "geometry": {"x": 0, "y": 0, "w": 400, "h": 300},
                         "monitor": "DP-1",
                         "desktop": 0,
-                        "last_seen": "2026-04-20T12:00:00+00:00",
+                        "last_seen": _RECENT,
                     }
                 },
             }
@@ -291,3 +295,50 @@ def test_a_registered_migration_is_applied_and_stamps_the_new_version(
 
     assert store.state.schema_version == 2
     assert store.state.windows == {}
+
+
+# ── Retention (PERC-0067, docs/02 §Retention) ─────────────────────────────
+def _write_windows(path: Path, last_seen: dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "windows": {
+                    ident: {
+                        "identity": ident,
+                        "geometry": {"x": 0, "y": 0, "w": 400, "h": 300},
+                        "monitor": "DP-1",
+                        "desktop": 0,
+                        "last_seen": seen,
+                    }
+                    for ident, seen in last_seen.items()
+                },
+            }
+        )
+    )
+
+
+def test_load_forgets_apps_not_seen_for_90_days(state_path: Path) -> None:
+    now = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
+    _write_windows(
+        state_path,
+        {
+            "app:old": (now - timedelta(days=91)).isoformat(),
+            "app:edge": (now - timedelta(days=89)).isoformat(),
+            "app:garbled": "not a date",
+        },
+    )
+    store = StateStore(state_path)
+    store.load(now=now)
+    assert set(store.state.windows) == {"app:edge", "app:garbled"}
+    assert store.is_dirty()
+
+
+def test_load_with_nothing_expired_stays_clean(state_path: Path) -> None:
+    now = datetime(2026, 9, 19, tzinfo=UTC)
+    _write_windows(state_path, {"app:fresh": now.isoformat()})
+    store = StateStore(state_path)
+    store.load(now=now)
+    assert set(store.state.windows) == {"app:fresh"}
+    assert not store.is_dirty()

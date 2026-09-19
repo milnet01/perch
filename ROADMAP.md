@@ -1602,7 +1602,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: implement.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.
 
-- 📋 [PERC-0067] **Decide a retention policy for remembered windows and stop writing last_seen unread.**
+- ✅ [PERC-0067] **Decide a retention policy for remembered windows and stop writing last_seen unread.**
   state.json has no quota, no LRU and no age eviction, and last_seen is
   written on every record and read by nothing. The growth is milder than
   it looks -- compute_identity keys on the application, not the window
@@ -1613,6 +1613,12 @@ Goal: fewer first-run support tickets; the config is safe.
   the code does.
   Decided by the user (2026-09-19): forget a remembered app not seen for
   90 days, evicted at load; last_seen becomes its reader.
+  Resolved (2026-09-19): StateStore.load(now=) drops windows whose
+  last_seen is older than RETENTION_DAYS = 90 and marks the store dirty
+  so the next flush writes; an unparseable last_seen is kept. last_seen
+  now has a reader. Three existing tests hard-coded an April 2026
+  last_seen that the rule would evict; they now use a current timestamp.
+  docs/02 §Retention.
   **Layman:** Decide how long Perch should remember a window it has not seen in a long time.
   Kind: implement.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.

@@ -18,13 +18,17 @@ import logging
 import os
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from perch.backend.types import DesktopIndex, Geometry, OutputName
 
 CURRENT_STATE_SCHEMA_VERSION = 1
+
+#: A remembered window not seen for this many days is forgotten at load
+#: (docs/02-state-format.md §Retention).
+RETENTION_DAYS = 90
 
 log = logging.getLogger(__name__)
 
@@ -198,8 +202,11 @@ class StateStore:
         self._read_only: bool = False
 
     # ── Load ───────────────────────────────────────────────────────────────
-    def load(self) -> None:
+    def load(self, *, now: datetime | None = None) -> None:
         """Read ``state.json``, falling back to ``.bak`` on parse failure.
+
+        Then forget every window not seen within :data:`RETENTION_DAYS` of
+        ``now`` (default: the current time) — docs/02 §Retention.
 
         A missing file is normal on first run — the store stays empty and
         the next flush creates ``state.json``.
@@ -219,6 +226,7 @@ class StateStore:
                 raw = json.loads(candidate.read_text(encoding="utf-8"))
                 self.state = PersistedState.from_json(raw)
                 log.info("loaded %s (%d windows)", label, len(self.state.windows))
+                self._evict_stale(now or datetime.now(UTC))
                 return
             except (StateSchemaTooNew, StateMigrationError) as exc:
                 # Must precede the StateLoadError arm below — both are
@@ -237,6 +245,26 @@ class StateStore:
                 log.warning("%s failed to load: %s", label, exc)
         log.info("state.json missing; starting with empty state")
         self.state = PersistedState()
+
+    def _evict_stale(self, now: datetime) -> None:
+        cutoff = now - timedelta(days=RETENTION_DAYS)
+        stale = []
+        for identity, record in self.state.windows.items():
+            try:
+                seen = datetime.fromisoformat(record.last_seen)
+            except ValueError:
+                continue  # kept: better remembered than guessed at
+            if seen.tzinfo is None:
+                seen = seen.replace(tzinfo=UTC)
+            if seen < cutoff:
+                stale.append(identity)
+        for identity in stale:
+            del self.state.windows[identity]
+        if stale:
+            log.info(
+                "forgot %d window(s) not seen for %d days", len(stale), RETENTION_DAYS
+            )
+            self._dirty = True
 
     # ── Mutations ──────────────────────────────────────────────────────────
     def record_window(

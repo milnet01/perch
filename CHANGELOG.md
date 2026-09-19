@@ -31,6 +31,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Changed
 
+- **Perch forgets apps you haven't used for 90 days** (PERC-0067)
+  Saved window positions for an app that hasn't appeared in 90 days are
+  dropped when Perch starts, so the saved file doesn't keep apps you've
+  stopped using. If you open one again, it starts in its default spot.
+
 - **An empty string in a match or apply field is rejected** (PERC-0057)
   The two parsers had diverged on it. As a glob or a preset name an empty
   string matches nothing the user could have meant, so both now refuse it.
