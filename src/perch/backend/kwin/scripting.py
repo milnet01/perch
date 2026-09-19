@@ -15,7 +15,6 @@ from pathlib import Path
 from sdbus import (
     DbusInterfaceCommonAsync,
     dbus_method_async,
-    dbus_property_async,
 )
 
 log = logging.getLogger("perch.backend.kwin.scripting")
@@ -74,30 +73,6 @@ class KWinScript(
     async def stop(self) -> None: ...
 
 
-class KWinCore(
-    DbusInterfaceCommonAsync,
-    interface_name="org.kde.KWin",
-):
-    """Proxy for the ``/KWin`` root object.
-
-    Used for the session-wide bits the scripting API doesn't cover:
-    virtual-desktop count, current virtual desktop, and the matching
-    change signals. Property accessors rely on ``sdbus``'s standard
-    ``Properties`` interface, so we only declare the D-Bus methods we
-    actually call.
-    """
-
-    @dbus_method_async(
-        input_signature="", result_signature="i", method_name="currentDesktop"
-    )
-    async def current_desktop(self) -> int:  # type: ignore[empty-body]
-        ...
-
-    @dbus_property_async(property_signature="i", property_name="desktopGridSize")
-    def desktop_grid_size(self) -> int:  # type: ignore[empty-body]
-        ...
-
-
 # ── Small orchestration helpers ────────────────────────────────────────────
 
 
@@ -149,7 +124,6 @@ __all__ = [
     "KWIN_OBJECT",
     "KWIN_SCRIPTING_OBJ",
     "KWIN_SERVICE",
-    "KWinCore",
     "KWinScript",
     "KWinScripting",
     "install_and_run_script",

@@ -22,6 +22,7 @@ from PySide6.QtCore import QCoreApplication
 from perch.backend.base import (
     BackendDisconnected,
     BackendUnavailable,
+    BackendUnsupported,
     UnknownOutput,
     UnknownWindow,
 )
@@ -33,6 +34,19 @@ from perch.backend.types import Geometry, OutputInfo, WindowState, WindowType
 @pytest.fixture(autouse=True)
 def _qapp(qapp: object) -> None:
     """QApplication so Qt signals connect."""
+
+
+@pytest.fixture(autouse=True)
+def _no_live_kwin_watch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unit tests must not watch the real session bus for org.kde.KWin."""
+
+    async def _quiet() -> Any:
+        await asyncio.Event().wait()
+        yield ("", "")
+
+    monkeypatch.setattr(
+        "perch.backend.kwin.backend._default_kwin_owner_changes", _quiet
+    )
 
 
 @pytest.fixture
@@ -397,8 +411,10 @@ async def test_hotkey_busy_raises_and_emits_backend_error(
 
     errs: list[str] = []
     b.backend_error.connect(lambda msg: errs.append(msg))
-    with pytest.raises(HotkeyBusyError):
+    # docs/03 §Errors: backends raise the taxonomy types only.
+    with pytest.raises(BackendUnsupported) as info:
         await b.register_hotkey("Ctrl+Alt+F12", "cb-1")
+    assert isinstance(info.value.__cause__, HotkeyBusyError)
     assert errs, "HotkeyBusyError should have emitted a backend_error signal"
     assert "already grabbed" in errs[0]
 
@@ -411,8 +427,9 @@ async def test_hotkey_parse_error_raises_and_emits_backend_error(
     b = await started_backend(hotkey_provider=MockHotkeyProvider())
     errs: list[str] = []
     b.backend_error.connect(lambda msg: errs.append(msg))
-    with pytest.raises(HotkeyParseError):
+    with pytest.raises(BackendUnsupported) as info:
         await b.register_hotkey("NotAModifier+Q", "cb-1")
+    assert isinstance(info.value.__cause__, HotkeyParseError)
     assert errs
 
 
@@ -844,3 +861,88 @@ def test_service_accepts_direct_calls_with_no_message_in_flight() -> None:
 
     asyncio.run(service.WindowAdded('{"id": "w1"}'))
     assert len(sink.added) == 1
+
+
+# ── PERC-0060: KWin restart, teardown, error taxonomy ──────────────────────
+
+
+class _OwnerChanges:
+    """Scripted org.kde.KWin NameOwnerChanged stream."""
+
+    def __init__(self) -> None:
+        self.queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+
+    async def __call__(self) -> Any:
+        while True:
+            yield await self.queue.get()
+
+
+async def test_a_kwin_restart_reloads_the_script_and_reconnects(
+    started_backend: Any,
+    _ready_service: list[PerchKWin1],
+    _mock_run_script: AsyncMock,
+) -> None:
+    """docs/05 promised recovery when KWin restarts; nothing listened, so
+    every command then timed out while the tray still said connected."""
+    changes = _OwnerChanges()
+    b = await started_backend(kwin_owner_changes=changes)
+    svc = _ready_service[0]
+    events: list[str] = []
+    b.backend_disconnected.connect(lambda r: events.append("disconnected"))
+    b.backend_connected.connect(lambda: events.append("connected"))
+
+    def _reload(*_a: Any, **_k: Any) -> Any:
+        svc.script_ready.set()  # the fresh script says hello
+        return (1, MagicMock())
+
+    _mock_run_script.side_effect = _reload
+    changes.queue.put_nowait((":1.10", ""))  # KWin went away
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert events == ["disconnected"]
+    with pytest.raises(BackendDisconnected):
+        await b.list_windows()
+
+    changes.queue.put_nowait(("", ":1.99"))  # KWin is back
+    for _ in range(20):
+        await asyncio.sleep(0)
+    assert events == ["disconnected", "connected"]
+    assert _mock_run_script.await_count == 2
+    await b.stop()
+
+
+async def test_stop_cancels_background_tasks(started_backend: Any) -> None:
+    b = await started_backend(kwin_owner_changes=_OwnerChanges())
+    blocker = asyncio.Event()
+
+    async def _slow() -> None:
+        await blocker.wait()
+
+    task = asyncio.create_task(_slow())
+    b._bg_tasks.add(task)
+    await b.stop()
+    assert task.cancelled()
+
+
+async def test_start_failures_surface_as_backend_unavailable(
+    wayland_env: None,
+    _bus_setup: AsyncMock,
+    _scripting: MagicMock,
+    _ready_service: list[PerchKWin1],
+    _mock_unload_script: AsyncMock,
+) -> None:
+    """docs/03 §Errors: backends must not raise outside the taxonomy.
+    ScriptVersionMismatch (a RuntimeError) escaped start() as itself."""
+    from perch.backend.kwin.install import ScriptVersionMismatch
+
+    def _bad_install() -> Path:
+        raise ScriptVersionMismatch(expected="2", found="1", target=Path("/x"))
+
+    b = KWinBackend(
+        bus_setup=_bus_setup,
+        scripting_factory=AsyncMock(return_value=_scripting),
+        script_installer=_bad_install,
+    )
+    with pytest.raises(BackendUnavailable) as info:
+        await b.start()
+    assert isinstance(info.value.__cause__, ScriptVersionMismatch)

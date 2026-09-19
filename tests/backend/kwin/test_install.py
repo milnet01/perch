@@ -196,3 +196,49 @@ def test_bundled_source_points_inside_the_package() -> None:
     src = bundled_source()
     assert (src / "metadata.json").is_file()
     assert (src / "contents" / "code" / "main.js").is_file()
+
+
+# ── PERC-0060: what the installer may delete ──────────────────────────────
+
+
+def test_a_symlinked_target_is_replaced_not_crashed_on(
+    fake_target: Path, tmp_path: Path
+) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "keep.txt").write_text("not ours")
+    fake_target.parent.mkdir(parents=True)
+    fake_target.symlink_to(elsewhere)
+    ensure_installed()
+    assert not fake_target.is_symlink()
+    assert (elsewhere / "keep.txt").exists()
+
+
+def test_a_dangling_symlink_target_is_replaced(
+    fake_target: Path, tmp_path: Path
+) -> None:
+    fake_target.parent.mkdir(parents=True)
+    fake_target.symlink_to(tmp_path / "gone")
+    ensure_installed()
+    assert (fake_target / "metadata.json").is_file()
+
+
+def test_a_foreign_directory_is_never_wiped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A typo in PERCH_KWIN_SCRIPT_TARGET pointed rmtree at any directory."""
+    foreign = tmp_path / "Documents"
+    foreign.mkdir()
+    (foreign / "thesis.odt").write_text("years of work")
+    monkeypatch.setenv("PERCH_KWIN_SCRIPT_TARGET", str(foreign))
+    with pytest.raises(install.ScriptInstallRefused):
+        ensure_installed()
+    assert (foreign / "thesis.odt").exists()
+
+
+def test_a_relative_target_override_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERCH_KWIN_SCRIPT_TARGET", "relative/dir")
+    with pytest.raises(install.ScriptInstallRefused):
+        target_dir()

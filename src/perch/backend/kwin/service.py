@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -33,6 +34,10 @@ log = logging.getLogger("perch.backend.kwin.service")
 #: we hold one open forever the reply could be GC'd on some configurations.
 #: Matches the value from the M2.5 spike.
 POLL_CEILING_SECONDS = 5.0
+
+#: How many command round-trip samples :class:`ServiceCounters` keeps. The
+#: counters live as long as the process, so an unbounded list grew forever.
+LATENCY_SAMPLES = 1000
 
 
 class EventSink(Protocol):
@@ -65,8 +70,11 @@ class ServiceCounters:
     poll_invalidated_returns: int = 0
     commands_dispatched: int = 0
     commands_completed: int = 0
+    commands_expired: int = 0
     foreign_calls: int = 0
-    latencies_ns: list[int] = field(default_factory=list)
+    latencies_ns: deque[int] = field(
+        default_factory=lambda: deque(maxlen=LATENCY_SAMPLES)
+    )
 
 
 class PerchKWin1(
@@ -83,7 +91,9 @@ class PerchKWin1(
     def __init__(self, sink: EventSink) -> None:
         super().__init__()
         self._sink = sink
-        self._queue: asyncio.Queue[str] = asyncio.Queue()
+        # (seq, encoded command). The seq lets PollCommand skip a command
+        # whose caller has already given up on it.
+        self._queue: asyncio.Queue[tuple[int, str]] = asyncio.Queue()
         self._completions: dict[int, tuple[asyncio.Future[dict[str, Any]], int]] = {}
         self._next_seq: int = 0
         self._invalidated: asyncio.Event = asyncio.Event()
@@ -109,6 +119,16 @@ class PerchKWin1(
         old = self._invalidated
         self._invalidated = asyncio.Event()
         old.set()
+
+    def reset_script_sender(self) -> None:
+        """Forget the pinned script and wait for a fresh ``ScriptReady``.
+
+        Used when KWin restarts: the reloaded script calls from a new
+        unique bus name, and every call from it would otherwise be dropped
+        as foreign.
+        """
+        self._script_sender = None
+        self.script_ready = asyncio.Event()
 
     def reset_completion_state(self) -> None:
         """Fail every pending command with :class:`asyncio.CancelledError`.
@@ -139,12 +159,14 @@ class PerchKWin1(
         fut: asyncio.Future[dict[str, Any]] = loop.create_future()
         self._completions[seq] = (fut, time.monotonic_ns())
         self.counters.commands_dispatched += 1
-        await self._queue.put(encode_command(seq, cmd))
+        await self._queue.put((seq, encode_command(seq, cmd)))
         try:
             return await asyncio.wait_for(fut, timeout=timeout)
-        except TimeoutError:
+        finally:
+            # A no-op when CommandDone already popped it; on timeout or
+            # cancellation it drops the entry, and with it the queued
+            # command, which PollCommand then skips.
             self._completions.pop(seq, None)
-            raise
 
     def pending_replies(self) -> int:
         """Number of commands dispatched with no ``CommandDone`` yet."""
@@ -250,23 +272,36 @@ class PerchKWin1(
             return encode_nop(reason="unknown_caller")
         self.counters.poll_requests += 1
         invalidated = self._invalidated  # snapshot: survives swap from invalidate_polls()
-        get_task = asyncio.create_task(self._queue.get())
-        inv_task = asyncio.create_task(invalidated.wait())
-        try:
-            done, _ = await asyncio.wait(
-                {get_task, inv_task},
-                timeout=POLL_CEILING_SECONDS,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-        finally:
-            for t in (get_task, inv_task):
-                if not t.done():
-                    t.cancel()
-        if get_task in done and not get_task.cancelled():
-            return get_task.result()
-        if inv_task in done:
-            self.counters.poll_invalidated_returns += 1
-            return encode_nop(reason="invalidated")
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + POLL_CEILING_SECONDS
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            get_task = asyncio.create_task(self._queue.get())
+            inv_task = asyncio.create_task(invalidated.wait())
+            try:
+                done, _ = await asyncio.wait(
+                    {get_task, inv_task},
+                    timeout=remaining,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+            finally:
+                for t in (get_task, inv_task):
+                    if not t.done():
+                        t.cancel()
+            if get_task in done and not get_task.cancelled():
+                seq, encoded = get_task.result()
+                if seq in self._completions:
+                    return encoded
+                # Its caller timed out or was cancelled; applying it now
+                # would move a window the user has stopped waiting on.
+                self.counters.commands_expired += 1
+                continue
+            if inv_task in done:
+                self.counters.poll_invalidated_returns += 1
+                return encode_nop(reason="invalidated")
+            break
         self.counters.poll_ceiling_returns += 1
         return encode_nop()
 
@@ -317,6 +352,7 @@ def _safe_json(payload: str) -> dict[str, Any] | None:
 
 
 __all__ = [
+    "LATENCY_SAMPLES",
     "POLL_CEILING_SECONDS",
     "SERVICE_NAME",
     "EventSink",

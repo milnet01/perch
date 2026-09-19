@@ -209,3 +209,49 @@ async def test_latency_ns_is_recorded_for_each_round_trip() -> None:
     await exec_task
     assert len(svc.counters.latencies_ns) == 1
     assert svc.counters.latencies_ns[0] > 0
+
+
+# ── PERC-0060: completion bookkeeping ──────────────────────────────────────
+
+
+async def test_cancelled_execute_leaves_no_pending_entry() -> None:
+    """A caller cancelled mid-await leaked its _completions entry."""
+    svc = PerchKWin1(_RecordingSink())
+    task = asyncio.create_task(svc.execute(op_close_window("w"), timeout=5.0))
+    await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert svc.pending_replies() == 0
+
+
+async def test_an_expired_command_is_never_handed_to_the_script(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The queue was never drained, so a command whose caller had already
+    timed out was still delivered and applied late."""
+    import perch.backend.kwin.service as service_mod
+
+    monkeypatch.setattr(service_mod, "POLL_CEILING_SECONDS", 0.05)
+    svc = PerchKWin1(_RecordingSink())
+    with pytest.raises(TimeoutError):
+        await svc.execute(op_close_window("stale"), timeout=0.01)
+    reply = json.loads(await svc.PollCommand())
+    assert reply.get("nop") is True
+
+
+async def test_latency_samples_are_bounded() -> None:
+    svc = PerchKWin1(_RecordingSink())
+    for _ in range(service_mod_maxlen() + 50):
+        task = asyncio.create_task(svc.execute(op_close_window("w")))
+        await asyncio.sleep(0)
+        seq = json.loads(await svc.PollCommand())["seq"]
+        await svc.CommandDone(json.dumps({"seq": seq, "result": {"ok": True}}))
+        await task
+    assert len(svc.counters.latencies_ns) == service_mod_maxlen()
+
+
+def service_mod_maxlen() -> int:
+    import perch.backend.kwin.service as service_mod
+
+    return service_mod.LATENCY_SAMPLES

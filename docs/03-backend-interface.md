@@ -220,7 +220,7 @@ class UnknownWindow(BackendError): ...
 class UnknownOutput(BackendError): ...
 ```
 
-All errors carry a short human-readable message in `args[0]`. Backends must not subclass further — the core's error handling works off the four types above.
+All errors carry a short human-readable message in `args[0]`. Backends must not subclass further — the core's error handling works off the types above. A backend's own internal exception types are translated into one of these at its edge, never raised through it.
 
 ## Capability negotiation
 

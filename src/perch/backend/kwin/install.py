@@ -27,13 +27,20 @@ import os
 import shutil
 from pathlib import Path
 
-from ...paths import is_flatpak
+from ...paths import is_flatpak, xdg_base
 from . import BUNDLED_SCRIPT_DIR, BUNDLED_SCRIPT_VERSION, PLUGIN_ID
 
 log = logging.getLogger("perch.backend.kwin.install")
 
 
-class ScriptVersionMismatch(RuntimeError):
+class ScriptInstallRefused(Exception):
+    """The install target is unusable, or holds something that is not ours.
+
+    Internal: :meth:`KWinBackend.start` reports it as ``BackendUnavailable``.
+    """
+
+
+class ScriptVersionMismatch(Exception):
     """The on-disk script version doesn't match the bundled one."""
 
     def __init__(self, *, expected: str, found: str | None, target: Path) -> None:
@@ -57,10 +64,7 @@ def _host_data_home() -> Path:
     """
     if is_flatpak():
         return Path.home() / ".local" / "share"
-    raw = os.environ.get("XDG_DATA_HOME")
-    if raw:
-        return Path(raw)
-    return Path.home() / ".local" / "share"
+    return xdg_base("XDG_DATA_HOME", ".local/share")
 
 
 def target_dir() -> Path:
@@ -71,6 +75,10 @@ def target_dir() -> Path:
     """
     override = os.environ.get("PERCH_KWIN_SCRIPT_TARGET")
     if override:
+        if not Path(override).is_absolute():
+            raise ScriptInstallRefused(
+                f"PERCH_KWIN_SCRIPT_TARGET must be absolute, got {override!r}"
+            )
         return Path(override)
     return _host_data_home() / "kwin" / "scripts" / PLUGIN_ID
 
@@ -114,8 +122,20 @@ def _mirror_tree(source: Path, target: Path) -> None:
 
     ``shutil.copytree(dirs_exist_ok=True)`` could leave orphan files from a
     previous install; we want the target to end up as an exact copy.
+
+    Only a directory that is recognisably a Perch script install, or an
+    empty one, is wiped: the target can come from an environment variable,
+    and a typo there must not delete an unrelated tree. A symlink is
+    replaced, never followed.
     """
-    if target.exists():
+    if target.is_symlink():
+        target.unlink()
+    elif target.exists():
+        if not _is_our_install(target) and any(target.iterdir()):
+            raise ScriptInstallRefused(
+                f"{target} is not empty and is not a Perch KWin script; "
+                "refusing to replace it"
+            )
         shutil.rmtree(target)
     target.mkdir(parents=True)
     for root, dirs, files in os.walk(source):
@@ -126,6 +146,15 @@ def _mirror_tree(source: Path, target: Path) -> None:
             (dest_root / d).mkdir(exist_ok=True)
         for f in files:
             shutil.copy2(Path(root) / f, dest_root / f)
+
+
+def _is_our_install(target: Path) -> bool:
+    try:
+        data = json.loads((target / "metadata.json").read_text())
+    except (OSError, ValueError):
+        return False
+    kplugin = data.get("KPlugin") if isinstance(data, dict) else None
+    return isinstance(kplugin, dict) and kplugin.get("Id") == PLUGIN_ID
 
 
 def _tree_digest(root: Path) -> str:
@@ -224,6 +253,7 @@ def uninstall(target: Path | None = None) -> None:
 
 
 __all__ = [
+    "ScriptInstallRefused",
     "ScriptVersionMismatch",
     "bundled_source",
     "current_installed_version",

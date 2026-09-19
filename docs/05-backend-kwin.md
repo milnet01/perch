@@ -137,7 +137,7 @@ Uses **`sdbus-python`** for D-Bus. The backend owns the `io.github.milnet01.Perc
    a. **Invalidate in-flight `PollCommand` awaiters** (see "Poll invalidation" below). Without this, an orphan awaiter from the previous JS instance consumes the next queued command and routes its reply to a KWin callback that no longer exists.
    b. Unload the script via `Scripting.unloadScript(pluginId)` (returns `bool`).
    c. Release the bus name.
-3. If the script disappears (KWin crash/restart): invalidate polls (same reason), re-install and re-subscribe. Re-emit `backend_connected`. Window state is not lost because `state.json` on disk is authoritative.
+3. If the script disappears (KWin crash/restart): Perch watches `NameOwnerChanged` for `org.kde.KWin`. When the name loses its owner it invalidates polls (same reason), fails in-flight commands and emits `backend_disconnected`. When a new owner appears it forgets the old script's bus name, re-installs and re-runs the script, waits for `ScriptReady` and re-emits `backend_connected`; a failed reload emits `backend_error`. Hotkey bindings are not re-registered. Window state is not lost because `state.json` on disk is authoritative.
 
 ### Poll invalidation
 
@@ -204,7 +204,7 @@ The legacy `org.kde.KWin.Management.screens` D-Bus interface exists but is less 
 
 ### Virtual desktops
 
-`org.kde.KWin` exposes `currentDesktop()`, `numberOfDesktops()`, and signal `currentDesktopChanged(int)` (1-based). Perch converts to 0-based `DesktopIndex` at the boundary.
+The script reports desktops, not a KWin D-Bus call. KWin numbers them from 1 (`x11DesktopNumber`); `main.js` subtracts 1 before replying, so Python receives the 0-based `DesktopIndex` directly. A window on every desktop is `-1`.
 
 ### Hotkeys
 
@@ -264,7 +264,8 @@ Settings → Shortcuts* under the "Perch" component.
 - Conflicts: if the key is already grabbed, `setShortcutKeys` returns a
   different keysym. Perch detects the mismatch and raises
   `HotkeyBusyError`, which the backend translates into a `backend_error`
-  signal.
+  signal and a raised `BackendUnsupported` — the type the X11 backend
+  raises for the same conflict.
 
 **Env override for tests and unusual installs**:
 `PERCH_HOTKEY_PROVIDER=mock|portal|kglobalaccel` short-circuits the

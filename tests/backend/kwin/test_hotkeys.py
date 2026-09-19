@@ -563,3 +563,29 @@ async def test_choose_provider_env_kglobalaccel_skips_probe(
     )
     assert provider is kglob_like
     assert probe_calls == []  # env override means we never probed
+
+
+async def test_a_signal_pump_that_fails_is_restarted(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """PERC-0060: the pump loops ended silently on any bus error, killing
+    every hotkey with no log line and no restart."""
+    from perch.backend.kwin.hotkeys import _supervise_pump
+
+    runs: list[int] = []
+    parked = asyncio.Event()
+
+    async def pump() -> None:
+        runs.append(1)
+        if len(runs) < 3:
+            raise RuntimeError("bus error")
+        await parked.wait()
+
+    task = asyncio.create_task(_supervise_pump("test", pump, first_delay_s=0.0))
+    for _ in range(20):
+        await asyncio.sleep(0)
+    assert len(runs) == 3
+    assert "bus error" in caplog.text
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

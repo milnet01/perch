@@ -24,9 +24,11 @@ import asyncio
 import contextlib
 import logging
 import os
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
+
+from PySide6.QtCore import QCoreApplication
 
 from perch.backend.base import (
     BackendDisconnected,
@@ -102,6 +104,8 @@ COMMAND_TIMEOUT_S = 5.0
 _BusSetup = Callable[[str], Awaitable[None]]
 _ScriptingFactory = Callable[[], Awaitable["KWinScripting"]]
 _ScriptInstaller = Callable[[], Path]
+#: Yields ``(old_owner, new_owner)`` each time ``org.kde.KWin`` changes hands.
+_OwnerChanges = Callable[[], AsyncIterator[tuple[str, str]]]
 
 
 _CAPABILITIES = Capabilities(
@@ -142,6 +146,7 @@ class KWinBackend(WindowBackend):
         scripting_factory: _ScriptingFactory | None = None,
         script_installer: _ScriptInstaller | None = None,
         hotkey_provider: HotkeyProvider | None = None,
+        kwin_owner_changes: _OwnerChanges | None = None,
     ) -> None:
         super().__init__()
         self._plugin_id = plugin_id
@@ -149,6 +154,8 @@ class KWinBackend(WindowBackend):
         self._scripting_factory = scripting_factory or _default_scripting_factory
         self._script_installer = script_installer or ensure_installed
         self._hotkey_provider: HotkeyProvider | None = hotkey_provider
+        self._kwin_owner_changes = kwin_owner_changes or _default_kwin_owner_changes
+        self._watch_task: asyncio.Task[None] | None = None
 
         self._service: PerchKWin1 | None = None
         self._scripting: KWinScripting | None = None
@@ -171,9 +178,11 @@ class KWinBackend(WindowBackend):
     def is_available(cls) -> bool:
         """Cheap env probe: are we in a KDE/Plasma Wayland session?
 
-        Mirrors the :func:`_probe_session_env` heuristic without raising —
-        we want :func:`perch.backend.select` to be able to ask "should I
-        pick KWin?" without side-effects on the D-Bus session.
+        Stricter than :func:`_probe_session_env` on purpose: that probe
+        refuses only a session that is clearly NOT Plasma Wayland and lets
+        an unset ``XDG_CURRENT_DESKTOP`` through, while this one says yes
+        only when ``KDE`` is actually named — so :func:`perch.backend.select`
+        never picks KWin on a guess. No side-effects on the D-Bus session.
         """
         session_type = os.environ.get("XDG_SESSION_TYPE", "")
         current_desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
@@ -190,7 +199,7 @@ class KWinBackend(WindowBackend):
     async def start(self) -> None:
         try:
             await self._start()
-        except BaseException:
+        except BaseException as exc:
             # Anything after the bus name is acquired leaves state OUTSIDE this
             # process — the exported service, and worse, a JS script loaded and
             # running inside the user's KWin that nothing then owns. stop() is
@@ -198,6 +207,11 @@ class KWinBackend(WindowBackend):
             # however far start() got.
             with contextlib.suppress(Exception):
                 await self.stop()
+            if isinstance(exc, Exception) and not isinstance(exc, BackendError):
+                # docs/03 §Errors: nothing outside the taxonomy leaves a
+                # backend. The installer, the script loader and the hotkey
+                # provider each raise their own types.
+                raise BackendUnavailable(f"KWin backend failed to start: {exc}") from exc
             raise
 
     async def _start(self) -> None:
@@ -241,6 +255,60 @@ class KWinBackend(WindowBackend):
 
         self._connected = True
         self.backend_connected.emit()
+        self._watch_task = asyncio.create_task(self._watch_kwin())
+
+    async def _watch_kwin(self) -> None:
+        """Follow ``org.kde.KWin`` across a crash or restart (docs/05 §Lifecycle 3).
+
+        The script lives inside KWin, so it dies with it, and every command
+        would then time out while the tray still said connected.
+        """
+        try:
+            async for old_owner, new_owner in self._kwin_owner_changes():
+                if not new_owner:
+                    self._on_kwin_lost("KWin went away")
+                elif new_owner != old_owner:
+                    await self._reload_script()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("watching org.kde.KWin failed; a KWin restart will not be recovered")
+
+    def _on_kwin_lost(self, reason: str) -> None:
+        if not self._connected:
+            return
+        self._connected = False
+        if self._service is not None:
+            self._service.invalidate_polls()
+            self._service.reset_completion_state()
+        self.backend_disconnected.emit(reason)
+
+    async def _reload_script(self) -> None:
+        """Re-install and re-run the script into the new KWin instance."""
+        if self._service is None or self._scripting is None:
+            return
+        self._on_kwin_lost("KWin restarted")
+        self._service.reset_script_sender()
+        try:
+            await unload_script_if_loaded(self._scripting, self._plugin_id)
+            main_js = self._script_installer()
+            self._script_id, self._per_script = await install_and_run_script(
+                self._scripting, main_js, self._plugin_id
+            )
+            await asyncio.wait_for(
+                self._service.script_ready.wait(), timeout=SCRIPT_READY_TIMEOUT_S
+            )
+        except Exception as exc:
+            log.error("could not reload the KWin script after a restart: %s", exc)
+            self.backend_error.emit(
+                QCoreApplication.translate(
+                    "perch.backend",
+                    "KWin restarted and Perch could not reconnect to it: {err}",
+                ).format(err=str(exc))
+            )
+            return
+        self._connected = True
+        self.backend_connected.emit()
 
     async def stop(self) -> None:
         # Deliberately NOT gated on _connected, which start() sets only on its
@@ -249,6 +317,17 @@ class KWinBackend(WindowBackend):
         # below is None-guarded, so this is safe to call at any point.
         was_connected = self._connected
         self._connected = False
+
+        # Cancel before anything else is torn down, so no background task
+        # runs against a half-stopped backend.
+        tasks = [t for t in (self._watch_task, *self._bg_tasks) if t is not None]
+        self._watch_task = None
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        self._bg_tasks.clear()
 
         if self._hotkey_provider is not None:
             try:
@@ -513,14 +592,15 @@ class KWinBackend(WindowBackend):
             raise BackendUnsupported("no hotkey provider available")
         try:
             await self._hotkey_provider.register(callback_id, accel)
-        except HotkeyParseError as exc:
-            self.backend_error.emit(f"hotkey unavailable: {exc}")
-            raise
-        except HotkeyBusyError as exc:
+        except (HotkeyParseError, HotkeyBusyError) as exc:
             # Per docs/03: non-fatal hotkey conflicts become a backend_error
-            # signal *and* re-raise so the caller can redisplay their UI.
-            self.backend_error.emit(f"hotkey unavailable: {exc}")
-            raise
+            # signal *and* re-raise — as a taxonomy type, the same one the
+            # X11 backend raises — so the caller can redisplay their UI.
+            message = QCoreApplication.translate(
+                "perch.backend", "Hotkey unavailable: {err}"
+            ).format(err=str(exc))
+            self.backend_error.emit(message)
+            raise BackendUnsupported(message) from exc
 
     async def unregister_hotkey(self, callback_id: str) -> None:
         self._require_connected()
@@ -680,6 +760,14 @@ async def _default_bus_setup(service_name: str) -> None:
     # success, not failure.
     with contextlib.suppress(SdBusRequestNameExistsError):
         await request_default_bus_name_async(service_name)
+
+
+async def _default_kwin_owner_changes() -> AsyncIterator[tuple[str, str]]:
+    from sdbus_async.dbus_daemon import FreedesktopDbus
+
+    async for name, old_owner, new_owner in FreedesktopDbus().name_owner_changed.catch():
+        if name == KWIN_SERVICE:
+            yield old_owner, new_owner
 
 
 async def _default_scripting_factory() -> KWinScripting:

@@ -63,6 +63,15 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **KDE: Perch reconnects after KWin restarts, and never acts on a stale command** (PERC-0060)
+  If KWin crashes or restarts, Perch now notices, reloads its helper
+  script and reconnects, instead of silently doing nothing while the
+  tray still shows it as connected. A window move that timed out is
+  dropped rather than carried out late. Shortcuts keep working after a
+  brief D-Bus hiccup. The script installer will no longer replace a
+  folder that is not its own, even if PERCH_KWIN_SCRIPT_TARGET points
+  at one by mistake.
+
 - **Autostart and startup: no false "failed" under Flatpak, clean exit on a startup error** (PERC-0064)
   Turning "Start at login" on or off under Flatpak no longer waits five
   minutes and logs a failure for a change that worked. If startup fails

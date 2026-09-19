@@ -275,7 +275,9 @@ class KGlobalAccelProvider:
         self._proxy = KGlobalAccelProxy.new_proxy(
             "org.kde.kglobalaccel", "/kglobalaccel"
         )
-        self._signal_task = asyncio.create_task(self._pump_signals())
+        self._signal_task = asyncio.create_task(
+            _supervise_pump("KGlobalAccel", self._pump_signals)
+        )
 
     async def stop(self) -> None:
         if self._signal_task is not None:
@@ -342,6 +344,32 @@ class KGlobalAccelProvider:
                 continue
             if self._on_fired is not None:
                 self._on_fired(action_id)
+
+
+async def _supervise_pump(
+    name: str,
+    pump: Callable[[], Awaitable[None]],
+    *,
+    first_delay_s: float = 1.0,
+    max_delay_s: float = 30.0,
+) -> None:
+    """Run a signal pump for the provider's lifetime, restarting it.
+
+    A bare pump ends on the first bus error, and every hotkey then stops
+    firing with nothing in the log. Cancellation — the provider's stop()
+    — is the only way out.
+    """
+    delay = first_delay_s
+    while True:
+        try:
+            await pump()
+            log.warning("%s signal stream ended; restarting", name)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.error("%s signal pump failed (%s); restarting", name, exc)
+        await asyncio.sleep(delay)
+        delay = min(max(delay * 2, first_delay_s), max_delay_s)
 
 
 # ── Portal GlobalShortcuts provider ────────────────────────────────────────
@@ -503,7 +531,9 @@ class PortalGlobalShortcutsProvider:
         self._on_fired = on_fired
         self._portal = self.portal_factory()
         self._session_handle = await self._create_session()
-        self._activated_task = asyncio.create_task(self._pump_activated())
+        self._activated_task = asyncio.create_task(
+            _supervise_pump("portal Activated", self._pump_activated)
+        )
 
     async def stop(self) -> None:
         if self._activated_task is not None:

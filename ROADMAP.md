@@ -1289,6 +1289,10 @@ Goal: fewer first-run support tickets; the config is safe.
   One summariser pair now lives in ui/rules_model.py; entry_editor's
   copy is gone. Save refusal shows the ConfigEditError text and opens
   the failing page. local_CI.sh green.
+  Correction (2026-09-19): the backend-kwin lane also tagged two
+  untranslated backend_error strings in kwin/backend.py register_hotkey
+  as PERC-0058, and the close above missed them. They were fixed under
+  PERC-0060, which rewrote that handler.
   **Layman:** Validation that shows nothing, a theme override that ignores your desktop, and keyboard gaps.
   Kind: fix.
   Source: review-code 2026-08-31 (lanes ui-shell, ui-dialog).
@@ -1348,7 +1352,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane config).
 
-- 📋 [PERC-0060] **Close the remaining KWin backend findings.**
+- ✅ [PERC-0060] **Close the remaining KWin backend findings.**
   Six findings outside the portal item. docs/05:140 promises recovery when
   the script disappears on a KWin crash or restart -- nothing subscribes to
   NameOwnerChanged, so every execute() then times out forever while the
@@ -1363,6 +1367,23 @@ Goal: fewer first-run support tickets; the config is safe.
   and accepts PERCH_KWIN_SCRIPT_TARGET unvalidated. Four exception classes
   subclass RuntimeError against docs/03:219's ban on further subclassing,
   all reachable from start().
+  Resolved (2026-09-19): all six, plus the lane's seventh PERC-0060 tag.
+  (1) KWinBackend watches NameOwnerChanged for org.kde.KWin: loss ->
+  backend_disconnected; new owner -> reset the pinned script sender,
+  reload the script, wait for ScriptReady, backend_connected (hotkeys are
+  not re-registered; docs/05 says so). (2) service.execute pops its entry
+  in a finally; latencies_ns is a deque(maxlen=LATENCY_SAMPLES);
+  PollCommand skips a queued command whose caller gave up. (3)
+  is_available's docstring now states it is deliberately stricter than
+  _probe_session_env. (4) stop() cancels the watch and _bg_tasks; the
+  hotkey pumps run under _supervise_pump, which logs and restarts. (5)
+  install.py: a symlink is unlinked, a non-empty directory that is not a
+  Perch script is refused (ScriptInstallRefused), a relative override is
+  refused, XDG_DATA_HOME via paths.xdg_base. (6) start() and
+  register_hotkey translate every non-taxonomy error (BackendUnavailable,
+  BackendUnsupported); docs/03 said "four types" beside a list of six.
+  (7) KWinCore deleted: main.js already converts the 1-based desktop,
+  and docs/05 now says so.
   **Layman:** If KWin restarts, Perch keeps reporting itself connected forever.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-kwin).
@@ -1657,6 +1678,19 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** On GNOME, any other program on your desktop can currently ask Perch's helper to move or close your windows.
   Kind: security.
   Source: review-code 2026-08-31 (lane compositor-scripts), split out of PERC-0050.
+
+- 📋 [PERC-0071] **Make the live Openbox tests wait for the window manager instead of racing it.**
+  tests/backend/x11/test_live_openbox.py failed one run in three on
+  2026-09-19 and passed on re-run, with no X11 code changed. Two sites:
+  test_start_emits_backend_connected_and_lists_virtual_output asserts
+  desktop_count() == 4 straight after start(), before Openbox has
+  necessarily published _NET_NUMBER_OF_DESKTOPS; and a later test indexes
+  opened_ids[0] after a fixed 3 s wait for xclock. Both should wait on
+  the condition, and the fixture should not hand over the display until
+  Openbox has set its root properties.
+  **Layman:** One of Perch's automatic tests sometimes fails for timing reasons, not because anything is broken.
+  Kind: test.
+  Source: in-session-2026-09-19, full-suite run during PERC-0060.
 
 ## v1.2 — Smarts
 
