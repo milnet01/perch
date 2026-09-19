@@ -306,6 +306,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Security
 
+- **A badly written window-title rule can no longer freeze Perch** (PERC-0069)
+  Window-title rules now have a time limit. A rule that would take too
+  long to check a title, for example one in an imported config, counts
+  as "no match" after 50 ms and is named in the log so you can fix it.
+  Perch now depends on the `regex` Python package.
+
 - **The GNOME Shell extension checks the geometry it is handed** (PERC-0050)
   `set_geometry` passed whatever `JSON.parse` produced straight to Mutter.
   Coordinates and extents must now be integers in a sane range, the desktop

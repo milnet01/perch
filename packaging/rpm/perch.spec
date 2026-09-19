@@ -82,6 +82,7 @@ Requires:       python3-qasync >= 0.28
 Requires:       python3-sdbus >= 0.14.2
 Requires:       python3-xlib >= 0.33
 Requires:       python3-tomlkit >= 0.13
+Requires:       python3-regex >= 2020.11.13
 
 # PySide6 package name casing differs per distro. openSUSE ships
 # `python3-PySide6`; Fedora ships `python3-pyside6` (all lower). The

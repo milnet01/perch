@@ -4,17 +4,29 @@ layouts, and exclusions.
 Spec in ``docs/02-state-format.md`` §Match patterns and
 ``docs/07-rules-engine.md`` §Matching. Unspecified fields are wildcards;
 ``app_id`` / ``wm_class`` are globs; ``title`` is a Python ``re.search``
-regex; ``pid`` is exact; ``type`` is "exact, comma-list" (any-of).
+regex, run with a time limit (see :func:`_title_matches`); ``pid`` is
+exact; ``type`` is "exact, comma-list" (any-of).
 """
 
 from __future__ import annotations
 
+import functools
+import logging
 import re
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from typing import Any
 
+import regex
+
 from perch.backend.types import WindowInfo, WindowType
+
+log = logging.getLogger(__name__)
+
+#: How long one title search may run. Titles are chosen by whatever app the
+#: user runs, and a backtracking pattern would otherwise freeze the thread
+#: that drives Qt and asyncio (docs/07-rules-engine.md §Matching).
+TITLE_SEARCH_TIMEOUT_S = 0.05
 
 
 class MatchValidationError(ValueError):
@@ -123,7 +135,7 @@ def match_window(pattern: MatchPattern, window: WindowInfo) -> bool:
         window.wm_class, pattern.wm_class
     ):
         return False
-    if pattern.title is not None and pattern.title.search(window.title) is None:
+    if pattern.title is not None and not _title_matches(pattern.title, window.title):
         return False
     if pattern.pid is not None and window.pid != pattern.pid:
         return False
@@ -131,6 +143,36 @@ def match_window(pattern: MatchPattern, window: WindowInfo) -> bool:
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
+@functools.lru_cache(maxsize=256)
+def _bounded(pattern: str, flags: int) -> regex.Pattern[str]:
+    # Patterns are validated with ``re`` (the documented syntax), which the
+    # ``regex`` module's default VERSION0 accepts unchanged, and flag values
+    # are shared between the two for the flags ``re`` defines.
+    return regex.compile(pattern, flags & ~re.UNICODE)
+
+
+@functools.lru_cache(maxsize=256)
+def _warn_timed_out(pattern: str) -> None:
+    # Cached, so one bad pattern logs once rather than on every window event.
+    log.warning(
+        "title regex %r took longer than %.0f ms and was treated as no match; "
+        "it probably backtracks — simplify it",
+        pattern,
+        TITLE_SEARCH_TIMEOUT_S * 1000,
+    )
+
+
+def _title_matches(title_re: re.Pattern[str], title: str) -> bool:
+    """``title_re.search(title)``, abandoned after the timeout as a no-match."""
+    bounded = _bounded(title_re.pattern, title_re.flags)
+    try:
+        return bounded.search(title, timeout=TITLE_SEARCH_TIMEOUT_S) is not None
+    except TimeoutError:
+        _warn_timed_out(title_re.pattern)
+        return False
+
+
+
 def opt_str(
     raw: dict[str, Any], key: str, prefix: str, *, error: type[ValueError]
 ) -> str | None:

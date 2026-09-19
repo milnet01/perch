@@ -94,8 +94,13 @@ manifests (CI actions, the RPM spec, PKGBUILDs, base images) are governed by the
 | `pytest-qt>=4.5,<5` | dev | pytest-qt 5 major | pytest-qt 5.0 ships |
 | `pytest-asyncio>=1.3,<2` | dev | pytest-asyncio 2 major | pytest-asyncio 2.0 ships |
 
-`python-xlib` and `pytest-xvfb` carry a lower bound only — no ceiling, nothing
-to track here.
+`python-xlib`, `pytest-xvfb`, `regex` and `types-regex` carry a lower bound only
+— no ceiling, nothing to track here. `regex` is versioned by release date, so it
+has no next major to hold below. Its floor, 2020.11.13, is the oldest release
+verified (2026-09-19) to honour `search(timeout=)`; the RPM spec and PKGBUILD
+carry the same floor so distro packages older than PyPI still satisfy it. It is a runtime dependency for one guard, the
+title-match timeout (`docs/07-rules-engine.md` §Matching): Python's `re` has no
+step budget or timeout, and a thread running it cannot be stopped.
 
 As of 2026-08-27 — verified by a **manual** sweep (§3; there is no automated CI
 currency job) — every runtime, dev, and `sway`-extra dependency sits at its

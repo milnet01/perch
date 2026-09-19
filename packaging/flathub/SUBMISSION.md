@@ -38,7 +38,7 @@ exact steps for the Flathub submission (both automated and manual).
 - **App ID reserved (de facto)**: `io.github.milnet01.Perch`. The ID follows GitHub reverse-DNS per Flathub convention. Reservation is implicit — nobody else will use this ID because only `milnet01` on GitHub can.
 - **Manifest**: `packaging/flathub/io.github.milnet01.Perch.yml`, pinned to the `v1.0.0` tag and its immutable commit. `finish-args` is the minimum set that still works: no `--device=dri` (Perch renders no 3D surface; the tray icon and dialogs work on llvmpipe), and named `--talk-name` entries rather than a session-bus socket.
 - **Runtime target**: KDE Platform 6.11, with `io.qt.PySide.BaseApp//6.11` supplying PySide6 and Qt. The BaseApp is built against that same runtime, and ships python 3.13 — which is the ABI the pinned wheels target.
-- **Dependencies not supplied by the runtime or the BaseApp**: `qasync`, `sdbus`, `python-xlib`, `tomlkit`, plus the `hatchling` build backend. All are sha256-pinned in the committed `python3-deps.yaml`.
+- **Dependencies not supplied by the runtime or the BaseApp**: `qasync`, `sdbus`, `python-xlib`, `tomlkit`, `regex`, plus the `hatchling` build backend. All are sha256-pinned in the committed `python3-deps.yaml`.
 - **Metainfo + desktop entry validated**: `appstream-util validate-relax --nonet` and `desktop-file-validate` are part of the CI packaging job (`.github/workflows/ci.yml`), so submission-blockers surface in every PR.
 
 ## What must exist before submitting

@@ -1649,7 +1649,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane core-state, OPEN QUESTIONS block).
 
-- 📋 [PERC-0069] **Bound how long a user's title regex may run before it blocks the tray.**
+- ✅ [PERC-0069] **Bound how long a user's title regex may run before it blocks the tray.**
   A `title` pattern from config.toml is compiled and run with re.search
   against window titles -- attacker-controlled by any application the user
   runs -- on the single thread driving both Qt and asyncio. A
@@ -1672,6 +1672,15 @@ Goal: fewer first-run support tickets; the config is safe.
   anything.
   Decided by the user (2026-09-19): depend on the `regex` package and
   match titles with a timeout.
+  Resolved (2026-09-19): patterns are still validated and stored as re
+  patterns; match_window runs the search through regex.compile (cached)
+  with search(timeout=0.05); a timeout is a no-match, logged once per
+  pattern. Measured: re took 4.4 s on (a+)+$ against a 27-character
+  title; regex needs no timeout for that shape but does for (a|aa)+$,
+  and the test covers both. Floor regex>=2020.11.13, the oldest release
+  verified to honour timeout=, mirrored in the RPM spec and both
+  PKGBUILDs; python3-deps.yaml regenerated. docs/07 §Matching and
+  docs/dependency-policy.md record the guard and the dependency.
   **Layman:** Stop a badly-written rule from freezing Perch while it tries to match a window title.
   Kind: security.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0050.

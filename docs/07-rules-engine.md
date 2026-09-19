@@ -42,7 +42,8 @@ This ordering is deliberate:
 A rule's `match` is an AND over its specified fields. The field semantics are defined in [02-state-format.md](02-state-format.md). Key points:
 
 - Unspecified fields are wildcards. `match = { app_id = "firefox" }` matches every Firefox window.
-- `title` supports regex; all others are glob (`*`, `?`, `[abc]`). Regexes are Python `re.search` — anchor them if you want a full match.
+- `title` supports regex; all others are glob (`*`, `?`, `[abc]`). Regexes are validated with Python `re` syntax and searched (`re.search` semantics) — anchor them if you want a full match.
+- A title search is bounded in time. Titles come from any application the user runs, and a pattern with catastrophic backtracking — `(a+)+$` is eight characters — would otherwise freeze the one thread that drives both the tray and the event loop. `src/perch/core/matching.py::match_window` runs the search through the `regex` package with a 50 ms timeout; a search that runs out counts as **no match**, and the pattern is logged once at WARNING so the user can fix it. The timeout is per title per pattern.
 - Missing attributes on the window (`pid` is `None`, `role` is `""`) fail to match only if the corresponding `match` field was specified.
 
 ### Matching on multiple monitors

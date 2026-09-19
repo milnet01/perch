@@ -30,6 +30,9 @@ dependencies = [
     "sdbus>=0.14.2,<1",
     "python-xlib>=0.33",
     "tomlkit>=0.13,<1",
+    # Bounded-time title matching; see docs/dependency-policy.md §5. The
+    # floor is the oldest release verified to honour search(timeout=).
+    "regex>=2020.11.13",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +49,7 @@ dev = [
     # Stubs for the above, so mypy --strict can typecheck the tests that
     # read .github/FUNDING.yml.
     "types-PyYAML>=6.0.12,<7",
+    "types-regex>=2026.9.10",
     # flatpak-pip-generator's own import, needed by
     # packaging/flathub/generate-pip-sources.sh.
     "requirements-parser>=0.13.1,<1",

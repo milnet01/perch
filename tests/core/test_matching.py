@@ -187,3 +187,33 @@ def test_catch_all_with_another_field_rejected() -> None:
 def test_empty_match_field_rejected() -> None:
     with pytest.raises(MatchValidationError, match="must not be empty"):
         parse_match({"app_id": ""}, "x")
+
+
+# ── PERC-0069: bounded title search ────────────────────────────────────────
+def test_a_catastrophic_title_regex_cannot_freeze_matching(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Window titles are chosen by whatever app the user runs, and Python's
+    re has no step budget: this search backtracks exponentially on the one
+    thread driving Qt and asyncio. It must give up and count as no match."""
+    import logging
+    import time
+
+    from perch.core import matching
+
+    matching._warn_timed_out.cache_clear()  # it logs once per pattern
+    # The first shape regex's engine handles itself; the second defeats it
+    # too and is only stopped by the timeout, which it must log.
+    for raw, hostile_title in (("(a+)+$", "a" * 26 + "!"), ("(a|aa)+$", "a" * 40 + "x")):
+        pattern = parse_match({"title": raw}, "x")
+        started = time.monotonic()
+        with caplog.at_level(logging.WARNING, logger="perch.core.matching"):
+            assert match_window(pattern, _w(title=hostile_title)) is False
+        assert time.monotonic() - started < 1.0, raw
+    assert "(a|aa)+$" in caplog.text
+
+
+def test_an_ordinary_title_regex_still_matches() -> None:
+    pattern = parse_match({"title": "^Mozilla"}, "x")
+    assert match_window(pattern, _w(title="Mozilla Firefox")) is True
+    assert match_window(pattern, _w(title="Konsole")) is False

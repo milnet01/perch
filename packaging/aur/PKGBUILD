@@ -19,6 +19,7 @@ depends=(
     'python-sdbus>=0.14.2'
     'python-xlib>=0.33'
     'python-tomlkit>=0.13'
+    'python-regex>=2020.11.13'
 )
 optdepends=(
     'xdg-desktop-portal: GlobalShortcuts + Background portal (Flatpak and modern Plasma)'

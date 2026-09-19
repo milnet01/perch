@@ -101,7 +101,7 @@ flatpak run --command=perch "$APP_ID" --check-config
 
 echo ">> smoke 2/2: the runtime imports resolve inside the sandbox"
 flatpak run --command=python3 "$APP_ID" -c \
-    'import PySide6.QtWidgets, qasync, sdbus, Xlib, tomlkit; print("PERCH_IMPORTS_OK")'
+    'import PySide6.QtWidgets, qasync, sdbus, Xlib, tomlkit, regex; print("PERCH_IMPORTS_OK")'
 
 cat <<'EOT'
 

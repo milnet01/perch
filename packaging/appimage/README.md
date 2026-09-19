@@ -27,7 +27,7 @@ Perch is a Python + Qt (PySide6) app, so the AppImage is built in four stages
 2. **AppDir** — [`python-appimage`](https://github.com/niess/python-appimage)
    assembles an AppDir around a portable **manylinux_2_28** interpreter (glibc
    2.28 floor) and pip-installs perch + its deps (PySide6, qasync, sdbus,
-   python-xlib, tomlkit) into it.
+   python-xlib, tomlkit, regex) into it.
 3. **Harvest** — `harvest-libs.sh` runs in an **AlmaLinux 8** container and
    bundles the system libraries the Qt `xcb` platform plugin and the glib/dbus
    stack need but that `python-appimage` leaves out (`libxcb-cursor`,

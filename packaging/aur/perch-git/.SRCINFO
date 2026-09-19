@@ -18,6 +18,7 @@ pkgbase = perch-git
 	depends = python-sdbus>=0.14.2
 	depends = python-xlib>=0.33
 	depends = python-tomlkit>=0.13
+	depends = python-regex>=2020.11.13
 	optdepends = xdg-desktop-portal: GlobalShortcuts + Background portal
 	optdepends = xdg-desktop-portal-kde: preferred portal impl on Plasma 6
 	optdepends = python-i3ipc: Sway backend (optional)

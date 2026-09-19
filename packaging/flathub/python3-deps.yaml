@@ -1,4 +1,4 @@
-# Generated with flatpak-pip-generator --runtime=org.kde.Sdk//6.11 --prefer-wheels=hatchling,packaging,pathspec,pluggy,python-xlib,qasync,sdbus,six,tomlkit,trove-classifiers --wheel-arches=x86_64 --yaml -o /mnt/Games/Scripts/Linux/perch/packaging/flathub/python3-deps qasync>=0.28,<1 sdbus>=0.14.2,<1 python-xlib>=0.33 tomlkit>=0.13,<1 hatchling>=1.24
+# Generated with flatpak-pip-generator --runtime=org.kde.Sdk//6.11 --prefer-wheels=hatchling,packaging,pathspec,pluggy,python-xlib,qasync,regex,sdbus,six,tomlkit,trove-classifiers --wheel-arches=x86_64 --yaml -o /mnt/Games/Scripts/Linux/perch/packaging/flathub/python3-deps qasync>=0.28,<1 sdbus>=0.14.2,<1 python-xlib>=0.33 tomlkit>=0.13,<1 regex>=2020.11.13 hatchling>=1.24
 name: python3-deps
 buildsystem: simple
 build-commands: []
@@ -45,6 +45,17 @@ modules:
         type: file
         url: https://files.pythonhosted.org/packages/13/bc/8c13eb66537dce1d2bd3a57132902f38d0e7f5bb46fa9f4daed9fe9d76ee/tomlkit-0.15.1-py3-none-any.whl
         sha256: 177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304
+  - name: python3-regex
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "regex>=2020.11.13" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/20/3b/000c79c3f9c06b7542225a5d3a7f9a85405da7224b3b9af94a491d07abea/regex-2026.9.10-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: bafa41b0dd63669e5c0f8adf3d24819efeb73c847f492eb011212eb352e69041
+        only-arches:
+          - x86_64
   - name: python3-hatchling
     buildsystem: simple
     build-commands:
@@ -52,8 +63,8 @@ modules:
         --prefix=${FLATPAK_DEST} "hatchling>=1.24" --no-build-isolation
     sources:
       - type: file
-        url: https://files.pythonhosted.org/packages/a9/84/1798b6d85ecde0e31546004efd25c5de1b1f49250644a60cce460e12593a/hatchling-1.32.0-py3-none-any.whl
-        sha256: 0e17c9c3b9aa7c625acc8d0f5b622f107d5049af9ecf5ada4de1aada5be7cdbc
+        url: https://files.pythonhosted.org/packages/f6/89/268c7e4b2bcf2071047366c4c3b4b0e89f640e13ea7bfdaf1df6c40e5140/hatchling-1.32.3-py3-none-any.whl
+        sha256: d05b350af5d9aa5bf7b34b434a45a742b99e67d0b48ea67d240cfeab98e13945
       - type: file
         url: https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl
         sha256: a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189

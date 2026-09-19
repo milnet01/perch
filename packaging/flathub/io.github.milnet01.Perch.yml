@@ -88,7 +88,7 @@ cleanup-commands:
 
 modules:
   # --- Python deps not supplied by the runtime or the BaseApp ---------------
-  # sha256-pinned wheels for qasync, sdbus, python-xlib and tomlkit, plus the
+  # sha256-pinned wheels for qasync, sdbus, python-xlib, tomlkit and regex, plus the
   # hatchling build backend (the perch module installs with
   # --no-build-isolation, so the backend must already be present offline).
   # Regenerate with generate-pip-sources.sh; the single cp313 ABI matches
