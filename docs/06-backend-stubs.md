@@ -55,9 +55,9 @@ Capabilities(
     can_set_desktop       = True,
     can_set_state         = True,
     can_enumerate_windows = True,
-    can_observe_geometry  = True,
-    can_observe_outputs   = True,
-    can_register_hotkeys  = True,       # via Main.wm.addKeybinding / gsettings custom-keybindings
+    can_observe_geometry  = False,      # extension emits no window events yet
+    can_observe_outputs   = False,      # MonitorManager signals not wired yet
+    can_register_hotkeys  = False,      # the keybinding gschema is not shipped
     can_preplace_windows  = False,      # see below
     notes = "GNOME ≥ 48 via bundled Shell extension. "
             "Pre-paint placement not supported: windows appear at their "
@@ -102,7 +102,7 @@ Perch's first-run wizard on GNOME surfaces this explicitly: *"GNOME requires Per
 
 ### Hotkeys
 
-On Mutter via the extension: `Main.wm.addKeybinding(action_id, settings, flags, modes, callback)` is the conventional path. Requires a gschema under the extension's data dir. `can_register_hotkeys = True`.
+On Mutter via the extension: `Main.wm.addKeybinding(action_id, settings, flags, modes, callback)` is the conventional path. Requires a gschema under the extension's data dir, which is not shipped yet, so `can_register_hotkeys = False` and the core uses its fallback.
 
 For non-Flatpak Perch installs that don't ship the extension but still want hotkeys, a fallback is to install gsettings custom-keybindings pointing at CLI invocations of Perch — documented but not automated.
 
@@ -126,8 +126,8 @@ Capabilities(
     can_set_desktop       = True,     # workspace
     can_set_state         = True,
     can_enumerate_windows = True,
-    can_observe_geometry  = True,
-    can_observe_outputs   = True,
+    can_observe_geometry  = False,    # i3-IPC window events not subscribed yet
+    can_observe_outputs   = False,    # i3-IPC output events not subscribed yet
     can_register_hotkeys  = False,    # Sway owns hotkeys via its config
     can_preplace_windows  = False,
     notes = "Sway/wlroots. Geometry applies only to floating windows; "

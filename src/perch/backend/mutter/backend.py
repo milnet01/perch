@@ -55,15 +55,20 @@ _CAPABILITIES = Capabilities(
     can_set_desktop=True,
     can_set_state=True,
     can_enumerate_windows=True,
-    can_observe_geometry=True,
-    can_observe_outputs=True,
-    can_register_hotkeys=True,
+    # False until the extension emits window/monitor events: nothing is
+    # observed and nothing polls, so claiming it gated restore-on-open on a
+    # stream that never arrives (PERC-0044).
+    can_observe_geometry=False,
+    can_observe_outputs=False,
+    # The keybinding gschema is not shipped (STATUS.md), so the core must use
+    # its fallback rather than a registration that cannot succeed.
+    can_register_hotkeys=False,
     can_preplace_windows=False,
     notes=(
-        "GNOME ≥ 48 via bundled Shell extension. Pre-paint placement is "
-        "not supported: windows appear at their default location and then "
-        "snap to the target geometry. The extension must be installed "
-        "outside the Flatpak (two-step install); see STATUS.md."
+        "GNOME ≥ 48 via bundled Shell extension. Does not yet observe window "
+        "or monitor changes, so windows are not restored when they open. "
+        "Pre-paint placement is not supported. The extension must be "
+        "installed outside the Flatpak (two-step install); see STATUS.md."
     ),
 )
 

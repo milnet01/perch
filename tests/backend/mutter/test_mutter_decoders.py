@@ -156,5 +156,9 @@ def test_is_available_rejects_x11_sessions(monkeypatch: pytest.MonkeyPatch) -> N
 def test_capabilities_match_docs_06() -> None:
     caps = MutterBackend().capabilities
     assert caps.can_set_position is True
-    assert caps.can_register_hotkeys is True
+    # PERC-0044: no gschema ships and no event stream exists, so neither
+    # capability may be claimed.
+    assert caps.can_register_hotkeys is False
+    assert caps.can_observe_geometry is False
+    assert caps.can_observe_outputs is False
     assert caps.can_preplace_windows is False

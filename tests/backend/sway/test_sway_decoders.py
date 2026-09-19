@@ -170,6 +170,9 @@ def test_capabilities_match_docs_06() -> None:
     caps = SwayBackend().capabilities
     assert caps.can_set_position is False  # tiling-first, floating-only
     assert caps.can_register_hotkeys is False  # Sway owns hotkeys
+    # PERC-0044: start() subscribes to no event stream yet.
+    assert caps.can_observe_geometry is False
+    assert caps.can_observe_outputs is False
     assert caps.can_preplace_windows is False
     assert caps.can_set_size is True
     assert caps.can_set_desktop is True

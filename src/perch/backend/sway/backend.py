@@ -59,12 +59,16 @@ _CAPABILITIES = Capabilities(
     can_set_desktop=True,
     can_set_state=True,
     can_enumerate_windows=True,
-    can_observe_geometry=True,
-    can_observe_outputs=True,
+    # False until the i3-IPC window/output subscriptions exist: start() does
+    # not subscribe, so nothing would ever be emitted (PERC-0044).
+    can_observe_geometry=False,
+    can_observe_outputs=False,
     can_register_hotkeys=False,  # Sway owns hotkeys via its config
     can_preplace_windows=False,
     notes=(
-        "Sway/wlroots stub. Geometry applies only to floating windows; "
+        "Sway/wlroots stub. Does not yet observe window or output changes, "
+        "so windows are not restored when they open. "
+        "Geometry applies only to floating windows; "
         "tiled windows snap to their container. MAXIMIZED state is "
         "unsupported (core substitutes work-area geometry). Hotkeys go "
         "through the user's Sway config, not Perch."
@@ -81,9 +85,10 @@ def _env_sockpath() -> str | None:
 class SwayBackend(WindowBackend):
     """Sway / wlroots backend over i3-IPC.
 
-    Cheap to construct. ``start()`` opens the i3 connection, subscribes to
-    the ``window`` + ``workspace`` + ``output`` event streams, and emits
-    ``backend_connected``. ``stop()`` tears the connection down.
+    Cheap to construct. ``start()`` opens the i3 connection, reads the tree
+    and emits ``backend_connected``; it does not yet subscribe to any event
+    stream, which is why the observation capabilities are False.
+    ``stop()`` tears the connection down.
     """
 
     def __init__(self) -> None:

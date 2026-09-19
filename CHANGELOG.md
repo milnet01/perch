@@ -68,6 +68,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **The GNOME and Sway backends no longer claim abilities they lack** (PERC-0044)
+  On GNOME and Sway, Perch cannot yet notice windows opening or monitors
+  changing, and on GNOME it cannot register shortcuts. It now says so
+  instead of claiming it can. Behaviour on those desktops is unchanged.
+
 - **Release and check scripts no longer hide their own mistakes** (PERC-0065)
   Behind-the-scenes fixes to the tools that build, check and publish
   Perch: a mismatched version is caught before a push rather than at

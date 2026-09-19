@@ -14,9 +14,9 @@ bus. Authoritative design: `docs/06-backend-stubs.md` §Mutter / GNOME Shell.
 | `can_set_desktop` | True | `Meta.Window.change_workspace(ws)`. |
 | `can_set_state` | True | `maximize` / `unmaximize` / `minimize` / `make_fullscreen`. |
 | `can_enumerate_windows` | True | `global.display.list_all_windows()`. |
-| `can_observe_geometry` | True | Window signals on `Meta.Display` (landing in a follow-up). |
-| `can_observe_outputs` | True | `Meta.MonitorManager` change signals. |
-| `can_register_hotkeys` | True | `Main.wm.addKeybinding(...)` via the extension, backed by a gschema. |
+| `can_observe_geometry` | **False** | The extension emits no window signals yet (`Meta.Display` hooks are the planned route), and nothing polls. So restore-on-open does not run on GNOME. |
+| `can_observe_outputs` | **False** | `Meta.MonitorManager` change signals are not wired yet. |
+| `can_register_hotkeys` | **False** | `Main.wm.addKeybinding(...)` needs a gschema the extension does not ship. |
 | `can_preplace_windows` | **False** | `window-created` fires before Mutter is ready to honour geometry writes; extension must idle-add the call, producing a visible snap. |
 
 ## Architecture
@@ -97,9 +97,9 @@ a follow-up PR or is provided by the per-GNOME packaging.
 ## What does not work (by design / by deferral)
 
 - **Live event observation.** Extension-side hooks into
-  `workspace.window_added` / `geometry-changed` are not wired. Until
-  they land in a follow-up, the Python side polls via `list_windows`
-  for reconciliation.
+  `workspace.window_added` / `geometry-changed` are not wired, and the
+  Python side does not poll either, so the capabilities say False.
+  Tracked in ROADMAP.md.
 - **Pre-paint placement.** See docs/06 — Mutter's `window-created`
   signal fires before the window is ready to honour geometry writes.
 - **Hotkeys.** Schema blocking — see above.

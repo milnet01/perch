@@ -817,7 +817,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
 
-- 📋 [PERC-0044] **Make the Sway and Mutter backends' declared capabilities honest.**
+- ✅ [PERC-0044] **Make the Sway and Mutter backends' declared capabilities honest.**
   Both declare can_observe_geometry and can_observe_outputs true and emit
   no observation signal at all; neither polls either, despite Mutter's
   STATUS.md saying it does. docs/03-backend-interface.md:230 gates
@@ -825,6 +825,12 @@ Goal: fewer first-run support tickets; the config is safe.
   both. Mutter also declares can_register_hotkeys against a gschema its own
   STATUS.md says is not shipped, which denies GNOME users the fallback
   grabber. Set the bits to what is true, then implement the event paths.
+  Resolved (2026-09-19), honesty half: Sway and Mutter now declare
+  can_observe_geometry and can_observe_outputs False, and Mutter
+  can_register_hotkeys False (no gschema ships); notes, both STATUS.md
+  tables, Mutter STATUS's false "polls via list_windows" line and docs/06
+  agree, and both capability tests pin the values. The event-path half
+  needs a live Sway / GNOME session and is PERC-0073.
   **Layman:** On GNOME and Sway, Perch never notices a window opening — silently, with no error.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-iface-stubs).
@@ -1069,6 +1075,11 @@ Goal: fewer first-run support tickets; the config is safe.
   vocabulary is documented only in docs/11-roadmap.md, a milestone log,
   rather than in the design doc that calls itself authoritative. Route
   through review-contract rather than editing piecemeal.
+  Added 2026-09-19 (found closing PERC-0044): docs/03 §Capability
+  negotiation says the core reads capabilities at startup and on every
+  backend_connected, and that every UI feature is conditional on one; it
+  also says restore-on-open is gated on can_observe_geometry. Nothing
+  outside src/perch/backend/ reads any capability field.
   **Layman:** The manual describes things the code does not do, and vice versa.
   Kind: doc-fix.
   Source: review-code 2026-08-31 (all ten lanes).
@@ -1772,6 +1783,23 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Every so often Perch politely asks whether you'd like to support it, and stops asking once you say you already have.
   Kind: feature.
   Source: user-request-2026-09-19.
+
+- 📋 [PERC-0073] **Give the Sway and GNOME backends real window and output event streams.**
+  Split out of PERC-0044, which set can_observe_geometry and
+  can_observe_outputs to False on both because neither backend emits a
+  single observation signal. Sway: subscribe to i3-IPC `window` and
+  `output` events on the aio connection and run its main loop as a task,
+  emitting window_opened / window_closed / geometry_changed /
+  window_changed and the output signals. GNOME: the Shell extension has to
+  emit window-created / size-changed / position-changed and
+  monitors-changed over D-Bus, and the Python side forward them. Neither
+  can be verified without the matching session (i3ipc is not even in the
+  dev environment), which is why this was not written blind; flip the
+  capabilities back to True only with the stream proved on a live
+  session.
+  **Layman:** Teach Perch to notice windows opening on GNOME and Sway, so it can put them back where they belong.
+  Kind: implement.
+  Source: in-session-2026-09-19, split out of PERC-0044.
 
 ## v1.2 — Smarts
 

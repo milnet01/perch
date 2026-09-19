@@ -14,8 +14,8 @@ than the X11 / KWin backends. Authoritative design: `docs/06-backend-stubs.md`
 | `can_set_desktop` | True | `move container to workspace number <N+1>`. |
 | `can_set_state` | True | `MINIMIZED` → `move scratchpad`; `FULLSCREEN` → `fullscreen enable`; `NORMAL` → `fullscreen disable`. `MAXIMIZED` raises `BackendUnsupported` (rules engine substitutes work-area geometry). |
 | `can_enumerate_windows` | True | `get_tree()` + `leaves()` filter. |
-| `can_observe_geometry` | True | i3-IPC `window` event stream. |
-| `can_observe_outputs` | True | i3-IPC `output` event stream. |
+| `can_observe_geometry` | **False** | Planned: i3-IPC `window` event stream. `start()` does not subscribe yet, so restore-on-open does not run on Sway. |
+| `can_observe_outputs` | **False** | Planned: i3-IPC `output` event stream; not subscribed yet. |
 | `can_register_hotkeys` | **False** | Sway owns hotkeys via its config; no runtime grab API. |
 | `can_preplace_windows` | False | No pre-paint placement hook in the protocol. |
 
