@@ -28,11 +28,13 @@ re-renders the whole file and silently reverts your edit. Add and change items
 with the Ants MCP verbs (`roadmap_log` op `append` / `append_batch` / `flip` /
 `annotate`), and query with `roadmap_query` rather than reading the file.
 
-Two things that will otherwise look like bugs. The renderer **strips the
-trailing full stop from every `**Layman:**` line** and reports it as restyling,
-so a hand-added period will vanish. And a byte-identical `ROADMAP.md` right
-after a migration is correct — the file is re-rendered by the next write, not
-by the migration itself.
+Two things that will otherwise look like bugs. The renderer owns the
+punctuation of every `**Layman:**` line and reports a difference as
+repunctuation, so a hand-edited full stop there is reverted. And a
+byte-identical `ROADMAP.md` right after a migration is correct — the file is
+re-rendered by the next write, not by the migration itself. To publish the
+store without changing anything, use `roadmap_log` op `render`, and
+`roadmap_query` with `check_sync:true` to ask whether the file matches.
 
 Milestone history, ground rules and the Phase 2 / 2.5 research logs stay in
 `docs/11-roadmap.md`, which is an ordinary hand-edited document. Roughly thirty

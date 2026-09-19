@@ -26,7 +26,7 @@ Goal: anyone can install Perch without building from source.
   `packaging/appimage/`; build shape and glibc-2.28 floor in
   `docs/10-packaging.md` § AppImage. The primary channel for distros that do
   not carry Perch in their repos. [M]
-  **Layman:** You download one file, double-click it, and Perch runs — nothing else to install
+  **Layman:** You download one file, double-click it, and Perch runs — nothing else to install.
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -183,7 +183,7 @@ Goal: anyone can install Perch without building from source.
   screen: the setup wizard opens and does not reappear after Finish, a
   window's geometry survives a close/reopen, and the config dialog opens
   and saves.
-  **Layman:** Getting Perch listed in the places people normally install Linux software from
+  **Layman:** Getting Perch listed in the places people normally install Linux software from.
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -324,7 +324,7 @@ Goal: anyone can install Perch without building from source.
   dict when it is the Request object path, so Flatpak autostart raises.
   It does not block the Flathub submission -- autostart simply does not
   take effect.
-  **Layman:** Installed as a Flatpak, Perch cannot control windows on KDE — the helper it gives KDE is saved somewhere KDE cannot read
+  **Layman:** Installed as a Flatpak, Perch cannot control windows on KDE — the helper it gives KDE is saved somewhere KDE cannot read.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the built Flatpak.
 
@@ -376,7 +376,7 @@ Goal: anyone can install Perch without building from source.
   Not done: the live re-run in the Flatpak. It needs a human to answer the
   portal's permission prompt, so it is grouped with the two eyeball checks
   PERC-0002 still lists.
-  **Layman:** Ticking "start Perch at login" does nothing in the Flatpak build
+  **Layman:** Ticking "start Perch at login" does nothing in the Flatpak build.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the PERC-0036 Flatpak build.
 
@@ -412,7 +412,7 @@ Goal: anyone can install Perch without building from source.
   item answers Id="perch", Status="Active", with its menu at /MenuBar
   listing the real entries (Layouts, Snap focused window, Pause Perch,
   Reapply rules now). Both startup warnings are gone.
-  **Layman:** Installed as a Flatpak, Perch's tray icon never appears — and the tray is the whole interface
+  **Layman:** Installed as a Flatpak, Perch's tray icon never appears — and the tray is the whole interface.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
 
@@ -459,7 +459,7 @@ Goal: anyone can install Perch without building from source.
   Still worth checking, and NOT done here: whether the AppImage and the
   RPM had the same symptom. The dev checkout was the only layout the old
   code got right, so both are suspect.
-  **Layman:** The tray icon file is looked for in a folder that only exists when running from the source code
+  **Layman:** The tray icon file is looked for in a folder that only exists when running from the source code.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
 
@@ -494,7 +494,7 @@ Goal: anyone can install Perch without building from source.
   SdBusLibraryError (sd_bus_open -> ENOENT) while the explicit open
   returns name_has_owner(org.kde.StatusNotifierWatcher)=True, and the
   "no StatusNotifierHost detected" warning is gone from a live run.
-  **Layman:** Perch wrongly decides the desktop has no system tray when it is installed as a Flatpak
+  **Layman:** Perch wrongly decides the desktop has no system tray when it is installed as a Flatpak.
   Kind: fix.
   Source: in-session-2026-08-27, live Plasma Wayland run of the Flatpak.
 
@@ -514,7 +514,7 @@ Goal: anyone can install Perch without building from source.
   Not used: the software.opensuse.org one-click download page, which
   returns HTTP 403 even with a browser User-Agent; the README links the
   download.opensuse.org .repo files directly instead.
-  **Layman:** openSUSE and Fedora users can install Perch with a normal package command
+  **Layman:** openSUSE and Fedora users can install Perch with a normal package command.
   Kind: package.
   Source: split from PERC-0002 at the 1.1.0 release cut (in-session-2026-08-28).
 
@@ -543,7 +543,7 @@ Goal: anyone can install Perch without building from source.
 
   NOT shipped, and tracked by PERC-0002: the three manual live-Plasma
   checks and the flathub/flathub PR itself.
-  **Layman:** The Flatpak recipe now actually builds, which it never did before
+  **Layman:** The Flatpak recipe now actually builds, which it never did before.
   Kind: package.
   Source: split from PERC-0002 at the 1.1.0 release cut (in-session-2026-08-28).
 
@@ -583,7 +583,7 @@ Goal: fewer first-run support tickets; the config is safe.
   imports perch.app, so covering it means building a harness for main() --
   reported rather than absorbed. It is exercised by the first-run eyeball
   check instead.
-  **Layman:** A short guided setup the first time you run Perch, so it works before you touch any settings
+  **Layman:** A short guided setup the first time you run Perch, so it works before you touch any settings.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -602,7 +602,7 @@ Goal: fewer first-run support tickets; the config is safe.
   and profiles stay opt-in and are reachable only via page 3's optional "Show
   me what else Perch can do" tick-box, so the complexity surfaces for users
   who go looking for it.
-  **Layman:** The first thing Perch tells you is that you do not have to configure anything
+  **Layman:** The first thing Perch tells you is that you do not have to configure anything.
   Kind: ux.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -614,7 +614,7 @@ Goal: fewer first-run support tickets; the config is safe.
   doing, at the moment the user wants them, instead of a manual nobody reads.
   Pairs with PERC-0010 as the "see why it did that" half of the same onboarding
   story. [M]
-  **Layman:** Optional walkthroughs that teach the advanced features at the moment you reach for them
+  **Layman:** Optional walkthroughs that teach the advanced features at the moment you reach for them.
   Kind: ux.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -622,14 +622,14 @@ Goal: fewer first-run support tickets; the config is safe.
   Snapshot the config on each write and offer "revert to a previous version" in
   the dialog; guards the window-memory data against a bad edit or a crash
   mid-write. [M]
-  **Layman:** If a settings change goes wrong, you can roll back to how it was
+  **Layman:** If a settings change goes wrong, you can roll back to how it was.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 📋 [PERC-0007] **Monitor hotplug re-apply.**
   On output add/remove (dock / undock), re-resolve and re-place managed windows
   automatically. [M]
-  **Layman:** Plug in or unplug a monitor and your windows rearrange themselves without you asking
+  **Layman:** Plug in or unplug a monitor and your windows rearrange themselves without you asking.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -640,14 +640,14 @@ Goal: fewer first-run support tickets; the config is safe.
   store-managed installs (Flatpak / RPM / AUR) Perch does not self-update — it
   detects the managed channel and only notifies, so it never fights the system
   package manager. [L]
-  **Layman:** Perch can update itself, except where your system's software manager already owns that job
+  **Layman:** Perch can update itself, except where your system's software manager already owns that job.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 📋 [PERC-0009] **Runtime theme-change propagation.**
   Global re-apply without a restart. Referenced from `docs/08-ui.md`
   § Interaction. [S]
-  **Layman:** Switch your desktop theme and Perch follows immediately instead of after a restart
+  **Layman:** Switch your desktop theme and Perch follows immediately instead of after a restart.
   Kind: enhancement.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -658,7 +658,7 @@ Goal: fewer first-run support tickets; the config is safe.
   no rule matched. The GUI companion to PERC-0016 and to the observability
   hooks in `docs/07-rules-engine.md` § Debugging and observability; turns a
   "why did it do that?" support ticket into a self-serve answer. [M]
-  **Layman:** Right-click a window and Perch tells you, in plain words, why it put it there
+  **Layman:** Right-click a window and Perch tells you, in plain words, why it put it there.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -672,7 +672,7 @@ Goal: fewer first-run support tickets; the config is safe.
   `TogglePauseRestore` intent → `TogglePause` and `toggle_pause_restore()` →
   `toggle_pause()`. Contract in `docs/08-ui.md` § Menu structure; locked by
   `tests/core/test_reducer.py` and `tests/ui/test_tray.py`. [S]
-  **Layman:** One switch that stops Perch moving anything at all, for when you want it out of the way
+  **Layman:** One switch that stops Perch moving anything at all, for when you want it out of the way.
   Kind: feature.
   Source: in-session 2026-07-18.
 
@@ -685,7 +685,7 @@ Goal: fewer first-run support tickets; the config is safe.
   also picked up the M3…M9 strings that had never been re-scanned. Locked by
   `tests/test_translations.py`. See `docs/accessibility-i18n-standards.md`
   § Marking strings. [S]
-  **Layman:** The tray menu's snap options now show up in your own language instead of always in English
+  **Layman:** The tray menu's snap options now show up in your own language instead of always in English.
   Kind: fix.
   Source: in-session 2026-07-18.
 
@@ -783,7 +783,7 @@ Goal: fewer first-run support tickets; the config is safe.
 
   Not verified by a click: no headless way to press a tray menu item. The
   menu is confirmed to EXPORT correctly over D-Bus.
-  **Layman:** Two new entries in the tray menu — one to support the project, one to report a problem
+  **Layman:** Two new entries in the tray menu — one to support the project, one to report a problem.
   Kind: feature.
   Source: user-request-2026-08-27.
 
@@ -1631,7 +1631,7 @@ Goal: Perch learns instead of only obeying.
   recurring pattern into a rule. Builds on the topology-scoped last-seen idea
   ("remember this arrangement per topology automatically") tracked in
   `docs/09-layouts-profiles.md`. [L]
-  **Layman:** Perch notices habits and offers to make them permanent, instead of waiting for you to write a rule
+  **Layman:** Perch notices habits and offers to make them permanent, instead of waiting for you to write a rule.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -1640,13 +1640,13 @@ Goal: Perch learns instead of only obeying.
   `docs/06-backend-stubs.md` § Sway / Hotkeys and `docs/08-ui.md` § Hotkeys as
   the self-grabbed-hotkey fallback for compositors that do not expose a hotkey
   API. [M]
-  **Layman:** Drive Perch from a terminal or a script, not only from the tray menu
+  **Layman:** Drive Perch from a terminal or a script, not only from the tray menu.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 📋 [PERC-0015] **Activity-scoped rules.**
   Rules that apply only within a given KDE Activity. [M]
-  **Layman:** Different window rules for different KDE Activities
+  **Layman:** Different window rules for different KDE Activities.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -1654,7 +1654,7 @@ Goal: Perch learns instead of only obeying.
   Replays a saved event stream against a config for rules-engine regression
   testing. Referenced from `docs/07-rules-engine.md` § Debugging and
   observability. [S]
-  **Layman:** A way to check a rules file behaves as intended without moving any real windows
+  **Layman:** A way to check a rules file behaves as intended without moving any real windows.
   Kind: test.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -1665,7 +1665,7 @@ Goal: Perch learns instead of only obeying.
   Lets users pass one layout around ("here's my ultrawide coding setup")
   without exposing the rest of their config — rules, hotkeys, profiles. Builds
   on named layouts in `docs/09-layouts-profiles.md`. [M]
-  **Layman:** Send one window arrangement to a friend without handing over all your other settings
+  **Layman:** Send one window arrangement to a friend without handing over all your other settings.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -1680,13 +1680,13 @@ Goal: one backend for the wlroots family instead of four hand-written stubs.
   protocols, working across wlroots compositors — promoting the Sway and
   Hyprland stubs, and where the protocol reaches the Mutter/GNOME stub, from
   stub to real support. [XL]
-  **Layman:** One properly supported backend for several Wayland desktops, instead of four partial ones
+  **Layman:** One properly supported backend for several Wayland desktops, instead of four partial ones.
   Kind: implement.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 📋 [PERC-0019] **Publish the GNOME Shell extension to extensions.gnome.org.**
   For the parts that still need an extension. [L]
-  **Layman:** GNOME users can install the piece Perch needs from the normal GNOME extensions site
+  **Layman:** GNOME users can install the piece Perch needs from the normal GNOME extensions site.
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -1694,7 +1694,7 @@ Goal: one backend for the wlroots family instead of four hand-written stubs.
   GJS conventions, per-GNOME-branch policy and the release-to-EGO checklist.
   Owned by the first community contributor to take the Mutter stub to a full
   backend. Referenced from `docs/06-backend-stubs.md` § Contributor path. [M]
-  **Layman:** Written instructions for whoever takes on full GNOME support
+  **Layman:** Written instructions for whoever takes on full GNOME support.
   Kind: doc.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
@@ -1715,7 +1715,7 @@ AppImage.
 
 - 📋 [PERC-0021] **`WindowBackend` implementation over the Win32 API.**
   Enumerate / move / resize / virtual desktop. [XL]
-  **Layman:** The piece that lets Perch actually control windows on Windows
+  **Layman:** The piece that lets Perch actually control windows on Windows.
   Kind: implement.
   Source: maintainer request 2026-07-18.
 
@@ -1725,13 +1725,13 @@ AppImage.
   zero-dependency bar as the Linux AppImage: the user installs one thing and
   runs it, with the Python runtime and Qt bundled, never a separate
   Python/PySide6 install. [L]
-  **Layman:** A normal Windows installer that brings everything with it
+  **Layman:** A normal Windows installer that brings everything with it.
   Kind: package.
   Source: maintainer request 2026-07-18.
 
 - 📋 [PERC-0023] **Windows self-update via the installer handoff.**
   The Windows half of PERC-0008. [M]
-  **Layman:** Perch updates itself on Windows too
+  **Layman:** Perch updates itself on Windows too.
   Kind: feature.
   Source: maintainer request 2026-07-18.
 
@@ -1740,38 +1740,38 @@ AppImage.
 ## Someday / unscheduled
 
 - 💭 [PERC-0024] **D-Bus service interface for external triggers.**
-  **Layman:** Let other programs tell Perch to do things
+  **Layman:** Let other programs tell Perch to do things.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 💭 [PERC-0025] **Headless daemon mode for minimal window managers.**
-  **Layman:** Run Perch with no tray icon, for desktops that have no tray
+  **Layman:** Run Perch with no tray icon, for desktops that have no tray.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 💭 [PERC-0026] **Enforcement mode per rule — pin a window, fight user drags.**
-  **Layman:** An option to keep a window pinned even if it gets dragged away
+  **Layman:** An option to keep a window pinned even if it gets dragged away.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 💭 [PERC-0027] **Full Plasma 5 support.**
   Out of v1 scope; the KWin backend refuses Plasma below 6 today, per
   `docs/05-backend-kwin.md`.
-  **Layman:** Support for the older KDE Plasma 5 desktop
+  **Layman:** Support for the older KDE Plasma 5 desktop.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 💭 [PERC-0028] **Config sync across machines.**
-  **Layman:** Your Perch settings follow you to another computer
+  **Layman:** Your Perch settings follow you to another computer.
   Kind: feature.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 💭 [PERC-0029] **Accessibility pass on the config dialog.**
-  **Layman:** Make the settings window work well with screen readers and keyboard-only use
+  **Layman:** Make the settings window work well with screen readers and keyboard-only use.
   Kind: accessibility.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
 
 - 💭 [PERC-0030] **Docs / marketing site for discoverability.**
-  **Layman:** A website so people can find Perch in the first place
+  **Layman:** A website so people can find Perch in the first place.
   Kind: marketing.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
