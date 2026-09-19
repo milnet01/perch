@@ -68,6 +68,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **A layout no longer stacks two windows of the same app on one spot** (PERC-0066)
+  When a layout has one spot for an app and two of that app's windows
+  are open, Perch now moves only the one you're using, or the first one
+  if you're using neither. The other stays where it is.
+
 - **Starting Perch twice no longer runs two copies that fight over your windows** (PERC-0049)
   If Perch is already running, a second launch now says so and exits,
   instead of starting a second copy that fights the first over your

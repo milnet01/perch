@@ -1583,7 +1583,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane tooling, LOW/INFO tail); deferred by the PERC-0056 pass 2026-09-02.
 
-- 📋 [PERC-0066] **Settle and implement layout disambiguation when several windows match one entry.**
+- ✅ [PERC-0066] **Settle and implement layout disambiguation when several windows match one entry.**
   docs/09 §Apply semantics says the geometry goes to the
   most-recently-focused match and the others are left alone. Nothing
   tracks focus: WindowBackend exposes get_active_window(), a
@@ -1598,6 +1598,16 @@ Goal: fewer first-run support tickets; the config is safe.
   Decided by the user (2026-09-19): move the currently focused matching
   window if there is one, otherwise the first match found; leave the
   others alone. No focus-history tracking.
+  Resolved (2026-09-19): the apply pass
+  (Reducer._evaluate_all_open_windows) decides every window first, groups
+  the layout-sourced ones by engine.layout_entry_index, and keeps the
+  focused window per contested entry (get_active_window, asked once),
+  else the first listed; the rest are skipped, neither placed nor
+  restored. A backend raising BackendUnsupported for focus (every backend
+  but KWin) gets first-match. MockBackend gained get_active_window and a
+  _set_active_window hook. One test used two windows on one entry to
+  produce two skip reports; it now uses two entries. docs/09 §Apply
+  semantics step 2 and §Implementation pointers rewritten.
   **Layman:** When two windows of the same app are open, decide which one a layout moves.
   Kind: implement.
   Source: review-code 2026-08-31 (lane core-state), split out of PERC-0057.

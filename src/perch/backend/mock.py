@@ -76,6 +76,7 @@ class MockBackend(WindowBackend):
         self._current_desktop: DesktopIndex = 0
         self._desktop_count: int = 1
         self._connected: bool = False
+        self._active: WindowId | None = None
         self._set_state_raises: dict[WindowState, type[BackendUnsupported]] = {}
         self.commands: _CommandLog = _CommandLog()
         self.hotkeys: dict[str, str] = {}  # callback_id → accel
@@ -106,6 +107,9 @@ class MockBackend(WindowBackend):
             return self._windows[wid]
         except KeyError:
             raise UnknownWindow(f"no window with id {wid!r}") from None
+
+    async def get_active_window(self) -> WindowInfo | None:
+        return self._windows.get(self._active) if self._active is not None else None
 
     async def list_outputs(self) -> list[OutputInfo]:
         return list(self._outputs.values())
@@ -216,6 +220,10 @@ class MockBackend(WindowBackend):
             current, geometry=geom, monitor=new_monitor, desktop=new_desktop
         )
         self.geometry_changed.emit(wid, geom, new_monitor, new_desktop)
+
+    def _set_active_window(self, wid: WindowId | None) -> None:
+        """Test hook — say which window has focus (``None`` for none)."""
+        self._active = wid
 
     def _fire_close(self, wid: WindowId) -> None:
         """Simulate the window going away. Emits ``window_closed``."""

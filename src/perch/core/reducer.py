@@ -25,6 +25,7 @@ import logging
 from collections.abc import Callable
 
 from perch.backend.base import (
+    BackendError,
     BackendUnsupported,
     UnknownOutput,
     UnknownWindow,
@@ -49,6 +50,7 @@ from .engine import (
     RestoreLastSeen,
     TriggerEvent,
     evaluate,
+    layout_entry_index,
 )
 from .exclusions import is_builtin_excluded, is_user_excluded
 from .identity import UNKNOWN_IDENTITY, compute_identity
@@ -158,6 +160,10 @@ class Reducer:
         self, info: WindowInfo, *, trigger: TriggerEvent = TriggerEvent.OPENED
     ) -> None:
         self._windows[info.id] = info
+        decision = self._decide(info, trigger)
+        await self._execute(info, compute_identity(info), decision)
+
+    def _decide(self, info: WindowInfo, trigger: TriggerEvent) -> Decision:
         identity = compute_identity(info)
         has_last_seen = self.state_store.get_last_seen(identity) is not None
         decision = evaluate(
@@ -179,7 +185,7 @@ class Reducer:
         log.debug(
             "evaluate(%s, %s) → %r", identity, trigger.value, decision
         )
-        await self._execute(info, identity, decision)
+        return decision
 
     async def handle_window_changed(self, info: WindowInfo) -> None:
         """Re-evaluate this window under the current rules and layout.
@@ -319,15 +325,62 @@ class Reducer:
         """
         self._skipped_entries = []
         try:
-            for window in await self.backend.list_windows():
-                await self.handle_window_opened(
-                    window, trigger=TriggerEvent.USER_TRIGGER
+            windows = await self.backend.list_windows()
+            decisions = {
+                w.id: self._decide(w, TriggerEvent.USER_TRIGGER) for w in windows
+            }
+            left_alone = await self._layout_entry_losers(windows, decisions)
+            for window in windows:
+                self._windows[window.id] = window
+                if window.id in left_alone:
+                    log.debug("layout: %s left alone, entry taken", window.id)
+                    continue
+                await self._execute(
+                    window, compute_identity(window), decisions[window.id]
                 )
             skipped = self._skipped_entries
         finally:
             self._skipped_entries = None
         if skipped and self.notify_skipped is not None:
             self.notify_skipped(skipped)
+
+    async def _layout_entry_losers(
+        self, windows: list[WindowInfo], decisions: dict[WindowId, Decision]
+    ) -> set[WindowId]:
+        """Windows that must NOT take their layout entry this pass.
+
+        docs/09 §Apply semantics step 2: when several windows would take
+        one entry, the focused one gets it, else the first in ``windows``;
+        the rest are left alone. Only windows whose decision came from the
+        layout compete — a rule's claim comes first.
+        """
+        layout = self._effective_layout
+        if layout is None:
+            return set()
+        groups: dict[int, list[WindowInfo]] = {}
+        for window in windows:
+            decision = decisions[window.id]
+            if not (
+                isinstance(decision, ApplyActionDecision)
+                and decision.source.startswith("layout:")
+            ):
+                continue
+            index = layout_entry_index(layout, window)
+            if index is not None:
+                groups.setdefault(index, []).append(window)
+        contested = [group for group in groups.values() if len(group) > 1]
+        if not contested:
+            return set()
+        try:
+            active = await self.backend.get_active_window()
+        except BackendError:
+            active = None  # e.g. BackendUnsupported: first match wins
+        losers: set[WindowId] = set()
+        for group in contested:
+            ids = [w.id for w in group]
+            winner = active.id if active is not None and active.id in ids else ids[0]
+            losers.update(i for i in ids if i != winner)
+        return losers
 
     # ── Pause Perch ────────────────────────────────────────────────────────
     def toggle_pause(self) -> bool:

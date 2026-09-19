@@ -16,7 +16,7 @@ from perch.backend.types import WindowInfo
 
 from .actions import ApplyAction
 from .exclusions import is_builtin_excluded, is_user_excluded
-from .layouts import Layout, LayoutEntry
+from .layouts import Layout
 from .matching import MatchPattern, match_window
 from .rules import Rule
 
@@ -98,13 +98,10 @@ def evaluate(
         # Last match wins inside a layout, per ``docs/09-layouts-profiles.md``
         # §Layouts — the opposite of ``[[rules]]`` above, where the first does.
         # The asymmetry is deliberate and each document states its own half.
-        chosen: LayoutEntry | None = None
-        for entry in active_layout.windows:
-            if match_window(entry.match, window):
-                chosen = entry
-        if chosen is not None:
+        index = layout_entry_index(active_layout, window)
+        if index is not None:
             return ApplyActionDecision(
-                action=chosen.apply,
+                action=active_layout.windows[index].apply,
                 source=f"layout:{active_layout.name}",
             )
 
@@ -116,6 +113,15 @@ def evaluate(
         return RestoreLastSeen()
 
     return Ignore(source="no-match")
+
+
+def layout_entry_index(layout: Layout, window: WindowInfo) -> int | None:
+    """Index of the entry of ``layout`` that ``window`` takes — the last match."""
+    chosen: int | None = None
+    for i, entry in enumerate(layout.windows):
+        if match_window(entry.match, window):
+            chosen = i
+    return chosen
 
 
 def _rule_source(rule: Rule, index: int) -> str:

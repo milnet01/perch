@@ -892,7 +892,12 @@ async def test_layout_entries_skipped_for_an_absent_output_are_reported_once(
                             "match": {"app_id": "firefox"},
                             "geometry": "left-half",
                             "monitor": "DP-9",
-                        }
+                        },
+                        {
+                            "match": {"app_id": "konsole"},
+                            "geometry": "right-half",
+                            "monitor": "DP-9",
+                        },
                     ]
                 }
             }
@@ -901,8 +906,10 @@ async def test_layout_entries_skipped_for_an_absent_output_are_reported_once(
     )
     reported: list[list[str]] = []
     reducer.notify_skipped = reported.append
+    # Two entries, one window each: two windows on ONE entry would now
+    # yield one placement (docs/09 §Apply semantics step 2).
     backend._spawn_window(_window())
-    backend._spawn_window(_window("w2"))
+    backend._spawn_window(_window("w2", app_id="konsole"))
     await reducer.start()
 
     await reducer.activate_layout("coding")
@@ -942,3 +949,43 @@ async def test_a_lone_window_event_does_not_notify(tmp_path: Path) -> None:
     await reducer.handle_window_opened(window)
 
     assert reported == []
+
+
+# ── PERC-0066: one window per layout entry ─────────────────────────────────
+_TWO_CODE_WINDOWS_LAYOUT = {
+    "layouts": {
+        "coding": {
+            "windows": [
+                {"match": {"app_id": "code"}, "geometry": "left-half", "monitor": "DP-1"}
+            ],
+        }
+    }
+}
+
+
+def _placed(backend: MockBackend) -> list[str]:
+    return [args[0] for name, args in backend.commands.entries if name == "set_geometry"]
+
+
+async def test_a_layout_entry_moves_the_focused_match_only(tmp_path: Path) -> None:
+    """Two windows matching one entry were both placed, stacked on one spot."""
+    backend, reducer, _ = await _make(_TWO_CODE_WINDOWS_LAYOUT, tmp_path)
+    await reducer.start()
+    backend._spawn_window(_window("a", app_id="code"))
+    backend._spawn_window(_window("b", app_id="code"))
+    backend._set_active_window("b")
+    backend.commands.clear()
+    await reducer.activate_layout("coding")
+    assert _placed(backend) == ["b"]
+
+
+async def test_with_no_focused_match_the_first_is_moved(tmp_path: Path) -> None:
+    backend, reducer, _ = await _make(_TWO_CODE_WINDOWS_LAYOUT, tmp_path)
+    await reducer.start()
+    backend._spawn_window(_window("a", app_id="code"))
+    backend._spawn_window(_window("b", app_id="code"))
+    backend._spawn_window(_window("c", app_id="konsole"))
+    backend._set_active_window("c")
+    backend.commands.clear()
+    await reducer.activate_layout("coding")
+    assert _placed(backend) == ["a"]
