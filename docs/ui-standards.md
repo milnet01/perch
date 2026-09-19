@@ -32,8 +32,8 @@ detectors for several of them.
   selection only where an overload is genuinely ambiguous.
 - **QObject lifetime:** rely on Qt parent-ownership plus a strong Python
   attribute for objects Qt does not own. `TrayIcon` keeps its menu alive with
-  `self._menu` and its actions in `self._menu_actions` because
-  `QSystemTrayIcon` does not take menu ownership on every platform. Where a
+  `self._menu` because `QSystemTrayIcon` does not take menu ownership on
+  every platform; the menu's actions are owned by the menu. Where a
   bare non-owning handle to a QObject is genuinely needed, `QPointer` (which
   auto-nulls when the object is destroyed) is the tool — but in PySide6, Python
   refcounting plus parent-ownership almost always suffices, so reach for it
@@ -82,11 +82,10 @@ detectors for several of them.
 ## Theming
 
 - Palette/style application lives in `theming.py::apply_theme(app, theme)`, run
-  once at startup from `app.py`. `[general].theme` is `auto | light | dark`.
-- **Be palette-aware, never hard-code colours.** `auto` reads
-  `QGuiApplication.styleHints().colorScheme()` (Qt 6.5+) and leaves the palette
-  untouched when the platform reports `Qt.ColorScheme.Unknown` (correct on
-  Plasma/Breeze); `light`/`dark` force Fusion + a Breeze-inspired `QPalette`.
+  at startup and after every save from `app.py`. `[general].theme` is `auto | light | dark`.
+- **Be palette-aware, never hard-code colours.** `auto` leaves the platform's
+  style and palette untouched, so Breeze and a high-contrast scheme pass
+  through; `light`/`dark` force Fusion + a Breeze-inspired `QPalette`.
   New widgets must read their colours from the active `QPalette`
   (`QPalette.ColorRole.*`) so both themes render correctly.
 - Icons are symbolic SVG resolved via `QIcon.fromTheme(...)` with a bundled

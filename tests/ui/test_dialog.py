@@ -391,3 +391,26 @@ def test_apply_does_not_ask_when_the_file_is_untouched(
 
     assert asked == []
     assert len(captured) == 2
+
+
+def test_sidebar_is_wide_enough_for_its_labels(
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path
+) -> None:
+    """PERC-0058: a fixed 160 px sidebar clipped longer translated labels."""
+    config_path = _seed_config(tmp_path)
+    (xdg_env / "config" / "perch").mkdir(parents=True, exist_ok=True)
+    fixture_path = xdg_env / "config" / "perch" / "config.toml"
+    fixture_path.write_text(
+        config_path.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    dialog = ConfigDialog(
+        load_or_create(fixture_path),
+        fixture_path,
+        save_callback=lambda _p, _d: None,
+        load_document_callback=load_document,
+    )
+    qtbot.addWidget(dialog)
+    sidebar = dialog._sidebar
+    sidebar.item(0).setText("A section label far longer than any English one")
+    dialog._fit_sidebar()
+    assert sidebar.width() >= sidebar.sizeHintForColumn(0)

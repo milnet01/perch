@@ -12,7 +12,7 @@ from perch.config.writer import load_document
 from perch.core.actions import ApplyAction, PresetGeometry
 from perch.core.matching import MatchPattern
 from perch.ui.dialog import SECTION_LAYOUTS, ConfigDialog, LayoutsPage
-from perch.ui.entry_editor import summarise_apply, summarise_match
+from perch.ui.rules_model import summarise_apply, summarise_match
 
 if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
@@ -179,5 +179,5 @@ def test_summarise_helpers_produce_non_empty_strings() -> None:
     )
     assert "app_id=firefox" in summarise_match(match)
     assert "preset:maximize" in summarise_apply(action)
-    assert "mon:DP-1" in summarise_apply(action)
-    assert "desktop:1" in summarise_apply(action)
+    assert "monitor=DP-1" in summarise_apply(action)
+    assert "desktop=1" in summarise_apply(action)

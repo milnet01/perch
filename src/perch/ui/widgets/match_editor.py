@@ -83,7 +83,7 @@ class MatchEditor(QWidget):
         types_container.setLayout(types_grid)
 
         self.catch_all_checkbox = QCheckBox(
-            "Match every window (catch_all)", self
+            self.tr("Match every window (catch_all)"), self
         )
 
         form = QFormLayout(self)
@@ -203,20 +203,31 @@ class MatchEditor(QWidget):
         self._emit_validity_change()
 
     def _paint_validation(self) -> None:
-        """Annotate the title / pid edits with tooltips on invalid input."""
-        err = self._title_regex_error()
-        self.title_edit.setToolTip(err or "")
-        self.title_edit.setProperty("perch_invalid", err is not None)
+        """Outline invalid title / pid edits and carry the error as text.
 
-        err = self._pid_error()
-        self.pid_edit.setToolTip(err or "")
-        self.pid_edit.setProperty("perch_invalid", err is not None)
+        The outline is the visual cue; the tooltip and the accessible
+        description carry the same message as text, so the error is not
+        signalled by colour alone and a screen reader announces it.
+        """
+        _mark(self.title_edit, self._title_regex_error())
+        _mark(self.pid_edit, self._pid_error())
 
     def _emit_validity_change(self) -> None:
         new_validity = self.is_valid()
         if new_validity != self._last_validity:
             self._last_validity = new_validity
             self.validityChanged.emit(new_validity)
+
+
+#: Outline drawn round an invalid field. Red on purpose: it is the one
+#: colour here that means "error", and it is never the only signal.
+_INVALID_STYLE = "QLineEdit { border: 2px solid #da4453; }"
+
+
+def _mark(edit: QLineEdit, error: str | None) -> None:
+    edit.setStyleSheet(_INVALID_STYLE if error else "")
+    edit.setToolTip(error or "")
+    edit.setAccessibleDescription(error or "")
 
 
 class _block:

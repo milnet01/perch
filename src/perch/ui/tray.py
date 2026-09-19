@@ -25,7 +25,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, QObject, Signal
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
 from perch.core.snaps import SnapPreset
@@ -341,7 +341,6 @@ class TrayIcon(QSystemTrayIcon):
         super().__init__(parent)
         self._icons = icons
         self._controller = controller
-        self._menu_actions: list[QAction] = []  # keep refs alive for Qt
         self._update_icon()
         self._rebuild_menu()
         controller.state_changed.connect(self._on_state_changed)

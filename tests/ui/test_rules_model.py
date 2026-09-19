@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QModelIndex, Qt
 
-from perch.core.actions import ApplyAction, PercentGeometry, PresetGeometry
+from perch.core.actions import (
+    AbsoluteGeometry,
+    ApplyAction,
+    CenterKeepSize,
+    PercentGeometry,
+    PresetGeometry,
+)
 from perch.core.matching import MatchPattern
 from perch.core.rules import Context, Rule
 from perch.ui.rules_model import (
@@ -185,3 +191,35 @@ def test_permutation_on_untouched_model_is_identity() -> None:
     originals = [_rule("a"), _rule("b")]
     model = RulesModel(originals)
     assert model.permutation(originals) == [0, 1]
+
+
+def test_apply_column_summarises_center_keep_size() -> None:
+    """PERC-0058: the Rules table's summariser knew three of the four
+    GeometryExpr members and rendered CenterKeepSize as "-"."""
+    rule = Rule(
+        name="c",
+        match=MatchPattern(app_id="x"),
+        apply=ApplyAction(geometry=CenterKeepSize()),
+    )
+    model = RulesModel([rule])
+    assert model.data(model.index(0, COL_APPLY)) == "center-in-place"
+
+
+def test_layouts_pane_and_rules_table_render_a_value_identically() -> None:
+    """PERC-0058: two summariser copies had diverged, so the Rules table and
+    the Layouts entries table drew the same value two different ways."""
+    from perch.core.layouts import LayoutEntry
+    from perch.ui.dialog import _LayoutEntriesModel
+
+    match = MatchPattern(app_id="x", pid=0)
+    action = ApplyAction(
+        geometry=AbsoluteGeometry(0, 0, 800, 600), monitor="DP-1", desktop=1
+    )
+    rules = RulesModel([Rule(name="r", match=match, apply=action)])
+    entries = _LayoutEntriesModel([LayoutEntry(match=match, apply=action)])
+    assert entries.data(entries.index(0, entries.COL_APPLY)) == rules.data(
+        rules.index(0, COL_APPLY)
+    )
+    assert entries.data(entries.index(0, entries.COL_MATCH)) == rules.data(
+        rules.index(0, COL_MATCH)
+    )

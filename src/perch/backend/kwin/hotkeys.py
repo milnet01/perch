@@ -365,9 +365,9 @@ class KGlobalAccelProvider:
 # import UI code.
 
 
-#: Small map used by :func:`_portable_to_xdg_accel` — it's deliberately
-#: inline (not imported from ``perch.ui.widgets``) so the backend layer
-#: stays free of a UI module import.
+#: Small map used by :func:`_portable_to_xdg_accel`, the one Portable Text
+#: → XDG Shortcuts translator. It lives in the backend because the portal
+#: boundary is a backend concern.
 _PORTABLE_TO_XDG_MODS: dict[str, str] = {
     "meta": "LOGO",
     "ctrl": "CTRL",
@@ -382,14 +382,25 @@ def _portable_to_xdg_accel(accel: str) -> str:
     """
     if not accel:
         return ""
-    parts = [p for p in accel.split("+") if p != ""]
+    # "+" is both the separator and a key name. Qt writes that key as a
+    # trailing "+", which splits to two empty trailing fields ("Ctrl++" →
+    # ["Ctrl", "", ""]); the X11 parser's parse_portable_accel reads it the
+    # same way. xkbcommon names the key "plus".
+    raw_parts = accel.split("+")
+    literal_plus = raw_parts[-2:] == ["", ""]
+    if literal_plus:
+        raw_parts = raw_parts[:-2]
     out: list[str] = []
-    for part in parts:
+    for part in raw_parts:
+        if part == "":
+            continue
         lowered = part.lower()
         if lowered in _PORTABLE_TO_XDG_MODS:
             out.append(_PORTABLE_TO_XDG_MODS[lowered])
         else:
             out.append(part)
+    if literal_plus:
+        out.append("plus")
     return "+".join(out)
 
 

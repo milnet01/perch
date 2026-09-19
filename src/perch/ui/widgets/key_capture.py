@@ -2,7 +2,7 @@
 
 :class:`HotkeyEdit` is a thin :class:`QKeySequenceEdit` subclass pinned
 to single-chord captures with a Clear button (Qt 6.4+ API). It filters
-bare Super / Hyper key-ups so modifier-only presses never make it into
+bare Super / Hyper key presses so modifier-only presses never make it into
 a sequence on GNOME Wayland and wlroots-derived compositors, where the
 Meta / Super key arrives as ``Key_Super_L`` rather than
 ``Qt::Key_Meta`` (QTBUG-62102; KWin patches this at the compositor
@@ -11,8 +11,8 @@ level, other Wayland stacks do not).
 Emits :attr:`accelChanged` with the sequence in
 ``QKeySequence.PortableText`` form (``"Meta+Left"``, ``"Ctrl+Alt+T"``)
 or the empty string when cleared. Portable Text is the internal
-format; backends translate at the transport boundary via
-:func:`portable_to_xdg` (see ``docs/03-backend-interface.md`` §Hotkey
+format; a backend that needs another form translates at its own
+transport boundary (see ``docs/03-backend-interface.md`` §Hotkey
 accelerators).
 """
 
@@ -126,59 +126,3 @@ class HotkeyEdit(QKeySequenceEdit):
         self.accelChanged.emit(
             seq.toString(QKeySequence.SequenceFormat.PortableText)
         )
-
-
-# ── Accelerator-format translator (portal boundary) ────────────────────
-#
-# QKeySequence uses ``Meta`` for the Super/LOGO key and mixed-case names
-# for printable keys. The ``org.freedesktop.portal.GlobalShortcuts`` path
-# wants the XDG Shortcuts spec form: ``LOGO`` / ``CTRL`` / ``ALT`` /
-# ``SHIFT`` modifiers with ``+`` separators, and xkbcommon-flavoured key
-# names without the ``XKB_KEY_`` prefix. See ``docs/03-backend-interface.md``
-# §Hotkey accelerators.
-
-_PORTABLE_TO_XDG_MODS: dict[str, str] = {
-    "meta": "LOGO",
-    "ctrl": "CTRL",
-    "alt": "ALT",
-    "shift": "SHIFT",
-}
-
-_XDG_TO_PORTABLE_MODS: dict[str, str] = {
-    v: k.capitalize() for k, v in _PORTABLE_TO_XDG_MODS.items()
-}
-
-
-def portable_to_xdg(accel: str) -> str:
-    """Translate a Qt Portable Text accelerator into XDG Shortcuts form.
-
-    Modifiers map ``Meta → LOGO``, ``Ctrl → CTRL``, ``Alt → ALT``,
-    ``Shift → SHIFT``; the final key name is preserved verbatim (Qt's
-    printable key names already line up with xkbcommon for the common
-    cases that matter — ``Left``, ``Return``, letter keys).
-    """
-    if not accel:
-        return ""
-    parts = [p for p in accel.split("+") if p != ""]
-    out: list[str] = []
-    for part in parts:
-        lowered = part.lower()
-        if lowered in _PORTABLE_TO_XDG_MODS:
-            out.append(_PORTABLE_TO_XDG_MODS[lowered])
-        else:
-            out.append(part)
-    return "+".join(out)
-
-
-def xdg_to_portable(accel: str) -> str:
-    """Inverse of :func:`portable_to_xdg`."""
-    if not accel:
-        return ""
-    parts = [p for p in accel.split("+") if p != ""]
-    out: list[str] = []
-    for part in parts:
-        if part in _XDG_TO_PORTABLE_MODS:
-            out.append(_XDG_TO_PORTABLE_MODS[part])
-        else:
-            out.append(part)
-    return "+".join(out)

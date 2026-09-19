@@ -128,3 +128,21 @@ def test_catch_all_with_another_field_is_refused(qtbot: QtBot) -> None:
     editor.app_id_edit.setText("firefox")
     with pytest.raises(ValueError, match="catch-all"):
         editor.value()
+
+
+def test_invalid_field_is_outlined_and_announced(qtbot: QtBot) -> None:
+    """PERC-0058: a dynamic property with no stylesheet drew nothing, and a
+    tooltip is mouse-only — so the error must be painted AND carried in the
+    accessible description a screen reader announces."""
+    editor = MatchEditor()
+    qtbot.addWidget(editor)
+    editor.title_edit.setText("(")
+    assert editor.title_edit.styleSheet()
+    assert editor.title_edit.accessibleDescription()
+    editor.pid_edit.setText("x")
+    assert editor.pid_edit.styleSheet()
+    assert "integer" in editor.pid_edit.accessibleDescription()
+
+    editor.title_edit.setText("ok")
+    assert editor.title_edit.styleSheet() == ""
+    assert editor.title_edit.accessibleDescription() == ""

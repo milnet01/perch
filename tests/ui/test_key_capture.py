@@ -1,4 +1,4 @@
-"""HotkeyEdit widget + portable↔XDG translator tests."""
+"""HotkeyEdit widget tests."""
 
 from __future__ import annotations
 
@@ -7,11 +7,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
-from perch.ui.widgets.key_capture import (
-    HotkeyEdit,
-    portable_to_xdg,
-    xdg_to_portable,
-)
+from perch.ui.widgets.key_capture import HotkeyEdit
 
 if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
@@ -114,33 +110,3 @@ def test_wayland_hyper_keypress_is_filtered(qtbot: QtBot) -> None:
     widget.keyPressEvent(event)
     assert event.isAccepted()
     assert widget.accel() == ""
-
-
-# ── portable_to_xdg / xdg_to_portable ───────────────────────────────────
-
-
-def test_portable_to_xdg_maps_meta_to_logo() -> None:
-    assert portable_to_xdg("Meta+Left") == "LOGO+Left"
-
-
-def test_portable_to_xdg_maps_ctrl_alt_shift_uppercase() -> None:
-    assert portable_to_xdg("Ctrl+Alt+Shift+T") == "CTRL+ALT+SHIFT+T"
-
-
-def test_portable_to_xdg_preserves_key_name_case() -> None:
-    # xkbcommon-style key names already line up with Qt's for the common
-    # cases (Left, Return, printable letters). Only modifiers change case.
-    assert portable_to_xdg("Meta+Return") == "LOGO+Return"
-
-
-def test_portable_to_xdg_empty_string_is_empty() -> None:
-    assert portable_to_xdg("") == ""
-
-
-def test_xdg_to_portable_round_trip() -> None:
-    accel = "Meta+Shift+F11"
-    assert xdg_to_portable(portable_to_xdg(accel)) == accel
-
-
-def test_xdg_to_portable_handles_empty() -> None:
-    assert xdg_to_portable("") == ""

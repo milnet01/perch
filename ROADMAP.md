@@ -1235,7 +1235,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane core-state).
 
-- 📋 [PERC-0058] **Close the UI correctness and accessibility findings.**
+- ✅ [PERC-0058] **Close the UI correctness and accessibility findings.**
   The red-outline validation docs/08-ui.md promises twice sets a Qt dynamic
   property with no stylesheet consumer anywhere in src/ -- setStyleSheet has
   zero hits -- so the only signal is a mouse-only tooltip Orca never
@@ -1264,6 +1264,19 @@ Goal: fewer first-run support tickets; the config is safe.
   backend/x11/hotkeys.py parse_portable_accel — a trailing "+" splits to two
   empty fields, and that pair is the plus key rather than a dangling
   separator. If it goes, the defect goes with it.
+  Resolved (2026-09-19): all sixteen lane-8/9 findings tagged PERC-0058
+  closed; tests proved red on the pre-fix tree first. Zombie: deleted
+  portable_to_xdg and xdg_to_portable. The live translator
+  kwin/hotkeys.py _portable_to_xdg_accel had the same "+" defect, so it
+  now maps "Ctrl++" to "CTRL+plus"; docs/03 also wrongly named Hyprland
+  as a portal user. theme=auto now always defers to the platform
+  (colorScheme() read Dark on this Plasma session) and a live switch
+  back restores it. Disconnect notification: docs/08 corrected, not
+  implemented -- no reconnect exists and a clean stop emits the same
+  signal, so the balloon would fire on every quit and promise a retry.
+  One summariser pair now lives in ui/rules_model.py; entry_editor's
+  copy is gone. Save refusal shows the ConfigEditError text and opens
+  the failing page. local_CI.sh green.
   **Layman:** Validation that shows nothing, a theme override that ignores your desktop, and keyboard gaps.
   Kind: fix.
   Source: review-code 2026-08-31 (lanes ui-shell, ui-dialog).

@@ -235,3 +235,45 @@ def test_page_is_never_dirty(
     assert page.is_dirty() is False
     page.commit()  # no-op
     assert page.is_dirty() is False
+
+
+def test_import_of_a_non_utf8_file_is_refused_not_raised(
+    qtbot: QtBot,
+    dialog: tuple[ConfigDialog, Path],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PERC-0058: only OSError was caught, so a binary file picked through
+    the page's own "All files (*)" filter escaped the slot."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    dlg, _path = dialog
+    qtbot.addWidget(dlg)
+    page = _page(dlg)
+    binary = tmp_path / "binary.toml"
+    binary.write_bytes(b"\xff\xfe\x00junk")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", lambda *a, **k: (str(binary), "")
+    )
+    shown: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "critical", lambda _p, title, *a, **k: shown.append(title)
+    )
+    page._on_import()
+    assert shown == ["Import failed"]
+    assert page.confirm_import_button.isEnabled() is False
+
+
+def test_diff_view_is_named_and_monospaced(
+    qtbot: QtBot, dialog: tuple[ConfigDialog, Path]
+) -> None:
+    """PERC-0058: the diff view had no accessible name and asked for a
+    family literally called "monospace"."""
+    from PySide6.QtGui import QFontDatabase
+
+    dlg, _path = dialog
+    qtbot.addWidget(dlg)
+    page = _page(dlg)
+    assert page.diff_view.accessibleName()
+    fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+    assert page.diff_view.font().family() == fixed.family()

@@ -63,6 +63,16 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Settings window and tray: errors you can see and hear, your desktop theme respected** (PERC-0058)
+  The Auto theme no longer replaces your desktop's colours (Breeze,
+  high-contrast) with Perch's own. Invalid match fields now get a red
+  outline and are announced by screen readers. A save that fails says why
+  and opens the page with the problem. Importing a non-text file shows an
+  error instead of doing nothing. "Apply preset" can no longer silently
+  fail to move the window. The Ctrl++ shortcut keeps its + key when
+  registered through the desktop portal. The Rules and Layouts tables now
+  describe the same placement the same way. A missing tray icon is logged.
+
 - **Close the remaining X11 EWMH and ICCCM defects.** (PERC-0047)
   Hotkeys now fire with ScrollLock on, a held hotkey fires once instead of
   repeating, and "Ctrl++" registers. A desktop without the RandR extension

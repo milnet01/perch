@@ -249,6 +249,14 @@ def test_portable_to_xdg_empty_input() -> None:
     assert _portable_to_xdg_accel("") == ""
 
 
+def test_portable_to_xdg_keeps_the_plus_key() -> None:
+    """PERC-0058: "+" is both separator and key; Qt writes the key as a
+    trailing "+", and splitting then dropping empty fields lost it."""
+    assert _portable_to_xdg_accel("Ctrl++") == "CTRL+plus"
+    assert _portable_to_xdg_accel("Ctrl+Shift++") == "CTRL+SHIFT+plus"
+    assert _portable_to_xdg_accel("+") == "plus"
+
+
 # ── Portal: PortalGlobalShortcutsProvider flow (fake portal) ──────────────
 
 

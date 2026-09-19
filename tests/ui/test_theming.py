@@ -39,23 +39,19 @@ def test_resolve_effective_theme_dark_is_literal(qtbot: QtBot) -> None:
     assert resolve_effective_theme("dark") == "dark"
 
 
-def test_resolve_effective_theme_auto_reads_color_scheme(
-    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "scheme",
+    [Qt.ColorScheme.Dark, Qt.ColorScheme.Light, Qt.ColorScheme.Unknown],
+)
+def test_resolve_effective_theme_auto_is_always_system(
+    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, scheme: Qt.ColorScheme
 ) -> None:
+    """PERC-0058: Plasma 6 and GNOME report Dark or Light, never Unknown,
+    so reading the scheme meant ``auto`` overrode Breeze and any
+    high-contrast palette. ``auto`` now always defers to the platform."""
     del qtbot
     hints = QGuiApplication.styleHints()
-    monkeypatch.setattr(hints, "colorScheme", lambda: Qt.ColorScheme.Dark)
-    assert resolve_effective_theme("auto") == "dark"
-    monkeypatch.setattr(hints, "colorScheme", lambda: Qt.ColorScheme.Light)
-    assert resolve_effective_theme("auto") == "light"
-
-
-def test_resolve_effective_theme_auto_unknown_is_system(
-    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    del qtbot
-    hints = QGuiApplication.styleHints()
-    monkeypatch.setattr(hints, "colorScheme", lambda: Qt.ColorScheme.Unknown)
+    monkeypatch.setattr(hints, "colorScheme", lambda: scheme)
     assert resolve_effective_theme("auto") == "system"
 
 
@@ -108,20 +104,34 @@ def test_apply_theme_auto_with_unknown_scheme_is_noop(
         app.setPalette(original)
 
 
-def test_apply_theme_auto_dark_applies_dark_palette(
+def test_apply_theme_auto_with_dark_scheme_leaves_platform_alone(
     qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     del qtbot
     app = _app()
     hints = QGuiApplication.styleHints()
     monkeypatch.setattr(hints, "colorScheme", lambda: Qt.ColorScheme.Dark)
+    style_before = app.style().name()
     original = QPalette(app.palette())
-    try:
-        apply_theme(app, "auto")
-        window = app.palette().color(QPalette.ColorRole.Window)
-        assert window.red() < 80
-    finally:
-        app.setPalette(original)
+    apply_theme(app, "auto")
+    assert app.style().name() == style_before
+    assert app.palette().color(QPalette.ColorRole.Window) == original.color(
+        QPalette.ColorRole.Window
+    )
+
+
+def test_apply_theme_auto_after_dark_restores_platform_palette(
+    qtbot: QtBot,
+) -> None:
+    """A live dark → auto switch on Apply must hand the desktop back its
+    palette, not leave the forced one in place until a restart."""
+    del qtbot
+    app = _app()
+    platform_window = QPalette(app.palette()).color(QPalette.ColorRole.Window)
+    apply_theme(app, "dark")
+    assert app.palette().color(QPalette.ColorRole.Window) != platform_window
+    apply_theme(app, "auto")
+    assert app.palette().color(QPalette.ColorRole.Window) == platform_window
 
 
 def test_apply_theme_sets_fusion_style(qtbot: QtBot) -> None:

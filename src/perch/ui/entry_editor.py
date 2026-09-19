@@ -33,14 +33,9 @@ from PySide6.QtWidgets import (
 
 from perch.core.actions import (
     BUILTIN_PRESETS,
-    AbsoluteGeometry,
     ApplyAction,
-    CenterKeepSize,
-    PercentGeometry,
-    PresetGeometry,
 )
 from perch.core.layouts import LayoutEntry
-from perch.core.matching import MatchPattern
 
 from .widgets import GeometryEditor, MatchEditor
 
@@ -288,51 +283,3 @@ class EntryEditorDialog(QDialog):
             maximized=maximized,
         )
         return LayoutEntry(match=pattern, apply=action)
-
-
-def summarise_match(pattern: MatchPattern) -> str:
-    """Human-readable one-line summary of a match pattern."""
-    parts: list[str] = []
-    if pattern.catch_all:
-        parts.append("catch_all")
-    if pattern.app_id:
-        parts.append(f"app_id={pattern.app_id}")
-    if pattern.wm_class:
-        parts.append(f"wm_class={pattern.wm_class}")
-    if pattern.title is not None:
-        parts.append(f"title=~{pattern.title.pattern}")
-    if pattern.pid is not None:
-        parts.append(f"pid={pattern.pid}")
-    if pattern.types:
-        parts.append("type=" + ",".join(t.value for t in pattern.types))
-    return " ".join(parts) or "<empty>"
-
-
-def summarise_apply(action: ApplyAction) -> str:
-    """Human-readable one-line summary of an apply action."""
-    parts: list[str] = []
-    if action.geometry is not None:
-        if isinstance(action.geometry, PresetGeometry):
-            parts.append(f"preset:{action.geometry.name}")
-        elif isinstance(action.geometry, PercentGeometry):
-            parts.append(
-                f"pct:{action.geometry.w_pct * 100:.0f}%x{action.geometry.h_pct * 100:.0f}%"
-            )
-        elif isinstance(action.geometry, CenterKeepSize):
-            parts.append("center-in-place")
-        elif isinstance(action.geometry, AbsoluteGeometry):
-            parts.append(
-                f"abs:{action.geometry.w}x{action.geometry.h}"
-                f"@{action.geometry.x},{action.geometry.y}"
-            )
-    if action.snap is not None:
-        parts.append(f"snap:{action.snap}")
-    if action.monitor is not None:
-        parts.append(f"mon:{action.monitor}")
-    if action.desktop is not None:
-        parts.append(f"desktop:{action.desktop}")
-    if action.maximized is not None:
-        parts.append(f"max:{'yes' if action.maximized else 'no'}")
-    return " ".join(parts) or "<empty>"
-
-

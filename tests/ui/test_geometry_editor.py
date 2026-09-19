@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from perch.core.actions import (
     AbsoluteGeometry,
+    CenterKeepSize,
     PercentGeometry,
     PresetGeometry,
 )
@@ -109,3 +110,14 @@ def test_percent_values_clamped_to_monitor_range(qtbot: QtBot) -> None:
     got = editor.value()
     assert isinstance(got, PercentGeometry)
     assert got.w_pct == 1.0  # clamped at 100% by the QDoubleSpinBox range
+
+
+def test_set_value_accepts_center_keep_size(qtbot: QtBot) -> None:
+    """PERC-0058: CenterKeepSize is a member of the declared parameter type
+    and is what the ``center-in-place`` preset expands to; set_value raised
+    TypeError on it."""
+    editor = GeometryEditor()
+    qtbot.addWidget(editor)
+    editor.set_value(CenterKeepSize())
+    assert editor.mode_combo.currentData() == MODE_PRESET
+    assert editor.value() == PresetGeometry("center-in-place")

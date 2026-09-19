@@ -3,11 +3,11 @@
 Per ``[general].theme`` (``"auto" | "light" | "dark"`` — see
 :file:`docs/08-ui.md` §Config dialog):
 
-* ``"auto"`` (default) defers to the platform. Qt 6.5+ reads
-  ``QGuiApplication.styleHints().colorScheme()`` and we honour whatever
-  it returns — no palette override, no style override. On Plasma with
-  system dark mode this is the path that lets the Breeze-Dark style pass
-  through untouched.
+* ``"auto"`` (default) defers to the platform: no palette override, no
+  style override, whatever ``colorScheme()`` reports. Plasma 6 and GNOME
+  report Dark or Light rather than Unknown, so reading the scheme and
+  forcing a matching palette would replace Breeze and any high-contrast
+  scheme the user chose. Leaving it alone is what lets both through.
 * ``"light"`` forces Fusion + a hand-built light palette so the dialog
   looks right on a host whose desktop defaulted to dark (GNOME on Wayland
   when the user has Adwaita-Dark, Plasma with a custom colour scheme).
@@ -25,8 +25,7 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QGuiApplication, QPalette
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QStyleFactory
 
 log = logging.getLogger(__name__)
@@ -88,40 +87,48 @@ def _light_palette() -> QPalette:
 def resolve_effective_theme(theme: Theme) -> Literal["light", "dark", "system"]:
     """Map ``[general].theme`` to the concrete variant we should apply.
 
-    ``"auto"`` resolves to ``"light"`` / ``"dark"`` by reading
-    :meth:`QStyleHints.colorScheme` (Qt 6.5+). When the platform reports
-    :attr:`Qt.ColorScheme.Unknown` we hand the caller ``"system"`` as a
-    signal to leave the palette untouched — the platform style picks a
-    palette on its own (this is the right call on KDE, where Breeze
-    handles dark mode without help from Perch).
+    ``"auto"`` always resolves to ``"system"`` — leave the platform's
+    style and palette in charge (see the module docstring for why the
+    reported colour scheme is not consulted).
     """
     if theme == "light":
         return "light"
     if theme == "dark":
         return "dark"
-    hints = QGuiApplication.styleHints()
-    scheme = hints.colorScheme() if hints is not None else Qt.ColorScheme.Unknown
-    if scheme == Qt.ColorScheme.Dark:
-        return "dark"
-    if scheme == Qt.ColorScheme.Light:
-        return "light"
     return "system"
+
+
+#: The style the platform chose, recorded before Perch first forces Fusion,
+#: so a live switch back to ``"auto"`` can hand it back.
+_platform_style: str | None = None
+_overridden = False
 
 
 def apply_theme(app: QApplication, theme: Theme) -> None:
     """Apply ``theme`` to ``app``'s palette and style.
 
-    * ``"auto"`` + platform scheme ``Unknown`` → no-op.
-    * ``"auto"`` + ``Light`` / ``Dark`` → Fusion + matching palette.
-    * ``"light"`` / ``"dark"`` → Fusion + matching palette unconditionally.
+    * ``"auto"`` → leave the platform alone; if an earlier call forced a
+      theme, restore the platform style and palette.
+    * ``"light"`` / ``"dark"`` → Fusion + matching palette.
 
     Fusion is chosen because it looks identical everywhere, so a user's
     explicit ``theme = "dark"`` produces the same dialog on KDE, GNOME
     and Xfce — the whole point of the override.
     """
+    global _platform_style, _overridden
+    if _platform_style is None:
+        _platform_style = app.style().name()
+
     effective = resolve_effective_theme(theme)
     if effective == "system":
-        log.debug("apply_theme: leaving palette untouched (auto, scheme=Unknown)")
+        if _overridden:
+            platform = QStyleFactory.create(_platform_style)
+            if platform is not None:
+                app.setStyle(platform)
+            # An empty palette resolves back to the platform's own.
+            app.setPalette(QPalette())
+            _overridden = False
+            log.debug("apply_theme: restored platform style %s", _platform_style)
         return
 
     style = QStyleFactory.create("Fusion")
@@ -130,4 +137,5 @@ def apply_theme(app: QApplication, theme: Theme) -> None:
 
     palette = _dark_palette() if effective == "dark" else _light_palette()
     app.setPalette(palette)
+    _overridden = True
     log.debug("apply_theme: applied %s palette via Fusion style", effective)

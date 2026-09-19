@@ -29,6 +29,7 @@ from PySide6.QtCore import (
 from perch.core.actions import (
     AbsoluteGeometry,
     ApplyAction,
+    GeometryExpr,
     PercentGeometry,
     PresetGeometry,
 )
@@ -43,11 +44,12 @@ COL_APPLY: Final[int] = 2
 COL_CONTEXT: Final[int] = 3
 COLUMN_COUNT: Final[int] = 4
 
-_COLUMN_HEADERS: tuple[str, ...] = ("Name", "Match", "Apply", "Context")
+def summarise_match(pattern: MatchPattern) -> str:
+    """One-line summary of a ``MatchPattern``.
 
-
-def _summarise_match(pattern: MatchPattern) -> str:
-    """One-line summary of a ``MatchPattern`` for the Match column."""
+    The one copy: the Rules table and the Layouts entries tables both
+    render through it, so the same value reads the same everywhere.
+    """
     parts: list[str] = []
     if pattern.catch_all:
         parts.append("catch_all")
@@ -64,7 +66,7 @@ def _summarise_match(pattern: MatchPattern) -> str:
     return " ".join(parts) or "<empty>"
 
 
-def _summarise_geometry(expr: object) -> str:
+def _summarise_geometry(expr: GeometryExpr) -> str:
     if isinstance(expr, AbsoluteGeometry):
         return f"{expr.w}x{expr.h}+{expr.x},{expr.y}"
     if isinstance(expr, PercentGeometry):
@@ -74,11 +76,12 @@ def _summarise_geometry(expr: object) -> str:
         )
     if isinstance(expr, PresetGeometry):
         return f"preset:{expr.name}"
-    return "-"
+    # CenterKeepSize — spelled as the built-in preset that expands to it.
+    return "center-in-place"
 
 
-def _summarise_apply(action: ApplyAction) -> str:
-    """One-line summary of an ``ApplyAction`` for the Apply column."""
+def summarise_apply(action: ApplyAction) -> str:
+    """One-line summary of an ``ApplyAction`` — see :func:`summarise_match`."""
     parts: list[str] = []
     if action.geometry is not None:
         parts.append(_summarise_geometry(action.geometry))
@@ -144,7 +147,12 @@ class RulesModel(QAbstractTableModel):
             and role == Qt.ItemDataRole.DisplayRole
             and 0 <= section < COLUMN_COUNT
         ):
-            return _COLUMN_HEADERS[section]
+            return (
+                self.tr("Name"),
+                self.tr("Match"),
+                self.tr("Apply"),
+                self.tr("Context"),
+            )[section]
         if (
             orientation == Qt.Orientation.Vertical
             and role == Qt.ItemDataRole.DisplayRole
@@ -166,9 +174,9 @@ class RulesModel(QAbstractTableModel):
         if col == COL_NAME:
             return rule.name if rule.name is not None else ""
         if col == COL_MATCH:
-            return _summarise_match(rule.match)
+            return summarise_match(rule.match)
         if col == COL_APPLY:
-            return _summarise_apply(rule.apply)
+            return summarise_apply(rule.apply)
         if col == COL_CONTEXT:
             return _summarise_context(rule)
         return None

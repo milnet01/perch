@@ -7,6 +7,7 @@ that happens on every ``state_changed`` emission.
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -186,3 +187,18 @@ def test_tray_icon_handles_missing_icons_bundle(qtbot: QtBot) -> None:
         assert tray.toolTip() == "Perch — backend disconnected"
     finally:
         tray.hide()
+
+
+def test_load_tray_icons_logs_when_no_icon_is_found(
+    qtbot: QtBot,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """PERC-0058: a total miss returned a null QIcon silently, making the
+    tray — Perch's only surface — invisible with no log line."""
+    del qtbot
+    monkeypatch.setattr(icons_module, "_bundled_icon_dirs", lambda: (tmp_path,))
+    with caplog.at_level(logging.WARNING, logger="perch.ui.icons"):
+        load_tray_icons()
+    assert "perch-tray-symbolic" in caplog.text

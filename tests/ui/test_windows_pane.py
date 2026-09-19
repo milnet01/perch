@@ -276,3 +276,27 @@ def test_commit_schedules_state_flush(
     # mark_dirty was called; the store is flagged dirty until the
     # debounced flush or explicit flush lands.
     assert store.is_dirty() is True
+
+
+def test_apply_preset_keeps_its_task_and_moves_the_window(
+    qtbot: QtBot, backend: MockBackend, store: StateStore
+) -> None:
+    """PERC-0058: the apply coroutine's task was discarded, and asyncio holds
+    tasks weakly, so an in-flight apply could be collected mid-await."""
+    import asyncio
+
+    page = WindowsPage(backend=backend, state_store=store)
+    qtbot.addWidget(page)
+    backend._spawn_window(_window("1", "firefox", "t"))
+    assert page.view is not None and page.preset_combo is not None
+    page.view.selectRow(0)
+    page.preset_combo.setCurrentIndex(page.preset_combo.findData("maximize"))
+
+    async def run() -> None:
+        page._on_apply_preset()
+        task = page._apply_task
+        assert task is not None
+        await task
+
+    asyncio.run(run())
+    assert "set_geometry" in backend.commands.names()

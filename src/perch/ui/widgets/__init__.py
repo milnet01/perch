@@ -8,9 +8,7 @@ Each widget round-trips through a typed core dataclass:
   :class:`~perch.core.actions.GeometryExpr`
   (absolute / percent / preset variants)
 * :class:`~perch.ui.widgets.key_capture.HotkeyEdit` — a single-chord
-  :class:`PySide6.QtGui.QKeySequence` in Portable Text form. Includes
-  :func:`~perch.ui.widgets.key_capture.portable_to_xdg` for the
-  ``org.freedesktop.portal.GlobalShortcuts`` boundary.
+  :class:`PySide6.QtGui.QKeySequence` in Portable Text form.
 
 Widgets emit ``valueChanged`` when their exposed value is modified so
 hosting dialogs can dirty-track. See ``docs/08-ui.md`` §Rules,
@@ -20,13 +18,11 @@ hosting dialogs can dirty-track. See ``docs/08-ui.md`` §Rules,
 from __future__ import annotations
 
 from .geometry_editor import GeometryEditor
-from .key_capture import HotkeyEdit, portable_to_xdg, xdg_to_portable
+from .key_capture import HotkeyEdit
 from .match_editor import MatchEditor
 
 __all__ = [
     "GeometryEditor",
     "HotkeyEdit",
     "MatchEditor",
-    "portable_to_xdg",
-    "xdg_to_portable",
 ]

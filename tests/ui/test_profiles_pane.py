@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pytest
 import tomlkit
 
 from perch.config.loader import load_or_create
@@ -191,3 +192,47 @@ def test_add_profile_then_commit_appends_aot_entry(
     out = tomlkit.dumps(dialog._state.document)
     assert "Docked" in out
     assert "DP-1:3840x2160@0,0" in out
+
+
+def test_rejected_profile_save_shows_the_reason_and_the_page(
+    qtbot: QtBot,
+    tmp_path: Path,
+    xdg_env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PERC-0058: ProfilesPage.commit raises a readable ConfigEditError, and
+    the save-failure modal replaced it with "see the log". The user must see
+    the reason and land on the page that holds the offender."""
+    from PySide6.QtWidgets import QMessageBox
+
+    from perch.ui.dialog import SECTION_GENERAL
+
+    dialog = _open_dialog(tmp_path, xdg_env, SIMPLE)
+    qtbot.addWidget(dialog)
+    shown: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "critical", lambda _p, _t, text, *a, **k: shown.append(text)
+    )
+    page = dialog._pages[SECTION_PROFILES]
+    assert isinstance(page, ProfilesPage)
+    page._profiles.append(Profile(name="", topology="x", default_layout=None))
+    page._origin.append(None)
+    page._dirty = True
+    dialog.select_section(SECTION_GENERAL)
+
+    assert dialog._commit_and_save() is False
+    assert shown and "missing a name" in shown[0]
+    assert dialog._stack.currentWidget() is page
+
+
+def test_override_editor_entries_table_has_an_accessible_name(
+    qtbot: QtBot,
+) -> None:
+    """PERC-0058: the override editor's entries table was unnamed to Orca."""
+    from perch.ui.dialog import _OverrideEditorDialog
+
+    editor = _OverrideEditorDialog(
+        None, available_layouts=("coding",), user_snaps=()
+    )
+    qtbot.addWidget(editor)
+    assert editor.entries_view.accessibleName()

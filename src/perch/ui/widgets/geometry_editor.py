@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 from perch.core.actions import (
     BUILTIN_PRESETS,
     AbsoluteGeometry,
+    CenterKeepSize,
     GeometryExpr,
     PercentGeometry,
     PresetGeometry,
@@ -59,9 +60,9 @@ class GeometryEditor(QWidget):
         super().__init__(parent)
 
         self.mode_combo = QComboBox(self)
-        self.mode_combo.addItem("Absolute (px)", MODE_ABSOLUTE)
-        self.mode_combo.addItem("Percent (%)", MODE_PERCENT)
-        self.mode_combo.addItem("Preset", MODE_PRESET)
+        self.mode_combo.addItem(self.tr("Absolute (px)"), MODE_ABSOLUTE)
+        self.mode_combo.addItem(self.tr("Percent (%)"), MODE_PERCENT)
+        self.mode_combo.addItem(self.tr("Preset"), MODE_PRESET)
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
         self.stack = QStackedWidget(self)
@@ -71,7 +72,7 @@ class GeometryEditor(QWidget):
 
         root = QVBoxLayout(self)
         root_form = QFormLayout()
-        root_form.addRow("Mode", self.mode_combo)
+        root_form.addRow(self.tr("Mode"), self.mode_combo)
         root.addLayout(root_form)
         root.addWidget(self.stack, 1)
 
@@ -90,10 +91,10 @@ class GeometryEditor(QWidget):
         self.abs_y = self._make_spin(-65535, 65535)
         self.abs_w = self._make_spin(1, 65535)
         self.abs_h = self._make_spin(1, 65535)
-        layout.addRow("x", self.abs_x)
-        layout.addRow("y", self.abs_y)
-        layout.addRow("w", self.abs_w)
-        layout.addRow("h", self.abs_h)
+        layout.addRow(self.tr("x"), self.abs_x)
+        layout.addRow(self.tr("y"), self.abs_y)
+        layout.addRow(self.tr("w"), self.abs_w)
+        layout.addRow(self.tr("h"), self.abs_h)
         return page
 
     def _build_percent_page(self) -> QWidget:
@@ -103,10 +104,10 @@ class GeometryEditor(QWidget):
         self.pct_y = self._make_pct_spin()
         self.pct_w = self._make_pct_spin(default=100.0)
         self.pct_h = self._make_pct_spin(default=100.0)
-        layout.addRow("x %", self.pct_x)
-        layout.addRow("y %", self.pct_y)
-        layout.addRow("w %", self.pct_w)
-        layout.addRow("h %", self.pct_h)
+        layout.addRow(self.tr("x %"), self.pct_x)
+        layout.addRow(self.tr("y %"), self.pct_y)
+        layout.addRow(self.tr("w %"), self.pct_w)
+        layout.addRow(self.tr("h %"), self.pct_h)
         return page
 
     def _build_preset_page(self) -> QWidget:
@@ -116,7 +117,7 @@ class GeometryEditor(QWidget):
         for name in BUILTIN_PRESETS:
             self.preset_combo.addItem(name, name)
         self.preset_combo.currentIndexChanged.connect(self._emit_changed)
-        row.addWidget(QLabel("Name", page))
+        row.addWidget(QLabel(self.tr("Name"), page))
         row.addWidget(self.preset_combo, 1)
         return page
 
@@ -154,6 +155,13 @@ class GeometryEditor(QWidget):
                     self.preset_combo.addItem(expr.name, expr.name)
                     idx = self.preset_combo.findData(expr.name)
                 self.preset_combo.setCurrentIndex(idx)
+            elif isinstance(expr, CenterKeepSize):
+                # Not a mode of its own: it is what the built-in
+                # ``center-in-place`` preset expands to, so edit it as that.
+                self.mode_combo.setCurrentIndex(2)
+                self.preset_combo.setCurrentIndex(
+                    self.preset_combo.findData("center-in-place")
+                )
             else:
                 raise TypeError(f"unsupported geometry expression: {type(expr).__name__}")
             self.stack.setCurrentIndex(self.mode_combo.currentIndex())

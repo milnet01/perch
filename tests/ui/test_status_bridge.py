@@ -207,3 +207,29 @@ def test_skipped_entries_notifier_lists_them_in_one_message() -> None:
 
 def test_skipped_entries_notifier_without_a_tray_does_not_raise() -> None:
     make_skipped_entries_notifier(None)(["app:code: nowhere"])
+
+
+def test_backend_outliving_the_controller_does_not_raise(
+    qtbot: QtBot,
+) -> None:
+    """PERC-0058: plain closures cannot be auto-disconnected by Qt, so a
+    backend signal after the controller died hit a deleted C++ object."""
+    import shiboken6
+
+    del qtbot
+    backend = MockBackend()
+    controller = TrayController(_empty_state())
+    wire_backend_status(backend, controller)
+    shiboken6.delete(controller)
+    errors: list[BaseException] = []
+    import sys
+
+    old_hook = sys.excepthook
+    sys.excepthook = lambda _t, exc, _tb: errors.append(exc)
+    try:
+        backend.backend_disconnected.emit("gone")
+        backend.backend_connected.emit()
+        backend.backend_error.emit("boom")
+    finally:
+        sys.excepthook = old_hook
+    assert errors == []

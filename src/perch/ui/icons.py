@@ -18,11 +18,14 @@ SVG renderer handles every HiDPI scale factor without raster variants.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtGui import QIcon
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,15 +87,20 @@ def load_tray_icons() -> TrayIcons:
     tray icon from coming out null on a Flatpak or RPM install.
     """
     return TrayIcons(
-        normal=QIcon.fromTheme(
-            "perch-tray-symbolic", _load_fallback("perch-tray-symbolic")
-        ),
-        warning=QIcon.fromTheme(
-            "perch-tray-warning-symbolic",
-            _load_fallback("perch-tray-warning-symbolic"),
-        ),
-        error=QIcon.fromTheme(
-            "perch-tray-error-symbolic",
-            _load_fallback("perch-tray-error-symbolic"),
-        ),
+        normal=_load("perch-tray-symbolic"),
+        warning=_load("perch-tray-warning-symbolic"),
+        error=_load("perch-tray-error-symbolic"),
     )
+
+
+def _load(name: str) -> QIcon:
+    icon = QIcon.fromTheme(name, _load_fallback(name))
+    if icon.isNull():
+        # The tray is Perch's only surface; a null icon makes it invisible,
+        # so the miss has to be findable in the log.
+        log.warning(
+            "tray icon %s not found in the icon theme or under %s",
+            name,
+            ", ".join(str(d) for d in _bundled_icon_dirs()),
+        )
+    return icon

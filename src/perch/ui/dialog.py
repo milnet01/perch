@@ -41,7 +41,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QFontDatabase, QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -95,9 +95,9 @@ from perch.core.profiles import Profile, ProfileOverride
 from perch.core.rules import Rule
 from perch.core.state_store import StateStore
 
-from .entry_editor import EntryEditorDialog, summarise_apply, summarise_match
+from .entry_editor import EntryEditorDialog
 from .onboarding import run_setup_wizard
-from .rules_model import RulesModel
+from .rules_model import RulesModel, summarise_apply, summarise_match
 from .widgets import HotkeyEdit
 from .windows_model import WindowsTableModel
 
@@ -537,7 +537,7 @@ class WindowsPage(QWidget):
         if not preset_name:
             return
 
-        import qasync
+        import asyncio
 
         from perch.core.actions import ApplyAction, PresetGeometry
         from perch.core.resolver import ResolveError, resolve_action
@@ -587,8 +587,14 @@ class WindowsPage(QWidget):
                     ),
                 )
 
-        slot = qasync.asyncSlot()(_apply)
-        slot()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        # Held on the page: asyncio keeps only a weak reference to a task,
+        # so a discarded one can be collected mid-await and the window
+        # never moves. Same pattern as the seed task above.
+        self._apply_task: asyncio.Task[None] | None = loop.create_task(_apply())
 
     def _on_save_clicked(self) -> None:
         if self._state_store is None or self.model is None:
@@ -2011,6 +2017,7 @@ class _OverrideEditorDialog(QDialog):
             self.layout_combo.setCurrentIndex(idx)
 
         self.entries_view = QTableView(self)
+        self.entries_view.setAccessibleName(self.tr("Override entries"))
         self.entries_view.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
@@ -2233,9 +2240,10 @@ class ImportExportPage(QWidget):
         self.diff_view.setPlaceholderText(
             self.tr("Dry-run diff appears here after you pick a file.")
         )
-        font = self.diff_view.font()
-        font.setFamily("monospace")
-        self.diff_view.setFont(font)
+        self.diff_view.setAccessibleName(self.tr("Import differences"))
+        self.diff_view.setFont(
+            QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        )
 
         self.confirm_import_button = QPushButton(self.tr("Confirm import"))
         self.cancel_import_button = QPushButton(self.tr("Cancel"))
@@ -2273,7 +2281,7 @@ class ImportExportPage(QWidget):
             return
         try:
             text = self._config_path.read_text(encoding="utf-8")
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             QMessageBox.critical(
                 self, self.tr("Export failed"), str(exc)
             )
@@ -2306,7 +2314,8 @@ class ImportExportPage(QWidget):
         source_path = Path(source)
         try:
             candidate_text = source_path.read_text(encoding="utf-8")
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
+            # A binary file is reachable through the "All files (*)" filter.
             QMessageBox.critical(
                 self, self.tr("Import failed"), str(exc)
             )
@@ -2341,7 +2350,7 @@ class ImportExportPage(QWidget):
 
         try:
             current_text = self._config_path.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             current_text = ""
         diff_lines = list(
             difflib.unified_diff(
@@ -2503,7 +2512,6 @@ class ConfigDialog(QDialog):
         self._save = save_callback or write_document
 
         self._sidebar = QListWidget(self)
-        self._sidebar.setFixedWidth(160)
         self._sidebar.setAccessibleName(self.tr("Sections"))
         self._stack = QStackedWidget(self)
         self._pages: dict[str, _Page] = {}
@@ -2520,6 +2528,7 @@ class ConfigDialog(QDialog):
                 self._general_page = page
                 page.rerun_wizard_requested.connect(self._on_rerun_wizard)
 
+        self._fit_sidebar()
         self._sidebar.currentRowChanged.connect(self._stack.setCurrentIndex)
         self._sidebar.setCurrentRow(0)
 
@@ -2575,6 +2584,18 @@ class ConfigDialog(QDialog):
         raise ValueError(f"unknown section: {section!r}")
 
     # ── Actions ─────────────────────────────────────────────────────────
+    def _fit_sidebar(self) -> None:
+        """Size the sidebar to its widest label, never below the old 160 px.
+
+        A fixed width clipped translated labels longer than the English.
+        """
+        needed = (
+            self._sidebar.sizeHintForColumn(0)
+            + 2 * self._sidebar.frameWidth()
+            + self._sidebar.verticalScrollBar().sizeHint().width()
+        )
+        self._sidebar.setFixedWidth(max(160, needed))
+
     def select_section(self, section: str) -> None:
         """Programmatically switch to ``section`` (tray intent entry point)."""
         if section not in SECTION_ORDER:
@@ -2660,6 +2681,7 @@ class ConfigDialog(QDialog):
         staged = copy.deepcopy(self._state.document)
         original_document = self._state.document
         self._state.document = staged
+        failing_page: _Page | None = None
         try:
             # commit() writes into the staged document and nothing else;
             # freezing each page's baseline is mark_committed()'s job and
@@ -2668,7 +2690,23 @@ class ConfigDialog(QDialog):
             # ones reporting clean against a document that was rolled back,
             # so their edits were never committed again and were simply lost.
             for page in dirty_pages:
+                failing_page = page
                 page.commit()
+        except ConfigEditError as exc:
+            # A page refused its own input with a message written for the
+            # user: show it, and put them on the page that holds it.
+            self._state.document = original_document
+            log.warning("config dialog: commit refused: %s", exc)
+            if failing_page is not None:
+                self._sidebar.setCurrentRow(self._stack.indexOf(failing_page))
+            QMessageBox.critical(
+                self,
+                self.tr("Perch — save failed"),
+                self.tr("{reason}\n\nYour changes were not saved.").format(
+                    reason=str(exc)
+                ),
+            )
+            return False
         except Exception:
             self._state.document = original_document
             log.exception("config dialog: commit failed")
