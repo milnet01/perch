@@ -1,0 +1,15 @@
+# yamllint calibration for this repo (PERC-0061). The defaults flagged style
+# the repo never adopted; these settings state the style it does use.
+extends: default
+
+rules:
+  # Workflow `run:` blocks and the Flatpak manifest's pip URLs are long by
+  # nature; wrapping them hurts more than it helps.
+  line-length:
+    max: 200
+    level: warning
+  # No file here is a multi-document stream.
+  document-start: disable
+  # GitHub Actions' `on:` is a key, not a boolean.
+  truthy:
+    check-keys: false

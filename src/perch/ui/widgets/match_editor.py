@@ -234,7 +234,6 @@ class _block:
     """Context manager: block ``valueChanged`` while set_pattern refreshes."""
 
     def __init__(self, widget: MatchEditor) -> None:
-        self._widget = widget
         self._children = (
             widget.app_id_edit,
             widget.wm_class_edit,

@@ -50,7 +50,11 @@ exist — there is nothing broken to record. Ceilings are tracked in §5.
   reason, run the currency sweep:
   - Python packages: `.venv/bin/python -m pip list --outdated`
   - CI actions: check each `uses:` against its latest release
-    (`gh api repos/<owner>/<action>/releases/latest`)
+    (`gh api repos/<owner>/<action>/releases/latest`). Actions are pinned to
+    the release's full commit SHA with the tag in a trailing comment
+    (`@<sha>  # v7.0.1`), so a moved or re-pushed tag cannot change what
+    runs; resolve the SHA with `gh api repos/<owner>/<action>/commits/<tag>
+    -q .sha`. `npm outdated` covers `package.json`.
   - Python runtime / base images: track the current stable / LTS.
 - Bump the dependency **and refresh the code that calls it in the same change**
   — a bump that leaves stale call-sites is half-done.

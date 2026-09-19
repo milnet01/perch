@@ -20,6 +20,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from enum import Enum, auto
 from typing import Any, Protocol
 
 from sdbus import DbusInterfaceCommonAsync, dbus_method_async, get_current_message
@@ -274,36 +275,43 @@ class PerchKWin1(
         invalidated = self._invalidated  # snapshot: survives swap from invalidate_polls()
         loop = asyncio.get_running_loop()
         deadline = loop.time() + POLL_CEILING_SECONDS
-        while True:
-            remaining = deadline - loop.time()
-            if remaining <= 0:
-                break
-            get_task = asyncio.create_task(self._queue.get())
-            inv_task = asyncio.create_task(invalidated.wait())
-            try:
-                done, _ = await asyncio.wait(
-                    {get_task, inv_task},
-                    timeout=remaining,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-            finally:
-                for t in (get_task, inv_task):
-                    if not t.done():
-                        t.cancel()
-            if get_task in done and not get_task.cancelled():
-                seq, encoded = get_task.result()
-                if seq in self._completions:
-                    return encoded
-                # Its caller timed out or was cancelled; applying it now
-                # would move a window the user has stopped waiting on.
-                self.counters.commands_expired += 1
-                continue
-            if inv_task in done:
+        while (remaining := deadline - loop.time()) > 0:
+            got = await self._next_or_invalidated(invalidated, remaining)
+            if got is _Wake.INVALIDATED:
                 self.counters.poll_invalidated_returns += 1
                 return encode_nop(reason="invalidated")
-            break
+            if got is None:
+                break
+            seq, encoded = got
+            if seq in self._completions:
+                return encoded
+            # Its caller timed out or was cancelled; applying it now would
+            # move a window the user has stopped waiting on.
+            self.counters.commands_expired += 1
         self.counters.poll_ceiling_returns += 1
         return encode_nop()
+
+    async def _next_or_invalidated(
+        self, invalidated: asyncio.Event, timeout: float
+    ) -> tuple[int, str] | _Wake | None:
+        """The next queued command, ``_Wake.INVALIDATED``, or ``None`` on timeout."""
+        get_task = asyncio.create_task(self._queue.get())
+        inv_task = asyncio.create_task(invalidated.wait())
+        try:
+            done, _ = await asyncio.wait(
+                {get_task, inv_task},
+                timeout=timeout,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+        finally:
+            for t in (get_task, inv_task):
+                if not t.done():
+                    t.cancel()
+        if get_task in done and not get_task.cancelled():
+            return get_task.result()
+        if inv_task in done:
+            return _Wake.INVALIDATED
+        return None
 
     @dbus_method_async(input_signature="s", result_signature="")
     async def CommandDone(self, payload: str) -> None:
@@ -329,6 +337,11 @@ class PerchKWin1(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+class _Wake(Enum):
+    """Sentinel from :meth:`PerchKWin1._next_or_invalidated`."""
+
+    INVALIDATED = auto()
 
 
 def _current_sender() -> str | None:

@@ -174,23 +174,31 @@ def test_remove_rule_drops_row(qtbot: QtBot) -> None:
     assert model.rules() == (a, c)
 
 
-# ── permutation helper ──────────────────────────────────────────────────
+# ── original_indices ────────────────────────────────────────────────────
 
 
-def test_permutation_after_move(qtbot: QtBot) -> None:
+def test_original_indices_after_move(qtbot: QtBot) -> None:
     a, b, c = _rule("a"), _rule("b"), _rule("c")
     originals = [a, b, c]
     model = RulesModel(originals)
     model.moveRows(QModelIndex(), 0, 1, QModelIndex(), 2)
-    # Working copy is now [b, a, c]; permutation is the original indices
-    # in that order: [1, 0, 2].
-    assert model.permutation(originals) == [1, 0, 2]
+    # Working copy is now [b, a, c]: the original indices in that order.
+    assert model.original_indices(originals) == [1, 0, 2]
 
 
-def test_permutation_on_untouched_model_is_identity() -> None:
+def test_original_indices_on_untouched_model_is_identity() -> None:
     originals = [_rule("a"), _rule("b")]
     model = RulesModel(originals)
-    assert model.permutation(originals) == [0, 1]
+    assert model.original_indices(originals) == [0, 1]
+
+
+def test_original_indices_omit_a_deleted_rule() -> None:
+    """RulesPage.commit open-coded this mapping because the old
+    permutation() refused deletions; one method now serves both."""
+    a, b, c = _rule("a"), _rule("b"), _rule("c")
+    model = RulesModel([a, b, c])
+    model.remove_rule(1)
+    assert model.original_indices([a, b, c]) == [0, 2]
 
 
 def test_apply_column_summarises_center_keep_size() -> None:

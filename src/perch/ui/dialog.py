@@ -778,17 +778,8 @@ class RulesPage(QWidget):
         if current == originals:
             return
 
-        # Identity-based mapping so duplicate-but-equal rules don't alias.
-        id_to_index = {id(rule): i for i, rule in enumerate(originals)}
-        survivors: list[int] = []
-        for rule in current:
-            idx = id_to_index.get(id(rule))
-            if idx is None:
-                # Shouldn't happen without per-cell editing; guard anyway.
-                raise RuntimeError(
-                    "rules committed that are not in the original set"
-                )
-            survivors.append(idx)
+        # Identity-based, so duplicate-but-equal rules don't alias.
+        survivors = self.model.original_indices(originals)
 
         # Apply deletes first (highest-index first to preserve earlier indices),
         # then reorder the survivors.
@@ -958,7 +949,6 @@ class LayoutsPage(QWidget):
             name: layout for name, layout in state.config.layouts.items()
         }
         self._original_names = tuple(self._layouts.keys())
-        self._original_layouts: dict[str, Layout] = dict(self._layouts)
         # Track renames so the commit path can map between old↔new names.
         self._renames: dict[str, str] = {}  # original name → current name
         for name in self._original_names:

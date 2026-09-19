@@ -1,0 +1,13 @@
+# typos calibration (PERC-0061). Each word here was checked and is correct in
+# context; add one only with the same check.
+[default.extend-words]
+# rpmbuild's "build all" flag (packaging/rpm/README.md).
+ba = "ba"
+# The prefix in "mis-translation", "mis-placed", "mis-versioned".
+mis = "mis"
+# A latin-1 byte string, b"caf\xe9", in tests/backend/x11/test_ewmh.py.
+caf = "caf"
+# Accepted spelling variants.
+driveable = "driveable"
+unregisterable = "unregisterable"
+unparseable = "unparseable"

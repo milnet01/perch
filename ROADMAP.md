@@ -1426,7 +1426,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-code 2026-08-31 (lane backend-kwin).
 
-- 📋 [PERC-0061] **Triage the static-analysis backlog check-code surfaced.**
+- ✅ [PERC-0061] **Triage the static-analysis backlog check-code surfaced.**
   The whole-tree run left findings nobody has dispositioned: vulture 79
   (largely pytest fixtures, D-Bus signal methods and lazy __getattr__
   hooks, but not entirely), yamllint 68 against tool defaults with no
@@ -1441,6 +1441,26 @@ Goal: fewer first-run support tickets; the config is safe.
   that config is part of this item. Note ruff runs with select E,F,I,UP,B,
   SIM,RUF, which omits S: two asserts that vanish under `python -O` were
   found by review rather than by the linter.
+  Resolved (2026-09-19), each tool re-run today and triaged. zizmor:
+  real -- ci.yml gained a read-only top-level permissions block,
+  checkouts set persist-credentials false, actions pinned to commit SHAs
+  (dependency-policy §3 now says how); now 0 findings. bandit: calibrated
+  in [tool.bandit] (B101 type-narrowing asserts, B404) plus two inline
+  nosec with reasons (Hyprland's legacy /tmp/hypr read, xdg-open argv);
+  now clean. semgrep: both hits were stdlib XML parsing the repo's own
+  .ts file in a test; nosemgrep with the reason. yamllint: new .yamllint
+  states the repo's style (200-col warning, no document-start, on: key);
+  one real comment-spacing fix; now clean. typos: _typos.toml with the
+  seven checked words; now clean. vulture: real dead code removed
+  (RulesPage.commit's hand copy of RulesModel.permutation, now
+  original_indices; entry_editor._entry; dialog._original_layouts;
+  match_editor _block._widget); tools/vulture_whitelist.py records the
+  rest by group; five names deliberately stay reported (PERC-0051's three
+  config/edit.py functions, and the X11 frame helpers, now PERC-0074).
+  Analyser: 172 findings, mostly low dead_code/duplication metrics; the
+  three drift markers and the eval/exec hit were false positives (the
+  last was a new comment of mine, reworded); PollCommand's nesting
+  (introduced by PERC-0060) was split into _next_or_invalidated.
   **Layman:** A pile of tool warnings nobody has sorted into real and noise yet.
   Kind: investigate.
   Source: check-code --tree 2026-08-31.
@@ -1816,6 +1836,19 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Teach Perch to notice windows opening on GNOME and Sway, so it can put them back where they belong.
   Kind: implement.
   Source: in-session-2026-09-19, split out of PERC-0044.
+
+- 📋 [PERC-0074] **Decide whether X11 placement should compensate for window frames, then use or delete the helpers.**
+  src/perch/backend/x11/geometry.py defines read_frame_extents (reads
+  _NET_FRAME_EXTENTS) and client_area_from_frame; nothing outside a test
+  calls either. Either X11 placement is missing the frame compensation
+  they were written for -- a restored window would land offset by its
+  decoration -- or they are leftovers. Settle it on a live Openbox/KWin-X11
+  session (place a window, compare requested against actual client
+  geometry), then wire them in or delete them. vulture reports both; the
+  PERC-0061 whitelist deliberately leaves them out so they stay reported.
+  **Layman:** Check whether windows land a few pixels off on older (X11) desktops because of their title bars.
+  Kind: investigate.
+  Source: in-session-2026-09-19, PERC-0061 vulture triage.
 
 ## v1.2 — Smarts
 

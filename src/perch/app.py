@@ -311,7 +311,8 @@ def _open_in_file_manager(directory: Path) -> None:
     """Open ``directory`` in the user's file manager (``xdg-open``)."""
     paths.ensure_dir(directory)
     try:
-        subprocess.Popen(
+        # Fixed argv, no shell; resolving xdg-open on PATH is the point.
+        subprocess.Popen(  # nosec B603 B607
             ["xdg-open", str(directory)],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,

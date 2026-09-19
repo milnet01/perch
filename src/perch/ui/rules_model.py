@@ -238,14 +238,15 @@ class RulesModel(QAbstractTableModel):
         """Return the current working copy as an immutable tuple."""
         return tuple(self._rules)
 
-    def permutation(self, original: Sequence[Rule]) -> list[int]:
-        """Return the index permutation mapping ``original`` → current order.
+    def original_indices(self, original: Sequence[Rule]) -> list[int]:
+        """Index in ``original`` of each current rule, in current order.
 
-        ``original`` must be the list the model was constructed from;
-        otherwise :class:`ValueError` is raised. Two rules compare equal
-        iff they are the same ``Rule`` *instance* — frozen dataclass
-        equality could collide across distinct entries with identical
-        fields, which would produce a wrong permutation.
+        Deleted rules simply do not appear, so a reorder gives a
+        permutation and a delete gives a shorter list. Rules are matched by
+        *instance*: frozen-dataclass equality would alias two distinct
+        entries with identical fields. Raises :class:`ValueError` when a
+        current rule is not one of ``original``'s instances, or
+        ``original`` repeats one.
         """
         id_to_index = {id(rule): i for i, rule in enumerate(original)}
         if len(id_to_index) != len(original):
@@ -254,12 +255,8 @@ class RulesModel(QAbstractTableModel):
         for rule in self._rules:
             idx = id_to_index.get(id(rule))
             if idx is None:
-                raise ValueError("current rules are not a permutation of original")
+                raise ValueError("a current rule is not in the original set")
             out.append(idx)
-        if sorted(out) != list(range(len(original))):
-            raise ValueError(
-                "current rules are not a permutation of original"
-            )
         return out
 
     def remove_rule(self, row: int) -> None:

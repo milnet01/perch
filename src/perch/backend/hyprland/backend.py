@@ -123,7 +123,9 @@ def _socket_paths() -> tuple[Path, Path] | None:
     candidates: list[Path] = []
     if runtime:
         candidates.append(Path(runtime) / "hypr" / sig)
-    candidates.append(Path("/tmp") / "hypr" / sig)
+    # Read-only probe of Hyprland's own legacy socket directory; Perch
+    # creates nothing here, so the temp-file-race class does not apply.
+    candidates.append(Path("/tmp") / "hypr" / sig)  # nosec B108
     for base in candidates:
         cmd = base / ".socket.sock"
         evt = base / ".socket2.sock"

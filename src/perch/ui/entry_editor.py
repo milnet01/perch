@@ -196,12 +196,12 @@ class EntryEditorDialog(QDialog):
 
     # ── Accept ──────────────────────────────────────────────────────────
     def _on_accept(self) -> None:
+        # Validate only; callers read value() once the dialog has closed.
         try:
-            entry = self.value()
+            self.value()
         except ValueError as exc:
             QMessageBox.warning(self, self.tr("Invalid entry"), str(exc))
             return
-        self._entry = entry
         self.accept()
 
     def value(self) -> LayoutEntry:

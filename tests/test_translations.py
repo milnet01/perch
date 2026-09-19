@@ -12,7 +12,9 @@ bare ``QT_TR_NOOP`` (empty context) yet looked up under ``perch.ui.tray``.
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
+# The only input is the repo's own translations/perch_en.ts, so defusedxml's
+# hostile-XML guards buy nothing here (semgrep use-defused-xml, PERC-0061).
+import xml.etree.ElementTree as ET  # nosemgrep
 from pathlib import Path
 
 from perch.ui.tray import BUILTIN_SNAP_MENU_ITEMS
@@ -22,7 +24,7 @@ TS_PATH = Path(__file__).resolve().parents[1] / "translations" / "perch_en.ts"
 
 def _sources_by_context() -> dict[str, set[str]]:
     """Map each ``<context><name>`` to the set of its ``<source>`` strings."""
-    root = ET.parse(TS_PATH).getroot()
+    root = ET.parse(TS_PATH).getroot()  # nosemgrep
     out: dict[str, set[str]] = {}
     for context in root.findall("context"):
         name = (context.findtext("name") or "").strip()
