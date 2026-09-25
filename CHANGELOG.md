@@ -8,7 +8,7 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-09-25
+## [1.2.0] — 2026-09-25
 
 ### Added
 
