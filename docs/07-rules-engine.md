@@ -15,7 +15,7 @@ How Perch decides *what to do* when a window event arrives.
 
 - `IGNORE` — do nothing. (Used by exclusions.)
 - `RESTORE_LAST_SEEN` — apply the remembered geometry for this identity, if any.
-- `APPLY_ACTION(action)` — apply the matched rule's or layout's `apply` block (see [02-state-format.md](02-state-format.md) §Apply actions). The action carries any combination of `geometry`, `snap`, `monitor`, `desktop`, and `maximized` — the backend adapter applies them together.
+- `APPLY_ACTION(action)` — apply the matched rule's or layout's `apply` block (see [02-state-format.md](02-state-format.md) §Apply actions). The action carries any combination of `geometry`, `snap`, `monitor`, `desktop`, and `maximized` — the reducer applies them together (§Apply order).
 
 The engine never emits more than one decision per window per event. Chaining ("apply layout X *then* move to monitor 2") is expressed inside a single layout or rule, not by stacking decisions.
 
@@ -80,17 +80,17 @@ When an action's `geometry` or `snap` is applied, Perch resolves it to pixel coo
 1. Named preset (`"left-half"`, `"top-right-quarter"`, `"maximize"`, `"center"`, or a user-defined preset) → fixed `x%/y%/w%/h%` relative to the target monitor's work area.
 2. Percent values → multiplied by the target monitor's work area, rounded to ints, then clamped to it. Percentages are not range-checked when the config is parsed, so `"-50%"` is caught here.
 3. Absolute pixel values → used as-is, clamped to the target monitor's work area. Neither form can push a window off-screen.
-4. `monitor = "primary"` | `"current"` | an integer index → resolved against the active profile's output list.
-5. `monitor` as an output name (`"DP-1"`) → resolved directly; if that output is currently disconnected, the rule is skipped (not reassigned to primary — that would silently do the wrong thing).
+4. `monitor = "primary"` → the connected output flagged primary; `"current"` → the output the window is on; an integer index → that position (0-based) in the active profile's output list.
+5. `monitor` as an output name (`"DP-1"`) → resolved directly; if that output is currently disconnected, the decision is dropped with a warning (not reassigned to primary — that would silently do the wrong thing). Evaluation does not fall through to a later rule, the layout or last-seen.
 
 ## Apply order
 
-An action can mix `maximized`, `geometry`/`snap`, `monitor`, and `desktop`. The backend adapter applies them in a fixed order so the user-visible result is deterministic:
+An action can mix `maximized`, `geometry`/`snap`, `monitor`, and `desktop`. The reducer issues them in a fixed order so the user-visible result is deterministic:
 
 1. If `maximized = false` (explicit), unmaximize first. This lets a subsequent `set_geometry` actually move the window on backends that ignore geometry writes on maximized windows (Mutter; see [06-backend-stubs.md](06-backend-stubs.md)).
-2. If `desktop` is set and differs from the current desktop, move the window first — a window manager is free to re-place a window when its desktop changes, so the placement has to be the last word. The core folds this into one `set_geometry(…, desktop=…)` call, which `docs/03-backend-interface.md` makes atomic; each backend applies the desktop before the geometry inside it.
+2. The core passes a target desktop on every `set_geometry(…, desktop=…)` call: the rule's, or the window's own when the rule sets none. So a backend treats an unchanged desktop as a no-op. Inside that one call, which `docs/03-backend-interface.md` makes atomic, each backend moves the desktop before the geometry — a window manager is free to re-place a window when its desktop changes, so the placement has to be the last word.
 3. If `geometry` / `snap` is set, apply it (with `monitor` resolving the target output).
-   If `monitor` is set without `geometry` / `snap` and resolves to a different output, the resolver moves the window itself. The window keeps its offset from the top-left of its current output's work area and lands at the same offset in the target output's work area. A window larger than the target work area shrinks to it, and the result is clamped inside it. The window's current output is the one the backend reports it on. The backend only ever receives global coordinates ([03-backend-interface.md](03-backend-interface.md) §Coordinate system). When the target is the output the window is already on, only `desktop` (if set) is applied.
+   If `monitor` is set without `geometry` / `snap` and resolves to a different output, the resolver moves the window itself. The window keeps its offset from the top-left of its current output's work area and lands at the same offset in the target output's work area. A window larger than the target work area shrinks to it, and the result is clamped inside it. The window's current output is the one the backend reports it on. The backend only ever receives global coordinates ([03-backend-interface.md](03-backend-interface.md) §Coordinate system). When the target is the output the window is already on, its current geometry passes through unchanged, so only step 2's desktop move takes effect.
 4. If `maximized = true`, call `set_state(wid, WindowState.MAXIMIZED)`.
 
 If a backend cannot set the native maximized state and the action sets `maximized = true`, Perch substitutes `geometry = "maximize"` against the **resolved target** monitor and logs at DEBUG, naming the rule. Both routes to that arrive the same way — a backend declaring `can_set_state = False`, and one that declares it can but raises `BackendUnsupported` for `MAXIMIZED` specifically (Sway, Hyprland), both raise `BackendUnsupported` from `set_state`, and that is what the reducer catches. This is the only automatic substitution the engine performs; the semantic difference is noted at [02-state-format.md](02-state-format.md) §Apply actions.
@@ -152,19 +152,19 @@ The config loader rejects a rule with:
 - Any `match` or `apply` string field written as `""`.
 - `monitor = "all"`, at the apply level or inside a `geometry` table. Nothing fans one action out across every output; the valid forms are an output name, `"primary"`, `"current"`, or an integer index.
 - A `[[profiles]]` entry whose `default_layout` names a layout that is not declared under `[layouts]`.
-- An `apply` block that has no effect — i.e. none of `geometry`, `snap`, `maximized`, `desktop` is set. `maximized = false` alone is a legitimate unmaximize action and is accepted.
+- An `apply` block that has no effect — i.e. none of `geometry`, `snap`, `monitor`, `maximized`, `desktop` is set. `maximized = false` alone is a legitimate unmaximize action and is accepted.
 - An `apply` block setting both `maximized = true` and an explicit `geometry` or `snap` (contradiction — see [02-state-format.md](02-state-format.md) §Apply actions). `maximized = false` alongside a geometry/snap is allowed and means "unmaximize first, then place."
 - An `apply` block specifying `monitor` both at the apply level and inside the `geometry` table with *different* values. Redundant-but-agreeing specifications are accepted.
 - `geometry` and `snap` together (mutually exclusive — two ways of writing the same "where" intent).
-- A `monitor` referring to an output index higher than the current profile declares (reducer-side check; the parser accepts any non-negative index).
-- A `snap` name not in the built-in set or the user's `[snaps]` table. This check runs at apply time inside the resolver ([`src/perch/core/resolver.py`](../src/perch/core/resolver.py)), not at parse time, so a rule that refers to a snap via a variable will only fail when it fires — the failure surfaces as a logged warning and the rule is skipped.
+- A `monitor` referring to an output index higher than the current profile declares (checked by the resolver when the rule fires; the parser accepts any non-negative index).
+- A `snap` name not in the built-in set or the user's `[snaps]` table. This check runs at apply time inside the resolver ([`src/perch/core/resolver.py`](../src/perch/core/resolver.py)), not at parse time, so a rule that refers to a snap via a variable will only fail when it fires — the failure surfaces as a logged warning and the decision is dropped, as for a disconnected output (§Geometry resolution).
 
 Validation errors are shown in the config dialog's problem inspector; Perch does not silently drop bad rules.
 
 ## Implementation pointers
 
 - [`src/perch/core/matching.py`](../src/perch/core/matching.py) — `MatchPattern` + `parse_match` + `match_window`.
-- [`src/perch/core/actions.py`](../src/perch/core/actions.py) — `ApplyAction`, the `GeometryExpr` ADT (`AbsoluteGeometry` / `PercentGeometry` / `PresetGeometry`), `BUILTIN_PRESETS`, `parse_action`. Geometry resolution to pixels lives in the reducer (M2.d).
+- [`src/perch/core/actions.py`](../src/perch/core/actions.py) — `ApplyAction`, the `GeometryExpr` ADT (`AbsoluteGeometry` / `PercentGeometry` / `PresetGeometry`), `BUILTIN_PRESETS`, `parse_action`. Geometry resolution to pixels lives in [`src/perch/core/resolver.py`](../src/perch/core/resolver.py) (M2.d).
 - [`src/perch/core/rules.py`](../src/perch/core/rules.py) — `Rule`, `Context`, `parse_rules`.
 - [`src/perch/core/layouts.py`](../src/perch/core/layouts.py) — `Layout`, `LayoutEntry`, `parse_layouts`.
 - [`src/perch/core/exclusions.py`](../src/perch/core/exclusions.py) — `BUILTIN_EXCLUDED_TYPES`, `is_builtin_excluded`, `parse_user_exclusions`.
