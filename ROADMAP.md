@@ -2091,7 +2091,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-09-25, found tightening PERC-0080's test_reducer.py:517.
 
-- 📋 [PERC-0085] **Stop a matching rule re-applying on every title or state change.**
+- ✅ [PERC-0085] **Stop a matching rule re-applying on every title or state change.**
   docs/07 §Reactive evaluation re-evaluates on window_changed (title, type,
   state), and engine.evaluate returns the first matching rule's
   ApplyActionDecision on any trigger; reducer.handle_window_changed
@@ -2103,6 +2103,13 @@ Goal: fewer first-run support tickets; the config is safe.
   the decision's source differs from the one last applied to that window
   (a title change that makes a different rule match still moves it).
   Needs a failing test first: drag, change title, assert no set_geometry.
+  Resolved (2026-09-25): the reducer remembers the source of the decision
+  last applied to each window (_applied_source) and skips a
+  window_changed decision with the same source; a different rule or
+  layout still applies, and a non-apply decision clears the memory.
+  docs/07 §Reactive evaluation states it. Tests: the snap-back test was
+  red before and green after; a title change to a different rule moves
+  the window.
   **Layman:** If you move a window that has a rule, switching tabs in it can snap it back to where the rule put it.
   Kind: fix.
   Source: review-contract 2026-09-25 on docs/07, loop 3 (docs/reviews/2026-09-25-docs-07-review.md).

@@ -18,6 +18,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **Switching tabs no longer snaps a moved window back to its rule** (PERC-0085)
+  A title or state change re-ran the matching rule, so a browser window
+  you had dragged jumped back on every tab switch. Perch now re-applies
+  on such a change only when a different rule starts to match.
+
 - **Windows land on the right monitor when a rule names one** (PERC-0084)
   On X11 a rule naming a second monitor added that monitor's offset twice
   and put the window off-screen. A rule that only names a monitor now

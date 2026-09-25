@@ -100,7 +100,7 @@ If a backend cannot set the native maximized state and the action sets `maximize
 The engine is reactive:
 
 - Evaluated on `window_opened`, always.
-- Evaluated on `window_changed` only for fields that can affect matching: `title`, `type`, `state`. Not on geometry changes (that would create a feedback loop every time Perch moves a window).
+- Evaluated on `window_changed` only for fields that can affect matching: `title`, `type`, `state`. Not on geometry changes (that would create a feedback loop every time Perch moves a window). A decision from a `window_changed` evaluation is applied only when its source (the rule or layout that matched) differs from the one last applied to that window. So a tab switch that keeps the same rule matching leaves a window the user moved where it is, and a title change that makes a different rule match moves it.
 - Evaluated on `output_added` / `output_removed` / `output_changed` *indirectly*: these may change the active profile, which re-triggers evaluation of all visible windows under the new profile.
 
 Geometry changes coming *from the user* (drag-resize) are treated as signal and recorded into `state.json` for later `RESTORE_LAST_SEEN`. They do not trigger rule re-evaluation.

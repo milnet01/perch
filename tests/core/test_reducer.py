@@ -8,6 +8,7 @@ the expected ``set_geometry`` calls — verified by a table-driven pytest."
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -1109,3 +1110,52 @@ async def test_a_rule_without_a_desktop_leaves_the_window_on_its_own(
 
     geom_calls = [args for n, args in backend.commands.entries if n == "set_geometry"]
     assert [call[3] for call in geom_calls] == [None]
+
+
+# ── PERC-0085: a title change does not pull a placed window back ──────────
+_FIREFOX_AND_PRIVATE = {
+    "rules": [
+        {
+            "match": {"app_id": "firefox", "title": ".*Private Browsing.*"},
+            "apply": {"geometry": "right-half", "monitor": "DP-1"},
+        },
+        {
+            "match": {"app_id": "firefox"},
+            "apply": {"geometry": "left-half", "monitor": "DP-1"},
+        },
+    ]
+}
+
+
+async def test_a_title_change_does_not_re_apply_the_same_rule(tmp_path: Path) -> None:
+    """docs/07 §Feedback-loop prevention: a dragged window stays where the
+    user put it. A tab switch changes the title and fired the rule again."""
+    backend, reducer, _ = await _make(_FIREFOX_AND_PRIVATE, tmp_path)
+    await reducer.start()
+    window = _window(title="Start Page — Mozilla Firefox")
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+    reducer.handle_geometry_changed("w1", Geometry(700, 300, 800, 600), "DP-1", 0)
+    backend.commands.clear()
+
+    await reducer.handle_window_changed(replace(window, title="News — Mozilla Firefox"))
+
+    assert _placed(backend) == []
+
+
+async def test_a_title_change_that_matches_a_different_rule_applies_it(
+    tmp_path: Path,
+) -> None:
+    backend, reducer, _ = await _make(_FIREFOX_AND_PRIVATE, tmp_path)
+    await reducer.start()
+    window = _window(title="Start Page — Mozilla Firefox")
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+    backend.commands.clear()
+
+    await reducer.handle_window_changed(
+        replace(window, title="Private Browsing — Mozilla Firefox")
+    )
+
+    geom_calls = [args for n, args in backend.commands.entries if n == "set_geometry"]
+    assert geom_calls == [("w1", Geometry(1280, 0, 1280, 1400), "DP-1", None)]

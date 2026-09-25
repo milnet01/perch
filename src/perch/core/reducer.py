@@ -118,6 +118,10 @@ class Reducer:
         # Feedback-loop guard: the next ``geometry_changed`` matching this
         # value is dropped.
         self._expected_geometry: dict[WindowId, Geometry] = {}
+        # The source of the decision last applied to each window, so a
+        # window_changed does not re-apply the same one (docs/07 §Reactive
+        # evaluation).
+        self._applied_source: dict[WindowId, str] = {}
         self._topology_task: asyncio.Task[None] | None = None
 
         # ``docs/09-layouts-profiles.md`` §Apply semantics step 4: entries
@@ -161,6 +165,20 @@ class Reducer:
     ) -> None:
         self._windows[info.id] = info
         decision = self._decide(info, trigger)
+        if isinstance(decision, ApplyActionDecision):
+            # docs/07 §Reactive evaluation: a window_changed re-applies only
+            # when a different rule or layout now matches, so a tab switch
+            # does not pull back a window the user moved.
+            if (
+                trigger is TriggerEvent.CHANGED
+                and self._applied_source.get(info.id) == decision.source
+            ):
+                log.debug("same decision on change, not re-applied: %s", info.id)
+                return
+            if not self.paused:
+                self._applied_source[info.id] = decision.source
+        else:
+            self._applied_source.pop(info.id, None)
         await self._execute(info, compute_identity(info), decision)
 
     def _decide(self, info: WindowInfo, trigger: TriggerEvent) -> Decision:
@@ -202,6 +220,7 @@ class Reducer:
     def handle_window_closed(self, wid: WindowId) -> None:
         self._expected_geometry.pop(wid, None)
         self._windows.pop(wid, None)
+        self._applied_source.pop(wid, None)
 
     def handle_geometry_changed(
         self,
