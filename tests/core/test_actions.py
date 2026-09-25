@@ -75,12 +75,8 @@ def test_percent_geometry() -> None:
     )
     assert isinstance(a.geometry, PercentGeometry)
     # Distinct values per field, so a dropped or swapped field fails.
-    assert (a.geometry.x_pct, a.geometry.y_pct, a.geometry.w_pct, a.geometry.h_pct) == (
-        pytest.approx(0.1),
-        pytest.approx(0.2),
-        pytest.approx(0.6),
-        pytest.approx(0.7),
-    )
+    got = (a.geometry.x_pct, a.geometry.y_pct, a.geometry.w_pct, a.geometry.h_pct)
+    assert got == pytest.approx((0.1, 0.2, 0.6, 0.7))
 
 
 def test_percent_with_space_and_decimal() -> None:

@@ -26,10 +26,9 @@ import time
 import pytest
 
 from perch.backend.types import Geometry, WindowInfo, WindowState, WindowType
-from perch.core import engine
 from perch.core.actions import ApplyAction, PercentGeometry
 from perch.core.engine import ApplyActionDecision, TriggerEvent, evaluate
-from perch.core.matching import MatchPattern
+from perch.core.matching import MatchPattern, match_window
 from perch.core.rules import Rule
 
 
@@ -135,13 +134,13 @@ def test_evaluate_short_circuits_on_builtin_exclusion(
     rules = _make_rules(500)
     kw = _default_kwargs(rules)
     matched: list[object] = []
-    real_match = engine.match_window
+    real_match = match_window
 
     def _counting_match(pattern: MatchPattern, window: WindowInfo) -> bool:
         matched.append(window)
         return real_match(pattern, window)
 
-    monkeypatch.setattr(engine, "match_window", _counting_match)
+    monkeypatch.setattr("perch.core.engine.match_window", _counting_match)
 
     docks = [
         WindowInfo(

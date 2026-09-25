@@ -150,14 +150,11 @@ def test_is_flatpak_follows_the_sandbox_marker(
 ) -> None:
     """Both answers, driven by the marker file, so neither host nor sandbox
     decides which branch is tested."""
-    from perch import paths
-
     marker = tmp_path / "flatpak-info"
     if sandboxed:
         marker.write_text("[Application]\n", encoding="utf-8")
-    real_path = paths.Path
     monkeypatch.setattr(
-        paths, "Path", lambda p: marker if p == "/.flatpak-info" else real_path(p)
+        "perch.paths.Path", lambda p: marker if p == "/.flatpak-info" else Path(p)
     )
     assert autostart.is_flatpak() is sandboxed
 
