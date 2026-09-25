@@ -77,9 +77,9 @@ When two rules would match:
 
 When an action's `geometry` or `snap` is applied, Perch resolves it to pixel coordinates:
 
-1. Named preset (`"left-half"`, `"top-right-quarter"`, `"maximize"`, `"center"`, or a user-defined preset) → fixed `x%/y%/w%/h%` relative to the target monitor's work area.
+1. Named preset → its stored geometry. The built-ins (`"left-half"`, `"top-right-quarter"`, `"maximize"`, `"center"`, …) are fixed `x%/y%/w%/h%` of the target monitor's work area, except `"center-in-place"`, which centres the window there at its current size. A user-defined preset under `[snaps]` is its own absolute or percent geometry, resolved by the rules below.
 2. Percent values → multiplied by the target monitor's work area, rounded to ints, then clamped to it. Percentages are not range-checked when the config is parsed, so `"-50%"` is caught here.
-3. Absolute pixel values → used as-is, clamped to the target monitor's work area. Neither form can push a window off-screen.
+3. Absolute pixel values → offsets from the top-left of the target monitor's work area, then clamped to it. So `x = 120` on `HDMI-1` lands 120 px in from HDMI-1's usable left edge, wherever HDMI-1 sits on the desktop. Neither form can push a window off-screen.
 4. `monitor = "primary"` → the connected output flagged primary; `"current"` → the output the window is on; an integer index → that position (0-based) in the active profile's output list.
 5. `monitor` as an output name (`"DP-1"`) → resolved directly; if that output is currently disconnected, the decision is dropped with a warning (not reassigned to primary — that would silently do the wrong thing). Evaluation does not fall through to a later rule, the layout or last-seen.
 
@@ -164,11 +164,11 @@ Validation errors are shown in the config dialog's problem inspector; Perch does
 ## Implementation pointers
 
 - [`src/perch/core/matching.py`](../src/perch/core/matching.py) — `MatchPattern` + `parse_match` + `match_window`.
-- [`src/perch/core/actions.py`](../src/perch/core/actions.py) — `ApplyAction`, the `GeometryExpr` ADT (`AbsoluteGeometry` / `PercentGeometry` / `PresetGeometry`), `BUILTIN_PRESETS`, `parse_action`. Geometry resolution to pixels lives in [`src/perch/core/resolver.py`](../src/perch/core/resolver.py) (M2.d).
+- [`src/perch/core/actions.py`](../src/perch/core/actions.py) — `ApplyAction`, the `GeometryExpr` ADT (`AbsoluteGeometry` / `PercentGeometry` / `PresetGeometry` / `CenterKeepSize`), `BUILTIN_PRESETS`, `parse_action`. Geometry resolution to pixels lives in [`src/perch/core/resolver.py`](../src/perch/core/resolver.py) (M2.d).
 - [`src/perch/core/rules.py`](../src/perch/core/rules.py) — `Rule`, `Context`, `parse_rules`.
 - [`src/perch/core/layouts.py`](../src/perch/core/layouts.py) — `Layout`, `LayoutEntry`, `parse_layouts`.
 - [`src/perch/core/exclusions.py`](../src/perch/core/exclusions.py) — `BUILTIN_EXCLUDED_TYPES`, `is_builtin_excluded`, `parse_user_exclusions`.
 - [`src/perch/core/engine.py`](../src/perch/core/engine.py) — `evaluate(...)`, `Decision` (`Ignore` / `RestoreLastSeen` / `ApplyActionDecision`), `TriggerEvent` enum.
-- [`src/perch/core/resolver.py`](../src/perch/core/resolver.py) — `resolve_action(action, window, outputs, snaps, profile_outputs)` turning an `ApplyAction` into a `ResolvedPlacement` (pixel `Geometry`, concrete `OutputName`, `DesktopIndex`, plus `unmaximize_first` flag). Geometry presets expand against the target monitor's work area; absolute pixels clamp inside it.
+- [`src/perch/core/resolver.py`](../src/perch/core/resolver.py) — `resolve_action(action, window, outputs, snaps, profile_outputs)` turning an `ApplyAction` into a `ResolvedPlacement` (pixel `Geometry`, concrete `OutputName`, `DesktopIndex`, plus `unmaximize_first` flag). Geometry presets expand against the target monitor's work area; absolute pixels offset from its top-left and clamp inside it.
 - [`src/perch/core/identity.py`](../src/perch/core/identity.py) — `compute_identity(window)` returning the base `app:<app_id>` key (with `app:<wm_class>` fallback). Extra identity segments (title / role / pid pins) are v1.x.
 - [`src/perch/core/reducer.py`](../src/perch/core/reducer.py) — the event reducer that subscribes to backend signals, runs the engine + resolver, executes decisions via the backend, and records geometry changes to `state.json`. Implements the docs/02 §Write cadence debounce and the §Feedback-loop prevention echo-drop described above.

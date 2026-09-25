@@ -118,7 +118,7 @@ default_layout = "coding"        # must name a layout declared above
 
 A geometry can be written three ways:
 
-1. **Absolute pixels** — `{ x = 120, y = 40, w = 1600, h = 900, monitor = "primary" }`
+1. **Absolute pixels** — `{ x = 120, y = 40, w = 1600, h = 900, monitor = "primary" }` — `x` and `y` count from the top-left of that monitor's work area, not of the whole desktop ([07-rules-engine.md](07-rules-engine.md) §Geometry resolution).
 2. **Percent of monitor work area** — `{ x = "25%", y = "0%", w = "50%", h = "100%", monitor = "primary" }`
 3. **Named preset** — `"maximize"`, `"center"`, `"left-half"`, `"top-right-quarter"`, or any user-defined preset under `[snaps]`.
 
