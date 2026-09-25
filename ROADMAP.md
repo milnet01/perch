@@ -1990,7 +1990,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 8, 9.
 
-- 📋 [PERC-0082] **Restore the process-wide state that tests change and leave behind.**
+- ✅ [PERC-0082] **Restore the process-wide state that tests change and leave behind.**
   Group D of docs/reviews/2026-09-25-review-tests.md, 3 findings:
   tests/test_logging_setup.py:16 (and test_instance.py:60 :103 via cli():
   the perch logger's handlers, level and propagate flag, plus the Qt
@@ -1999,6 +1999,16 @@ Goal: fewer first-run support tickets; the config is safe.
   tests/ui/test_status_bridge.py:151 (a logger level). Also check the
   lanes' possibly-wider notes: sdbus set_default_bus is never restored by
   the kwin conftest, and test_app_startup.py:85 leaves QApplication state.
+  Resolved (2026-09-25): the 3 findings fixed. tests/conftest.py gains an
+  autouse _restore_perch_logger (handlers, level, propagate; closes added
+  handlers) and no-ops perch.__main__.install_qt_bridge; red run: a probe
+  after test_logging_setup.py saw a non-propagating perch logger before,
+  clean after. test_theming.py gains an autouse _restore_theme resetting
+  theming._platform_style/_overridden and the app's style and palette;
+  red run: fusion_style then auto_with_dark_scheme failed before, passed
+  after. test_status_bridge.py restores the logger level and drops the
+  no-op patch. Not taken: the lanes' possibly-wider notes (sdbus default
+  bus, test_app_startup QApplication state) name no failing test.
   **Layman:** Some tests change shared settings and leave them changed, so later tests can pass or fail depending on order.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 6, 7, 9.

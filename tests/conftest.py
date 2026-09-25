@@ -6,6 +6,7 @@ Each test gets its own XDG tree under ``tmp_path`` so the real user's
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -36,3 +37,25 @@ def xdg_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     # Never let a test pick up DEBUG from the host environment.
     monkeypatch.delenv("PERCH_DEBUG", raising=False)
     yield tmp_path
+
+
+@pytest.fixture(autouse=True)
+def _restore_perch_logger(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Put the process-wide ``perch`` logger back after every test.
+
+    ``configure_logging`` (directly, or through ``cli()``) swaps its
+    handlers, raises its level and stops it propagating. Left in place,
+    that silences ``caplog`` for every later test and keeps an earlier
+    test's log file open. ``cli()`` also installs a process-wide Qt
+    message handler, which no test here asks about.
+    """
+    logger = logging.getLogger("perch")
+    handlers, level, propagate = list(logger.handlers), logger.level, logger.propagate
+    monkeypatch.setattr("perch.__main__.install_qt_bridge", lambda: None)
+    yield
+    for handler in logger.handlers:
+        if handler not in handlers:
+            handler.close()
+    logger.handlers[:] = handlers
+    logger.setLevel(level)
+    logger.propagate = propagate

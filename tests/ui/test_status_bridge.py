@@ -127,14 +127,12 @@ def test_backend_error_shows_tray_notification(qtbot: QtBot) -> None:
 def test_backend_error_without_tray_still_logs(qtbot: QtBot) -> None:
     """A backend_error without a tray still hits the module logger.
 
-    Captured via a monkey-patched logger rather than pytest's ``caplog``:
-    under the full test suite ``caplog``'s root-handler attachment races
-    with the ``perch.logging_setup`` reconfiguration that other tests
-    exercise. Replacing the module logger directly is robust against that.
+    Captured by a handler on the module's own logger rather than pytest's
+    ``caplog``, which listens on the root logger and so hears nothing once
+    ``configure_logging`` has stopped ``perch`` propagating.
     """
     del qtbot
     import logging as _logging
-    from unittest.mock import patch
 
     backend = MockBackend()
     controller = TrayController(_empty_state())
@@ -148,13 +146,14 @@ def test_backend_error_without_tray_still_logs(qtbot: QtBot) -> None:
     handler = _Capture(level=_logging.WARNING)
     target_logger = _logging.getLogger("perch.ui.status")
     target_logger.addHandler(handler)
+    level = target_logger.level
     target_logger.setLevel(_logging.WARNING)
     try:
-        with patch("perch.ui.status.log", target_logger):
-            wire_backend_status(backend, controller, tray=None)
-            backend.backend_error.emit("ipc timeout")
+        wire_backend_status(backend, controller, tray=None)
+        backend.backend_error.emit("ipc timeout")
     finally:
         target_logger.removeHandler(handler)
+        target_logger.setLevel(level)
 
     assert any("ipc timeout" in rec.getMessage() for rec in captured)
 

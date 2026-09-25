@@ -7,6 +7,7 @@ style-hints color-scheme so tests don't depend on the host desktop.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 import pytest
@@ -14,6 +15,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication, QPalette
 from PySide6.QtWidgets import QApplication
 
+from perch.ui import theming
 from perch.ui.theming import apply_theme, resolve_effective_theme
 
 if TYPE_CHECKING:
@@ -24,6 +26,23 @@ def _app() -> QApplication:
     app = QApplication.instance()
     assert isinstance(app, QApplication)
     return app
+
+
+@pytest.fixture(autouse=True)
+def _restore_theme(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Start each test from the platform theme and leave it there.
+
+    ``apply_theme`` keeps module state (``_platform_style``,
+    ``_overridden``) and changes the session QApplication's style and
+    palette, so without this each test inherits the last one's theme.
+    """
+    app = _app()
+    style, palette = app.style().name(), QPalette(app.palette())
+    monkeypatch.setattr(theming, "_platform_style", None)
+    monkeypatch.setattr(theming, "_overridden", False)
+    yield
+    app.setStyle(style)
+    app.setPalette(palette)
 
 
 # ── resolve_effective_theme ────────────────────────────────────────────
