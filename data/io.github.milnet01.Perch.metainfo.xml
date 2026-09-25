@@ -91,15 +91,30 @@
   <screenshots>
     <screenshot type="default">
       <caption>The tray menu showing active profile and snap presets</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.1.0/docs/screenshots/tray-menu.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.2.0/docs/screenshots/tray-menu.png</image>
     </screenshot>
     <screenshot>
       <caption>The rules editor matching windows by class and title</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.1.0/docs/screenshots/rules-editor.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.2.0/docs/screenshots/rules-editor.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release version="1.2.0" date="2026-09-25" type="stable">
+      <url type="details">https://github.com/milnet01/perch/blob/v1.2.0/CHANGELOG.md#120---2026-09-25</url>
+      <description>
+        <p>Settings that apply at once, a way into settings without the tray, and a broad round of reliability and security fixes.</p>
+        <ul>
+          <li><code>perch --settings</code> opens the settings window even when the tray icon is hidden, such as on GNOME without the AppIndicator extension.</li>
+          <li>Saving your settings takes effect immediately, with no restart. Windows already placed stay where they are.</li>
+          <li>On KDE, Perch now hears when you move or resize a window, and reconnects after KWin restarts.</li>
+          <li>Starting Perch twice no longer runs two copies that fight over your windows.</li>
+          <li>Perch forgets apps you have not used for 90 days.</li>
+          <li>Many fixes to how config.toml and state.json are read, saved and recovered, and to window placement on X11, KDE, GNOME and Hyprland.</li>
+          <li>Security hardening: a badly written title rule can no longer freeze Perch, and config and state directories are created owner-only.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-08-28" type="stable">
       <url type="details">https://github.com/milnet01/perch/blob/v1.1.0/CHANGELOG.md#110--2026-08-28</url>
       <description>
