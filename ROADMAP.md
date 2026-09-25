@@ -835,6 +835,11 @@ Goal: fewer first-run support tickets; the config is safe.
   Split (2026-09-25): the two shipped halves moved to PERC-0077 so the
   1.2.0 changelog cites a shipped item. This item now covers the Windows
   submenu and the Rules page only.
+  Progress (2026-09-25): the Rules table truncates its Name, Match and
+  Apply columns while Context stretches (seen in
+  docs/screenshots/settings-rules.png at 1280px). Size those columns to
+  their contents when the page is rebuilt, then re-take the screenshot and
+  send it to the ants-projects-hub-website session.
   **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
@@ -1566,7 +1571,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: doc-fix.
   Source: review-code 2026-08-31 (lane tooling); check-code 2026-08-31.
 
-- 📋 [PERC-0063] **Review the test suite, which this audit deliberately did not read.**
+- ✅ [PERC-0063] **Review the test suite, which this audit deliberately did not read.**
   review-code bans its lanes from reading the test tree, because reading
   the tests imports the author's model of what the code should do. So the
   2026-08-31 sweep covered src/ and the tooling and says nothing about
@@ -1577,6 +1582,12 @@ Goal: fewer first-run support tickets; the config is safe.
   fixtures, and the KWin compliance tests skip wholesale on any host
   without a live KWin -- 20 skips in the local run -- so what they cover is
   unestablished on the machine that gates the pushes.
+  Resolved (2026-09-25): review-tests ran over all 84 test files in nine
+  cold lanes; baseline 962 passed, 0 failed, 16 skipped. 70 findings,
+  recorded verbatim in docs/reviews/2026-09-25-review-tests.md. Group A
+  (host isolation) fixed as PERC-0078; the rest queued by subject as
+  PERC-0079 to PERC-0083. The KWin compliance tests did not skip: on this
+  Plasma desktop they ran against the live session, which PERC-0078 ends.
   **Layman:** The tests have not themselves been checked for whether they test anything.
   Kind: test.
   Source: review-code 2026-08-31 (coverage gap, stated in the run's report).
@@ -1923,6 +1934,87 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** You can open Perch's settings from a terminal, and the tray icon shows when no supported desktop was found.
   Kind: implement.
   Source: in-session-2026-09-25, split out of PERC-0043.
+
+- ✅ [PERC-0078] **Keep the test suite off the developer's desktop session.**
+  Group A of docs/reviews/2026-09-25-review-tests.md, six findings, all
+  fixed. tests/backend/conftest.py: kwin never joins the host-probed
+  compliance matrix (host_backends, test_kwin_never_joins_the_host_matrix;
+  verified: collected [kwin] x12 before, none after). The KWin unit tests
+  pin PERCH_HOTKEY_PROVIDER=mock module-wide and the ScriptReady-timeout
+  test stubs export (red run: those four failed with the session bus
+  pointed at nothing). test_autostart's portal-failure test injects a
+  fake subscriber and asserts the portal call was reached. openbox runs
+  with a tmp HOME. CI and local_CI.sh now set DBUS_SESSION_BUS_ADDRESS to
+  a dead path; docs/testing-standards.md states the rule.
+  **Layman:** Running Perch's tests no longer changes anything on the computer they run on.
+  Kind: test.
+  Source: review-tests 2026-09-25 (PERC-0063), lanes 1, 2, 3, 6.
+
+- 📋 [PERC-0079] **Tighten the backend tests that would pass with the feature broken.**
+  Group B1 of docs/reviews/2026-09-25-review-tests.md, 13 dim-1 findings,
+  each with its quotation and fix there. tests/backend/test_compliance.py
+  :99 (and :111 :123 :183), :69; mutter/test_mutter_decoders.py:137;
+  kwin/test_bundled_script.py:157 and :97; kwin/test_install.py:94;
+  kwin/test_live_kwin.py:91; kwin/test_backend.py:204 (and :165);
+  x11/test_geometry.py:78; x11/test_identity.py:282;
+  x11/test_outputs.py:87 and :45; x11/test_backend_skeleton.py:324.
+  Queued, not fixed with PERC-0078, because it is a different subject:
+  assertion strength rather than host isolation.
+  **Layman:** Some backend tests would still pass if the thing they check stopped working.
+  Kind: test.
+  Source: review-tests 2026-09-25 (PERC-0063), lanes 1, 2, 3.
+
+- 📋 [PERC-0080] **Tighten the core, config and app tests that would pass with the feature broken.**
+  Group B2 of docs/reviews/2026-09-25-review-tests.md, 24 dim-1 findings.
+  core: test_engine_performance.py:157, test_exclusions.py:71 and :55,
+  test_actions.py:77, test_layouts.py:57, test_reducer.py:341 :388 :517
+  :765 :922 :1016, test_resolver.py:137 :357 :299, test_state_store.py:93
+  :172 :151. app/config: test_autostart.py:144 and :61, test_cli.py:60
+  and :49, test_config_atomic_write.py:16, test_instance.py:102,
+  test_logging_setup.py:29. Two HIGH: test_reducer.py:341 (second-
+  precision last_seen hides a missed echo drop) and :388 (no assertion).
+  **Layman:** Some tests of Perch's core logic would still pass if the thing they check stopped working.
+  Kind: test.
+  Source: review-tests 2026-09-25 (PERC-0063), lanes 4, 5, 6, 7.
+
+- 📋 [PERC-0081] **Make the settings-window tests drive the real handlers instead of re-creating them.**
+  Group C of docs/reviews/2026-09-25-review-tests.md, 17 findings.
+  tests/ui/test_import_export_pane.py:82 and :103 (both HIGH: _on_import
+  never runs); test_dialog.py:312 and :93; test_layouts_pane.py:151 :129
+  :114; test_config_edit.py:271 :297 :327 :267 :48;
+  test_tray_icon_states.py:139; test_onboarding.py:209;
+  test_profiles_pane.py:161 and :95; test_tray.py:404. Shape of the fix:
+  stub the modal (QFileDialog, QInputDialog, QMessageBox) and call the
+  page's own handler, then assert on disk or on the emitted intent.
+  **Layman:** Some tests of the settings window copy what a button does instead of pressing it, so the button's own bugs go unseen.
+  Kind: test.
+  Source: review-tests 2026-09-25 (PERC-0063), lanes 8, 9.
+
+- 📋 [PERC-0082] **Restore the process-wide state that tests change and leave behind.**
+  Group D of docs/reviews/2026-09-25-review-tests.md, 3 findings:
+  tests/test_logging_setup.py:16 (and test_instance.py:60 :103 via cli():
+  the perch logger's handlers, level and propagate flag, plus the Qt
+  message handler); tests/ui/test_theming.py:137 (theming._platform_style
+  and _overridden, and the session QApplication's style and palette);
+  tests/ui/test_status_bridge.py:151 (a logger level). Also check the
+  lanes' possibly-wider notes: sdbus set_default_bus is never restored by
+  the kwin conftest, and test_app_startup.py:85 leaves QApplication state.
+  **Layman:** Some tests change shared settings and leave them changed, so later tests can pass or fail depending on order.
+  Kind: test.
+  Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 6, 7, 9.
+
+- 📋 [PERC-0083] **Make the live-compositor tests wait on real conditions and clean up on failure.**
+  Group E of docs/reviews/2026-09-25-review-tests.md, 7 findings.
+  tests/backend/x11/test_live_openbox.py:124 :166 :171 (HIGH: fixed
+  0.5 s waits via _pump_until(lambda: False)), :89 (stop() not in
+  finally), :109 (hard-coded PATH vs the which() skip gate);
+  tests/backend/kwin/conftest.py:54 (blocking pipe read ignores its
+  deadline); kwin/test_bus_name.py:21 (skip gate needs kwin_wayland it
+  does not use); tests/test_instance.py:72 (socket path length) and :101
+  (can hang: perch.app.main not stubbed).
+  **Layman:** Some tests that start a real window manager wait a fixed time instead of for the thing to happen, so they can fail on a busy machine.
+  Kind: test.
+  Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 3, 7.
 
 ## v1.2 — Smarts
 

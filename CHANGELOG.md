@@ -8,6 +8,15 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Fixed
+
+- **Running Perch's tests no longer touches the developer's desktop session** (PERC-0078)
+  On a Plasma Wayland desktop the backend compliance tests loaded Perch's
+  script into the developer's own KWin, and a few KWin and autostart unit
+  tests used the real session bus. They now stay off it, and CI and
+  local_CI.sh run the suite with the session bus pointed at nothing, so a
+  new one fails. The live X11 tests give openbox a home of its own.
+
 ## [1.2.0] — 2026-09-25
 
 ### Added

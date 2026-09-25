@@ -223,3 +223,19 @@ async def test_set_state_maximized_may_raise_unsupported(
     backend._fail_state(WindowState.MAXIMIZED)
     with pytest.raises(BackendUnsupported):
         await backend.set_state("w1", WindowState.MAXIMIZED)
+
+
+# ── The host matrix never reaches the user's desktop ──────────────────────
+def test_kwin_never_joins_the_host_matrix() -> None:
+    """On a Plasma Wayland desktop the KWin probe is true, and the
+    compliance suite then loaded Perch's script into the user's own KWin
+    on every local test run, the push gate included."""
+    from tests.backend.conftest import host_backends
+
+    class _Available(MockBackend):
+        @classmethod
+        def is_available(cls) -> bool:
+            return True
+
+    got = host_backends({"mock": MockBackend, "kwin": _Available, "x11": _Available})
+    assert sorted(got) == ["mock", "x11"]

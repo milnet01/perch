@@ -245,24 +245,32 @@ def test_portal_set_autostart_disabled_omits_commandline() -> None:
 
 
 def test_portal_swallows_exceptions() -> None:
+    calls: list[str] = []
+
     class _ExplodingPortal:
         async def request_background(
             self, parent_window: str, options: dict[str, Any]
         ) -> str:
+            calls.append("request_background")
             raise RuntimeError("portal unreachable")
 
     # A failing portal call must not crash autostart.sync — the user's
-    # config save should still succeed.
+    # config save should still succeed. The fake subscriber keeps the
+    # call off the real session bus, so the portal call's own exception
+    # is the only one on the path.
+    fake = _FakePortal()
     assert (
         asyncio.run(
             autostart.portal_set_autostart(
                 True,
                 factory=lambda: _ExplodingPortal(),
-                sender=_FakePortal().sender,
+                sender=fake.sender,
+                subscriber=fake.subscribe,
             )
         )
         is False
     )
+    assert calls == ["request_background"]
 
 
 def test_portal_reads_the_response_not_the_request_path() -> None:

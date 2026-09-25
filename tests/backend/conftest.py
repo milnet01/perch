@@ -10,7 +10,10 @@ exercising each backend end-to-end in CI hosts that do.
 The full matrix:
 
 * ``mock`` — always available; the compliance anchor.
-* ``kwin`` — only on KDE / Plasma Wayland sessions.
+* ``kwin`` — never. Its probe is true on any Plasma Wayland desktop, and
+  ``start()`` then loads a script into the user's own compositor on the
+  user's own session bus. ``tests/backend/kwin/test_live_kwin.py`` runs
+  the live contract against a private ``kwin_wayland --virtual`` instead.
 * ``x11`` — only when ``$DISPLAY`` is set (live X11 or XWayland).
 * ``sway`` / ``hyprland`` / ``mutter`` — M6 stubs; gated on their
   respective environment variables.
@@ -68,12 +71,28 @@ def _all_backends() -> dict[str, type[WindowBackend]]:
 
 _ALL_BACKENDS = _all_backends()
 
-#: Backends that will be exercised by the compliance suite on this host.
-#: Mock is always in; real backends are included only if their probe
-#: reports ``True`` (``$DISPLAY`` / ``$SWAYSOCK`` / … present).
-BACKEND_CLASSES: dict[str, type[WindowBackend]] = {
-    name: cls for name, cls in _ALL_BACKENDS.items() if cls.is_available()
-}
+#: Backends whose probe reads the user's live desktop session and whose
+#: ``start()`` changes it. They never join the host-probed matrix.
+_NEVER_ON_HOST = frozenset({"kwin"})
+
+
+def host_backends(
+    classes: dict[str, type[WindowBackend]],
+) -> dict[str, type[WindowBackend]]:
+    """The backends the compliance suite exercises on this host.
+
+    Mock is always in; a real backend joins only if its probe reports
+    ``True`` (``$DISPLAY`` / ``$SWAYSOCK`` / … present) and it is not in
+    ``_NEVER_ON_HOST``.
+    """
+    return {
+        name: cls
+        for name, cls in classes.items()
+        if name not in _NEVER_ON_HOST and cls.is_available()
+    }
+
+
+BACKEND_CLASSES: dict[str, type[WindowBackend]] = host_backends(_ALL_BACKENDS)
 
 
 @pytest.fixture(autouse=True)

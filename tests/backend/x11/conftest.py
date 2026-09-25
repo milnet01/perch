@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
@@ -96,12 +97,25 @@ def _wait_for_wm(display_name: str, timeout: float = 10.0) -> None:
 
 
 @pytest.fixture
-def openbox_display() -> Iterator[str]:
-    """A display name like ``":1"`` with Xvfb + openbox running, WM ready."""
+def openbox_display(tmp_path: Path) -> Iterator[str]:
+    """A display name like ``":1"`` with Xvfb + openbox running, WM ready.
+
+    openbox gets a home of its own, so it reads the system default rc.xml
+    rather than the developer's, and writes nothing into their ~/.cache.
+    """
     if not _have_tools():
         pytest.skip("Xvfb or openbox not installed; live X11 tests skipped")
     xvfb, display = _start_xvfb()
-    env = {**os.environ, "DISPLAY": display}
+    home = tmp_path / "openbox-home"
+    home.mkdir()
+    env = {
+        **os.environ,
+        "DISPLAY": display,
+        "HOME": str(home),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+        "XDG_CACHE_HOME": str(home / ".cache"),
+        "XDG_DATA_HOME": str(home / ".local" / "share"),
+    }
     ob = subprocess.Popen(["openbox", "--sm-disable"], env=env)
     try:
         _wait_for_wm(display)

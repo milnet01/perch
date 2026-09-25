@@ -49,6 +49,15 @@ def _no_live_kwin_watch(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _mock_hotkey_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep choose_provider() off the real kglobalaccel and portal.
+
+    A test passing ``hotkey_provider=`` explicitly still wins.
+    """
+    monkeypatch.setenv("PERCH_HOTKEY_PROVIDER", "mock")
+
+
 @pytest.fixture
 def wayland_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make ``_probe_session_env`` see a plausible Plasma Wayland session."""
@@ -128,6 +137,23 @@ def _ready_service(
 
 
 @pytest.fixture
+def _unready_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Like ``_ready_service``, but ScriptReady never fires.
+
+    ``export`` is still stubbed, so the test waits on ScriptReady rather
+    than exporting onto the real session bus.
+    """
+    original = PerchKWin1
+
+    def _factory(sink: object) -> PerchKWin1:
+        svc = original(cast(Any, sink))
+        svc.export = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        return svc
+
+    monkeypatch.setattr("perch.backend.kwin.backend.PerchKWin1", _factory)
+
+
+@pytest.fixture
 def _mock_run_script(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     m = AsyncMock(return_value=(0, MagicMock()))
     monkeypatch.setattr("perch.backend.kwin.backend.install_and_run_script", m)
@@ -170,6 +196,7 @@ async def test_start_raises_backend_unavailable_if_script_never_ready(
     _bus_setup: AsyncMock,
     _scripting: MagicMock,
     _installer: Any,
+    _unready_service: None,
     monkeypatch: pytest.MonkeyPatch,
     _mock_run_script: AsyncMock,
     _mock_unload_script: AsyncMock,
@@ -246,10 +273,6 @@ def started_backend(
     _mock_unload_script: AsyncMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Any:
-    # Route choose_provider() through MockHotkeyProvider unless the caller
-    # supplies a hotkey_provider explicitly.
-    monkeypatch.setenv("PERCH_HOTKEY_PROVIDER", "mock")
-
     async def _build(**overrides: Any) -> KWinBackend:
         b = KWinBackend(
             bus_setup=_bus_setup,

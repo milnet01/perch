@@ -64,8 +64,14 @@ tests/
 `tests/backend/test_compliance.py` is the contract test every `WindowBackend`
 must pass. `tests/backend/conftest.py` builds `BACKEND_CLASSES` by lazily
 importing each backend and filtering to those whose `is_available()` env-probe
-returns `True` on the current host — `mock` is always in; `kwin` / `x11` /
-`sway` / `hyprland` / `mutter` join only when their transport is detectable. The
+returns `True` on the current host — `mock` is always in; `x11` / `sway` /
+`hyprland` / `mutter` join only when their transport is detectable. `kwin`
+never joins: its probe is true on any Plasma Wayland desktop, and `start()`
+would load Perch's script into the developer's own KWin. The live KWin
+contract runs against a private `kwin_wayland --virtual` under the `kwin`
+marker instead. No test outside the live markers may reach the developer's
+session bus: the suite must pass with `DBUS_SESSION_BUS_ADDRESS` pointed at
+nothing. The
 `backend` fixture parametrises across that set, so one suite exercises the whole
 matrix. Tests that need a synthetically seeded window (`_spawn_window`) guard
 with `isinstance(backend, MockBackend)` and skip against live backends — those

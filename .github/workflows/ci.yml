@@ -76,6 +76,10 @@ jobs:
       - name: pytest
         env:
           QT_QPA_PLATFORM: offscreen
+          # No test may reach a session bus (docs/testing-standards.md
+          # §Backend compliance suite); point it at nothing so one that
+          # tries fails here as it would on a developer's desktop.
+          DBUS_SESSION_BUS_ADDRESS: unix:path=/nonexistent/perch-test-bus
         run: pytest -ra
 
   docs:
