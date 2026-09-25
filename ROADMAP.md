@@ -2081,6 +2081,22 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-09-25, found tightening PERC-0080's test_reducer.py:517.
 
+- 📋 [PERC-0085] **Stop a matching rule re-applying on every title or state change.**
+  docs/07 §Reactive evaluation re-evaluates on window_changed (title, type,
+  state), and engine.evaluate returns the first matching rule's
+  ApplyActionDecision on any trigger; reducer.handle_window_changed
+  re-runs handle_window_opened(trigger=CHANGED). So a rule matching
+  Firefox re-applies on each tab switch (a title change), pulling a
+  window the user dragged back into place. docs/07 §Feedback-loop
+  prevention promises the opposite ("Perch does not forcibly pull it
+  back"). Direction to settle before the fix: on CHANGED, apply only when
+  the decision's source differs from the one last applied to that window
+  (a title change that makes a different rule match still moves it).
+  Needs a failing test first: drag, change title, assert no set_geometry.
+  **Layman:** If you move a window that has a rule, switching tabs in it can snap it back to where the rule put it.
+  Kind: fix.
+  Source: review-contract 2026-09-25 on docs/07, loop 3 (docs/reviews/2026-09-25-docs-07-review.md).
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.

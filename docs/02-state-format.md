@@ -127,7 +127,7 @@ The named preset `"maximize"` writes a work-area-filling rectangle as geometry �
 `monitor` accepts:
 
 - The output name as reported by the compositor (`DP-1`, `HDMI-1`, `eDP-1`).
-- The strings `primary` (compositor's primary output), `current` (output containing the active window), or `all`.
+- The strings `primary` (compositor's primary output) or `current` (the output the window being placed is on). `all` is rejected: nothing fans one action out across every output ([07-rules-engine.md](07-rules-engine.md) §Validation).
 - An integer index into the current profile's monitor list (`0`, `1`, …), stable across topology changes.
 
 ### Apply actions
