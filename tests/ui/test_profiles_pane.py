@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 import tomlkit
+from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 from perch.config.loader import load_or_create
 from perch.config.writer import load_document
@@ -93,7 +94,8 @@ def test_editing_name_marks_dirty_and_updates_sidebar(
     page = dialog._pages[SECTION_PROFILES]
     assert isinstance(page, ProfilesPage)
     page.name_edit.setText("Mobile")
-    page._on_name_edited()
+    # The signal the page connects, not the slot, so the wiring is tested.
+    page.name_edit.editingFinished.emit()
     assert page.is_dirty()
     assert page.profiles_list.item(0).text() == "Mobile"
 
@@ -108,7 +110,7 @@ def test_editing_topology_commits_to_toml(
     assert isinstance(page, ProfilesPage)
 
     page.topology_edit.setText("HDMI-1:2560x1440@0,0")
-    page._on_topology_edited()
+    page.topology_edit.editingFinished.emit()
     page.commit()
 
     out = tomlkit.dumps(dialog._state.document)
@@ -150,7 +152,7 @@ def test_add_override_persists_on_commit(
 
 
 def test_delete_profile_removes_from_toml(
-    qtbot: QtBot, tmp_path: Path, xdg_env: Path
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dialog = _open_dialog(tmp_path, xdg_env, SIMPLE)
     qtbot.addWidget(dialog)
@@ -158,11 +160,13 @@ def test_delete_profile_removes_from_toml(
     page = dialog._pages[SECTION_PROFILES]
     assert isinstance(page, ProfilesPage)
 
-    # Simulate delete bypassing the confirmation dialog.
-    page._deleted_originals.append(0)
-    del page._profiles[0]
-    del page._origin[0]
-    page._dirty = True
+    # Press the page's own Delete, answering its confirmation Yes.
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    page.profiles_list.setCurrentRow(0)
+    page.delete_profile_button.click()
+    assert page.is_dirty()
     page.commit()
 
     out = tomlkit.dumps(dialog._state.document)
@@ -170,7 +174,7 @@ def test_delete_profile_removes_from_toml(
 
 
 def test_add_profile_then_commit_appends_aot_entry(
-    qtbot: QtBot, tmp_path: Path, xdg_env: Path
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dialog = _open_dialog(tmp_path, xdg_env, SIMPLE)
     qtbot.addWidget(dialog)
@@ -178,15 +182,12 @@ def test_add_profile_then_commit_appends_aot_entry(
     page = dialog._pages[SECTION_PROFILES]
     assert isinstance(page, ProfilesPage)
 
-    page._profiles.append(
-        Profile(
-            name="Docked",
-            topology="DP-1:3840x2160@0,0",
-            default_layout="media",
-        )
-    )
-    page._origin.append(None)
-    page._dirty = True
+    # Press the page's own Add, then fill in the new profile's topology.
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("Docked", True))
+    page.add_profile_button.click()
+    assert page.profiles_list.currentItem().text() == "Docked"
+    page.topology_edit.setText("DP-1:3840x2160@0,0")
+    page.topology_edit.editingFinished.emit()
     page.commit()
 
     out = tomlkit.dumps(dialog._state.document)

@@ -42,6 +42,11 @@ def _load_fixture() -> tomlkit.toml_document.TOMLDocument:
     return tomlkit.parse(COMMENTED_CONFIG.read_text(encoding="utf-8"))
 
 
+def _coding_windows(doc: tomlkit.TOMLDocument) -> list[dict[str, Any]]:
+    """The ``coding`` layout's entries as plain dicts."""
+    return [w.unwrap() for w in doc["layouts"]["coding"]["windows"]]
+
+
 # ── apply_general ───────────────────────────────────────────────────────
 
 
@@ -56,6 +61,13 @@ def test_apply_general_flips_toggles_and_preserves_comments() -> None:
         onboarding_completed=False,
     )
     out = tomlkit.dumps(doc)
+    general = tomlkit.parse(out)["general"]
+    assert (
+        general["start_at_login"],
+        general["restore_on_open"],
+        general["notify_on_restore"],
+        general["theme"],
+    ) == (False, False, True, "light")
     assert "Top-of-file comment — must survive round-trip." in out
     assert "# Comment directly above [general]." in out
     assert "start_at_login    = false" in out or "start_at_login = false" in out
@@ -263,17 +275,18 @@ def test_set_layout_description_rewrites_in_place() -> None:
 def test_add_layout_entry_appends() -> None:
     doc = _load_fixture()
     add_layout_entry(doc, "coding", _entry("firefox", "right-half"))
-    out = tomlkit.dumps(doc)
-    assert "firefox" in out
-    assert "right-half" in out
+    windows = _coding_windows(doc)
+    assert len(windows) == 2
+    assert windows[-1]["match"] == {"app_id": "firefox"}
+    assert "right-half" in tomlkit.dumps(doc)
 
 
 def test_update_layout_entry_replaces_at_index() -> None:
     doc = _load_fixture()
     update_layout_entry(doc, "coding", 0, _entry("neovim", "left-half"))
-    out = tomlkit.dumps(doc)
-    assert "neovim" in out
-    assert "left-half" in out
+    # Replaced, not appended: the one entry is the new one.
+    assert [w["match"] for w in _coding_windows(doc)] == [{"app_id": "neovim"}]
+    assert "left-half" in tomlkit.dumps(doc)
 
 
 def test_update_layout_entry_rejects_out_of_range() -> None:
@@ -295,11 +308,8 @@ def test_reorder_layout_entries_respects_permutation() -> None:
     add_layout_entry(doc, "coding", _entry("firefox", "right-half"))
     add_layout_entry(doc, "coding", _entry("konsole", "bottom-half"))
     reorder_layout_entries(doc, "coding", [2, 0, 1])
-    out = tomlkit.dumps(doc)
-    # The first entry should now be konsole.
-    first_after = out.index("konsole")
-    first_code = out.index('"code"') if '"code"' in out else out.index("'code'")
-    assert first_after < first_code
+    order = [w["match"]["app_id"] for w in _coding_windows(doc)]
+    assert order == ["konsole", "code", "firefox"]
 
 
 def test_reorder_layout_entries_rejects_bad_permutation() -> None:
@@ -321,10 +331,11 @@ def test_layout_entry_with_percent_geometry_roundtrips() -> None:
             ),
         ),
     )
-    out = tomlkit.dumps(doc)
-    assert "Emacs" in out
-    assert "50%" in out
-    assert "primary" in out
+    # The fixture already says "primary" elsewhere; check the new entry.
+    added = _coding_windows(doc)[-1]
+    assert added["match"] == {"wm_class": "Emacs"}
+    assert added["geometry"]["w"] == "50%"
+    assert added["monitor"] == "primary"
 
 
 def test_layout_entry_with_absolute_geometry_roundtrips() -> None:

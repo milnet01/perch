@@ -401,7 +401,8 @@ def test_tray_middle_click_toggles_pause(qtbot: QtBot) -> None:
     tray = TrayIcon(controller)
 
     with qtbot.waitSignal(controller.intent, timeout=500) as blocker:
-        tray._on_activated(QSystemTrayIcon.ActivationReason.MiddleClick)
+        # The signal, not the slot, so a dropped connect() fails here.
+        tray.activated.emit(QSystemTrayIcon.ActivationReason.MiddleClick)
 
     assert isinstance(blocker.args[0], TogglePause)
     tray.hide()

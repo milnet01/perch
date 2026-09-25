@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QColor, QIcon, QPixmap
 
 from perch.ui import icons as icons_module
 from perch.ui.icons import TrayIcons, load_tray_icons
@@ -137,8 +137,17 @@ def test_fallback_resolves_from_the_xdg_data_dirs(
 
 
 def _distinct_icons() -> TrayIcons:
-    """Build a bundle whose three icons are distinct enough to ``is``-compare."""
-    return TrayIcons(normal=QIcon(), warning=QIcon(), error=QIcon())
+    """A bundle of three icons that tell apart by ``cacheKey()``.
+
+    Null icons all look alike, so a wrong swap would go unseen.
+    """
+
+    def _solid(colour: str) -> QIcon:
+        pixmap = QPixmap(16, 16)
+        pixmap.fill(QColor(colour))
+        return QIcon(pixmap)
+
+    return TrayIcons(normal=_solid("green"), warning=_solid("orange"), error=_solid("red"))
 
 
 def test_tray_icon_starts_in_normal_state(qtbot: QtBot) -> None:
@@ -148,6 +157,7 @@ def test_tray_icon_starts_in_normal_state(qtbot: QtBot) -> None:
     tray = TrayIcon(controller, icons=icons)
     try:
         assert tray.toolTip() == controller.state.tooltip
+        assert tray.icon().cacheKey() == icons.normal.cacheKey()
     finally:
         tray.hide()
 
@@ -160,6 +170,7 @@ def test_tray_icon_swaps_to_warning_on_backend_degraded(qtbot: QtBot) -> None:
     try:
         controller.set_state(_state(backend_degraded=True))
         assert tray.toolTip() == "Perch — backend disconnected"
+        assert tray.icon().cacheKey() == icons.warning.cacheKey()
     finally:
         tray.hide()
 
@@ -172,6 +183,7 @@ def test_tray_icon_swaps_to_error_on_compositor_missing(qtbot: QtBot) -> None:
     try:
         controller.set_state(_state(compositor_missing=True))
         assert tray.toolTip() == "Perch — no compatible compositor detected"
+        assert tray.icon().cacheKey() == icons.error.cacheKey()
     finally:
         tray.hide()
 

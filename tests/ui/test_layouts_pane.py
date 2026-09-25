@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pytest
 import tomlkit
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 from perch.config.loader import load_or_create
 from perch.config.writer import load_document
@@ -41,6 +44,18 @@ def _open_dialog(
         save_callback=fake_save,
         load_document_callback=load_document,
     )
+
+
+def _saved(xdg_env: Path, dialog: ConfigDialog) -> str:
+    """Press OK and return what reached config.toml on disk."""
+    dialog._on_ok()
+    return (xdg_env / "config" / "perch" / "config.toml").read_text(encoding="utf-8")
+
+
+def _select(page: LayoutsPage, name: str) -> None:
+    items = page.layouts_list.findItems(name, Qt.MatchFlag.MatchExactly)
+    assert len(items) == 1
+    page.layouts_list.setCurrentItem(items[0])
 
 
 SIMPLE = """
@@ -111,14 +126,13 @@ def test_add_entry_then_commit_persists_to_toml(
     page._write_entries(entries)
     assert page.is_dirty()
 
-    page.commit()
-    saved_text = tomlkit.dumps(dialog._state.document)
+    saved_text = _saved(xdg_env, dialog)
     assert "firefox" in saved_text
     assert "left-half" in saved_text
 
 
 def test_delete_layout_removes_from_toml(
-    qtbot: QtBot, tmp_path: Path, xdg_env: Path
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dialog = _open_dialog(tmp_path, xdg_env, SIMPLE)
     qtbot.addWidget(dialog)
@@ -126,21 +140,21 @@ def test_delete_layout_removes_from_toml(
     page = dialog._pages[SECTION_LAYOUTS]
     assert isinstance(page, LayoutsPage)
 
-    # Delete "media" without the confirm-dialog blocking.
-    del page._layouts["media"]
-    # Drop the rename mapping for the deleted layout so commit doesn't
-    # try to re-add it as a "survivor".
-    del page._renames["media"]
-    page._dirty = True
-    page.commit()
+    # Press the page's own Delete, answering its confirmation Yes.
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    _select(page, "media")
+    page._on_delete_layout()
+    assert page.layouts_list.findItems("media", Qt.MatchFlag.MatchExactly) == []
 
-    saved = tomlkit.dumps(dialog._state.document)
+    saved = _saved(xdg_env, dialog)
     assert "[layouts.media]" not in saved
     assert "[layouts.coding]" in saved
 
 
 def test_rename_layout_preserves_entries(
-    qtbot: QtBot, tmp_path: Path, xdg_env: Path
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dialog = _open_dialog(tmp_path, xdg_env, SIMPLE)
     qtbot.addWidget(dialog)
@@ -148,23 +162,13 @@ def test_rename_layout_preserves_entries(
     page = dialog._pages[SECTION_LAYOUTS]
     assert isinstance(page, LayoutsPage)
 
-    # Simulate rename of "coding" → "dev".
-    from perch.core.layouts import Layout
+    # Press the page's own Rename, answering its prompt with "dev".
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("dev", True))
+    _select(page, "coding")
+    page._on_rename_layout()
+    assert page.layouts_list.findItems("dev", Qt.MatchFlag.MatchExactly) != []
 
-    rebuilt: dict[str, Layout] = {}
-    for name, lay in page._layouts.items():
-        if name == "coding":
-            rebuilt["dev"] = Layout(
-                name="dev", description=lay.description, windows=lay.windows,
-            )
-        else:
-            rebuilt[name] = lay
-    page._layouts = rebuilt
-    page._renames["coding"] = "dev"
-    page._dirty = True
-    page.commit()
-
-    saved = tomlkit.dumps(dialog._state.document)
+    saved = _saved(xdg_env, dialog)
     assert "[layouts.dev]" in saved
     assert "[layouts.coding]" not in saved
     assert "\"code\"" in saved or "'code'" in saved  # entry survived

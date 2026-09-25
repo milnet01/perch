@@ -1992,7 +1992,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 4, 5, 6, 7.
 
-- 📋 [PERC-0081] **Make the settings-window tests drive the real handlers instead of re-creating them.**
+- ✅ [PERC-0081] **Make the settings-window tests drive the real handlers instead of re-creating them.**
   Group C of docs/reviews/2026-09-25-review-tests.md, 17 findings.
   tests/ui/test_import_export_pane.py:82 and :103 (both HIGH: _on_import
   never runs); test_dialog.py:312 and :93; test_layouts_pane.py:151 :129
@@ -2001,6 +2001,16 @@ Goal: fewer first-run support tickets; the config is safe.
   test_profiles_pane.py:161 and :95; test_tray.py:404. Shape of the fix:
   stub the modal (QFileDialog, QInputDialog, QMessageBox) and call the
   page's own handler, then assert on disk or on the emitted intent.
+  Resolved (2026-09-25): all 17 fixed. The import, layout-rename,
+  layout-delete, profile-add and profile-delete tests now press the
+  page's own handler with only the modal stubbed (QFileDialog,
+  QInputDialog, QMessageBox); the Layouts tests save through OK and read
+  config.toml back from disk; name/topology edits and the tray middle
+  click emit the connected signal instead of calling the slot. The tray
+  icon tests use three distinct icons and compare cacheKey (mutation:
+  the warning state showing the normal icon now fails). The sidebar test
+  pins docs/08's eight labels in order; the failed-save test asserts the
+  error was shown and the document rolled back.
   **Layman:** Some tests of the settings window copy what a button does instead of pressing it, so the button's own bugs go unseen.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 8, 9.

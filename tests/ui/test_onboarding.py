@@ -206,12 +206,15 @@ def test_cancel_drops_the_checkbox_and_touches_no_system_setting(
     assert synced == []
 
 
+@pytest.mark.parametrize("accepted", [True, False])
 def test_show_config_dialog_only_on_finish(
-    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, accepted: bool
 ) -> None:
+    """The ticked box opens the settings on Finish (accepted) only."""
+
     def tick(self: SetupWizard) -> int:
         self.done_page.show_config.setChecked(True)
-        return 0  # rejected
+        return 1 if accepted else 0
 
     monkeypatch.setattr(autostart_module, "sync", lambda _enabled: None)
     monkeypatch.setattr(SetupWizard, "exec", tick)
@@ -229,7 +232,7 @@ def test_show_config_dialog_only_on_finish(
         load_document_callback=load_document,
         save_callback=save,
     )
-    assert outcome.show_config_dialog is False
+    assert outcome.show_config_dialog is accepted
 
 
 def test_a_failed_write_does_not_stop_perch_starting(

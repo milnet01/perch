@@ -174,20 +174,28 @@ def test_status_bridge_round_trip_restores_normal_tooltip(qtbot: QtBot) -> None:
 def test_tray_icon_swaps_to_warning_when_backend_disconnects(qtbot: QtBot) -> None:
     """End-to-end: real TrayIcon wired to a MockBackend flips to warning."""
     del qtbot
-    from PySide6.QtGui import QIcon
+    from PySide6.QtGui import QColor, QIcon, QPixmap
 
     from perch.ui.icons import TrayIcons
 
+    def _solid(colour: str) -> QIcon:
+        pixmap = QPixmap(16, 16)
+        pixmap.fill(QColor(colour))
+        return QIcon(pixmap)
+
     backend = MockBackend()
     controller = TrayController(_empty_state())
-    icons = TrayIcons(normal=QIcon(), warning=QIcon(), error=QIcon())
+    # Distinct icons: null ones all look alike, hiding a wrong swap.
+    icons = TrayIcons(normal=_solid("green"), warning=_solid("orange"), error=_solid("red"))
     tray = TrayIcon(controller, icons=icons)
     wire_backend_status(backend, controller, tray)
     try:
         backend.backend_disconnected.emit("dropped")
         assert tray.toolTip() == "Perch — backend disconnected"
+        assert tray.icon().cacheKey() == icons.warning.cacheKey()
         backend.backend_connected.emit()
         assert tray.toolTip() == controller.state.header
+        assert tray.icon().cacheKey() == icons.normal.cacheKey()
     finally:
         tray.hide()
 

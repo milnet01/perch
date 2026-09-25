@@ -80,58 +80,62 @@ def test_page_renders_initial_instruction(
 
 
 def test_import_rejects_invalid_toml(
-    qtbot: QtBot, tmp_path: Path, dialog: tuple[ConfigDialog, Path]
+    qtbot: QtBot,
+    tmp_path: Path,
+    dialog: tuple[ConfigDialog, Path],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
     dlg, _path = dialog
     qtbot.addWidget(dlg)
     page = _page(dlg)
 
     bad_source = tmp_path / "bad.toml"
     bad_source.write_text(BAD, encoding="utf-8")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", lambda *a, **k: (str(bad_source), "")
+    )
+    shown: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "critical", lambda _p, title, *a, **k: shown.append(title)
+    )
 
-    # Drive validation manually — the file dialog is bypassed.
-    from perch.config.loader import _load_and_validate
-    from perch.config.schema import SchemaError
+    page._on_import()
 
-    with pytest.raises(SchemaError):
-        _load_and_validate(bad_source)
-
-    # Page remains in initial state; nothing pending.
+    # Refused with the error shown, and nothing staged.
+    assert shown == ["Invalid TOML"]
     assert page._pending_import_path is None
+    assert page.confirm_import_button.isEnabled() is False
 
 
 def test_import_shows_diff_for_valid_change(
-    qtbot: QtBot, tmp_path: Path, dialog: tuple[ConfigDialog, Path]
+    qtbot: QtBot,
+    tmp_path: Path,
+    dialog: tuple[ConfigDialog, Path],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dlg, path = dialog
+    from PySide6.QtWidgets import QFileDialog
+
+    dlg, _path = dialog
     qtbot.addWidget(dlg)
     page = _page(dlg)
 
     replacement = tmp_path / "new.toml"
     replacement.write_text(REPLACEMENT, encoding="utf-8")
-
-    # Bypass the file picker — simulate its selection.
-    import difflib
-
-    candidate_text = replacement.read_text(encoding="utf-8")
-    current_text = path.read_text(encoding="utf-8")
-    diff = list(
-        difflib.unified_diff(
-            current_text.splitlines(keepends=True),
-            candidate_text.splitlines(keepends=True),
-            fromfile=str(path),
-            tofile=str(replacement),
-        )
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", lambda *a, **k: (str(replacement), "")
     )
-    assert diff, "expected a real diff between ORIGINAL and REPLACEMENT"
 
-    page.diff_view.setPlainText("".join(diff))
-    page._pending_import_path = replacement
-    page._pending_import_text = candidate_text
-    page.confirm_import_button.setEnabled(True)
-    page.cancel_import_button.setEnabled(True)
+    page._on_import()
 
+    diff = page.diff_view.toPlainText()
+    assert diff.startswith("---")
+    assert f"+++ {replacement}" in diff
+    assert page._pending_import_path == replacement
+    assert page._pending_import_text == REPLACEMENT
     assert page.confirm_import_button.isEnabled() is True
+    assert page.cancel_import_button.isEnabled() is True
 
 
 def test_confirm_import_replaces_config_atomically(

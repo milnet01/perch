@@ -22,7 +22,6 @@ from perch.ui.dialog import (
     SECTION_EXCLUSIONS,
     SECTION_GENERAL,
     SECTION_HOTKEYS,
-    SECTION_ORDER,
     SECTION_RULES,
     ConfigDialog,
     ExclusionsPage,
@@ -88,13 +87,18 @@ def test_sidebar_lists_every_documented_section(
     sidebar = dialog.findChild(type(dialog._sidebar))
     assert sidebar is not None
     texts = [sidebar.item(i).text() for i in range(sidebar.count())]
-    # Eight sections in the spec'd order (labels are translated, but
-    # under en_US the source strings pass through unchanged).
-    assert len(texts) == len(SECTION_ORDER)
-    assert "General" in texts
-    assert "Rules" in texts
-    assert "Exclusions" in texts
-    assert "Import / Export" in texts
+    # docs/08 §Sections, in order (labels are translated, but under en_US
+    # the source strings pass through unchanged).
+    assert texts == [
+        "General",
+        "Windows",
+        "Rules",
+        "Layouts",
+        "Profiles",
+        "Hotkeys",
+        "Exclusions",
+        "Import / Export",
+    ]
 
 
 def test_select_section_switches_active_page(
@@ -307,19 +311,25 @@ def test_save_failure_keeps_dialog_open_and_document_clean(
         load_document_callback=load_document,
     )
     qtbot.addWidget(dialog)
-    # Swallow the QMessageBox that would otherwise block.
+    # Record the QMessageBox that would otherwise block.
     from PySide6.QtWidgets import QMessageBox
-    monkeypatch.setattr(QMessageBox, "critical", lambda *a, **kw: None)
+    shown: list[object] = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda *a, **kw: shown.append(a))
 
     general = dialog._pages[SECTION_GENERAL]
     assert isinstance(general, GeneralPage)
     general.start_at_login.setChecked(False)
+    document = dialog._state.document
 
     # _on_ok calls _commit_and_save which must return False on failure;
     # the dialog must remain visible (accept() not called).
     dialog._on_ok()
     # Dialog still "open" (not accepted); result() == Rejected default.
     assert dialog.result() == 0
+    # The user was told, and the document was rolled back unchanged.
+    assert len(shown) == 1
+    assert dialog._state.document is document
+    assert document["general"]["start_at_login"] is True
 
 
 # ── External-edit guard ─────────────────────────────────────────────────
