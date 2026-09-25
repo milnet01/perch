@@ -77,12 +77,13 @@ def test_monitor_for_geometry_picks_largest_overlap_when_straddling() -> None:
 
 def test_monitor_for_geometry_tie_breaks_on_primary() -> None:
     outputs = [
-        _out("DP-1", 0, 0, 1920, 1080, primary=True),
-        _out("HDMI-1", 1920, 0, 1920, 1080),
+        _out("DP-1", 0, 0, 1920, 1080),
+        _out("HDMI-1", 1920, 0, 1920, 1080, primary=True),
     ]
-    # Rect straddles the seam exactly 50/50 → tie.
+    # Rect straddles the seam exactly 50/50 → tie. The primary is listed
+    # second, so first-seen order alone would pick DP-1.
     got = monitor_for_geometry(Geometry(1720, 0, 400, 1080), outputs)
-    assert got == "DP-1"
+    assert got == "HDMI-1"
 
 
 def test_monitor_for_geometry_returns_none_when_fully_offscreen() -> None:

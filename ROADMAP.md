@@ -1950,7 +1950,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 1, 2, 3, 6.
 
-- 📋 [PERC-0079] **Tighten the backend tests that would pass with the feature broken.**
+- ✅ [PERC-0079] **Tighten the backend tests that would pass with the feature broken.**
   Group B1 of docs/reviews/2026-09-25-review-tests.md, 13 dim-1 findings,
   each with its quotation and fix there. tests/backend/test_compliance.py
   :99 (and :111 :123 :183), :69; mutter/test_mutter_decoders.py:137;
@@ -1960,6 +1960,14 @@ Goal: fewer first-run support tickets; the config is safe.
   x11/test_outputs.py:87 and :45; x11/test_backend_skeleton.py:324.
   Queued, not fixed with PERC-0078, because it is a different subject:
   assertion strength rather than host isolation.
+  Resolved (2026-09-25): all 13 fixed. Mutation-checked: removing the X11
+  primary tie-break, the primary fallback, the disconnected-output skip,
+  a main.js case label, or the installer's up-to-date short-circuit each
+  left the old test green and turns the new one red. The wheel test now
+  reads pyproject's wheel target rather than the editable install (no
+  build backend in the dev env; nothing else inspects the wheel). The
+  compliance capability gates were unreachable and are gone; those tests
+  say they cover the mock only. Live x11/kwin tests: 12 passed.
   **Layman:** Some backend tests would still pass if the thing they check stopped working.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 1, 2, 3.

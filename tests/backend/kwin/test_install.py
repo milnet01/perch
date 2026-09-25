@@ -92,14 +92,19 @@ def test_ensure_installed_copies_tree_on_first_run(fake_target: Path) -> None:
 
 
 def test_ensure_installed_is_idempotent_when_version_matches(
-    fake_target: Path,
+    fake_target: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     first = ensure_installed()
-    mtime_before = first.stat().st_mtime_ns
+    # copy2 keeps the source's mtime, so an mtime check cannot see a
+    # re-copy. Count the copies instead.
+    copies: list[object] = []
+    monkeypatch.setattr(
+        "perch.backend.kwin.install.shutil.copy2",
+        lambda *args, **kwargs: copies.append(args),
+    )
     second = ensure_installed()
     assert second == first
-    # Second call should not have rewritten the file — same mtime.
-    assert first.stat().st_mtime_ns == mtime_before
+    assert copies == []
 
 
 def test_ensure_installed_replaces_a_stale_install(

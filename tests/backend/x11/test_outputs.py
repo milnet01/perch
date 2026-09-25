@@ -7,6 +7,8 @@ computation and work-area intersection — is what this module tests.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from perch.backend.types import Geometry, OutputInfo
 from perch.backend.x11.outputs import apply_workarea, refresh_mhz
 
@@ -41,8 +43,9 @@ def test_refresh_mhz_typical_1920x1080_60hz() -> None:
 
 def test_refresh_mhz_144hz_sample() -> None:
     got = refresh_mhz(dot_clock=533_250_000, h_total=2720, v_total=1481)
-    # ~132.4 Hz — exact number doesn't matter; just check it rounds sanely.
-    assert 130_000 <= got <= 135_000
+    # 533.25M * 1000 / (2720 * 1481) = 132374.6 → rounds to 132375 mHz.
+    # Whole-Hz truncation (132000) or flooring (132374) would fail.
+    assert got == 132375
 
 
 def test_refresh_mhz_zero_dotclock_returns_zero() -> None:
@@ -79,12 +82,19 @@ def test_apply_workarea_leaves_geometry_field_untouched() -> None:
 
 
 def test_apply_workarea_skips_disconnected_outputs() -> None:
+    # A stale work area that intersecting would change, so a dropped skip
+    # shows up as a different value.
+    stale = Geometry(7, 7, 7, 7)
     outputs = [
-        _out("DP-2", Geometry(0, 0, 0, 0), connected=False),
+        # A real size, so the zero-width skip does not also cover it.
+        replace(
+            _out("DP-2", Geometry(0, 0, 1920, 1080), connected=False),
+            work_area=stale,
+        ),
         _out("DP-1", Geometry(0, 0, 2560, 1440), primary=True),
     ]
     got = apply_workarea(outputs, Geometry(0, 40, 2560, 1400))
-    assert got[0].work_area == Geometry(0, 0, 0, 0)
+    assert got[0].work_area == stale
     assert got[0].is_connected is False
     assert got[1].work_area.h == 1400
 

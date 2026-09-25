@@ -277,7 +277,9 @@ def test_transient_parent_surfaces_as_wid_string() -> None:
 def test_offscreen_window_falls_back_to_primary_monitor() -> None:
     # Translate the window way off the right edge so it doesn't overlap anything.
     win = _FakeWindow(translate_to=(99999, 99999), geom=(100, 100))
-    got = read_window_info(_FakeDisplay(), _atoms(_FakeAtoms()), win, _OUTPUTS)
+    # The primary is listed second, so "first connected" would pick HDMI-1.
+    outputs = [_OUTPUTS[1], _OUTPUTS[0]]
+    got = read_window_info(_FakeDisplay(), _atoms(_FakeAtoms()), win, outputs)
     assert got is not None
     assert got.monitor == "DP-1"  # primary fallback
 

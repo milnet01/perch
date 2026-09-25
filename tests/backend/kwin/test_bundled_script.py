@@ -9,8 +9,10 @@ pins against.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -74,7 +76,10 @@ def test_main_js_declares_expected_outbound_methods() -> None:
         "CommandDone",
         "ScriptReady",
     ):
-        assert f'"{method}"' in main_js, f"script is missing outbound method: {method}"
+        # A call to it, not the name anywhere (a comment would pass).
+        assert re.search(rf'callDBus\(SVC, OBJ, IF, "{method}"', main_js), (
+            f"script is missing outbound method: {method}"
+        )
 
 
 def test_main_js_handles_every_inbound_op() -> None:
@@ -94,7 +99,10 @@ def test_main_js_handles_every_inbound_op() -> None:
         "queryCurrentDesktop",
         "queryDesktopCount",
     ):
-        assert f'"{op}"' in main_js, f"script dispatcher is missing op: {op}"
+        # A case label, not the string anywhere (a comment would pass).
+        assert re.search(rf'case\s+"{op}"\s*:', main_js), (
+            f"script dispatcher is missing op: {op}"
+        )
 
 
 def test_main_js_does_not_use_Qt_namespace() -> None:
@@ -154,14 +162,21 @@ def test_main_js_parses_with_node_when_available() -> None:
     assert result.returncode == 0, f"node --check failed:\n{result.stderr}"
 
 
-def test_bundled_script_shipped_in_wheel(tmp_path: Path) -> None:
-    """hatch sdist/wheel must include the JS tree.
+def test_wheel_config_ships_the_script_tree() -> None:
+    """The wheel must carry the JS tree, not only the Python.
 
-    Regression guard: if somebody rewrites ``pyproject.toml`` and forgets
-    the ``src/perch`` package-data include, the wheel will load the Python
-    but break at first script install. Cheap check: the file is reachable
-    from the installed ``perch.backend.kwin`` package, which is exactly
-    what :data:`BUNDLED_SCRIPT_DIR` does.
+    Regression guard for a ``pyproject.toml`` rewrite. The tests run from
+    an editable install, so ``BUNDLED_SCRIPT_DIR`` resolving proves nothing
+    about the wheel; this reads the wheel target's config instead. Hatch
+    ships every file under a listed package, so the script is in the wheel
+    as long as its package is listed whole and nothing excludes it.
     """
+    project = Path(__file__).resolve().parents[3]
+    config = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))
+    wheel = config["tool"]["hatch"]["build"]["targets"]["wheel"]
+    script = BUNDLED_SCRIPT_DIR.resolve().relative_to(project).as_posix()
+    assert any(script.startswith(pkg + "/") for pkg in wheel["packages"]), script
+    for key in ("exclude", "only-include"):
+        assert key not in wheel, f"wheel target sets {key!r}; recheck {script}"
     assert (BUNDLED_SCRIPT_DIR / "metadata.json").exists()
     assert (BUNDLED_SCRIPT_DIR / "contents" / "code" / "main.js").exists()

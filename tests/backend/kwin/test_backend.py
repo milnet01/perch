@@ -183,12 +183,24 @@ async def test_start_emits_backend_connected_and_loads_script(
         script_installer=_installer,
     )
     b.backend_connected.connect(lambda: connected.append(True))
+    order: list[str] = []
+    run_result = _mock_run_script.return_value
+
+    def _unload(*_a: object, **_k: object) -> bool:
+        order.append("unload")
+        return True
+
+    def _run(*_a: object, **_k: object) -> object:
+        order.append("run")
+        return run_result
+
+    _mock_unload_script.side_effect = _unload
+    _mock_run_script.side_effect = _run
     await b.start()
     assert connected == [True]
     _bus_setup.assert_awaited_once()
-    _mock_run_script.assert_awaited_once()
     # Defensive unload of a prior-session ghost before our load.
-    _mock_unload_script.assert_awaited_once()
+    assert order == ["unload", "run"]
 
 
 async def test_start_raises_backend_unavailable_if_script_never_ready(
@@ -245,6 +257,19 @@ async def test_stop_invalidates_polls_before_unloading(
     await b.start()
     assert len(_ready_service) == 1
     svc = _ready_service[0]
+    order: list[str] = []
+    real_invalidate = svc.invalidate_polls
+
+    def _invalidate() -> None:
+        order.append("invalidate")
+        real_invalidate()
+
+    def _unload(*_a: object, **_k: object) -> bool:
+        order.append("unload")
+        return True
+
+    svc.invalidate_polls = _invalidate  # type: ignore[method-assign]
+    _mock_unload_script.side_effect = _unload
     # A PollCommand in flight at stop time must wake up with the
     # invalidation reply rather than hanging.
     poll_task = asyncio.create_task(svc.PollCommand())
@@ -252,6 +277,7 @@ async def test_stop_invalidates_polls_before_unloading(
     await b.stop()
     reply = await asyncio.wait_for(poll_task, timeout=1.0)
     assert json.loads(reply) == {"nop": True, "reason": "invalidated"}
+    assert order == ["invalidate", "unload"]
 
 
 async def test_stop_on_never_started_backend_is_noop() -> None:

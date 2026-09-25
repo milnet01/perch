@@ -77,10 +77,9 @@ def test_start_connects_and_enumerates_outputs() -> None:
 def test_list_windows_is_empty_on_fresh_virtual_kwin() -> None:
     """A bare --virtual session has no managed windows yet.
 
-    Virtual KWin may have placeholder internal windows on some versions;
-    the contract is only that ``normalWindow`` is false for them, which
-    the JS filter enforces. We accept an empty or tiny list; reject an
-    obvious explosion.
+    Virtual KWin may have placeholder internal windows; ``normalWindow``
+    is false for them and the JS filter drops them, so a fresh session
+    lists none at all. A tolerance here would let the filter regress.
     """
 
     async def run() -> None:
@@ -88,7 +87,7 @@ def test_list_windows_is_empty_on_fresh_virtual_kwin() -> None:
         await b.start()
         try:
             wins = await b.list_windows()
-            assert len(wins) < 10
+            assert wins == []
         finally:
             await b.stop()
 

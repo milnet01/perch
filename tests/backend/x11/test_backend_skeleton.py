@@ -318,10 +318,14 @@ def test_close_window_sends_the_icccm_message_when_supported(
     win = MagicMock()
     backend._windows["w1"] = win
     monkeypatch.setattr(backend, "_supports_delete_protocol", lambda *_a: True)
+    message = object()
+    monkeypatch.setattr(
+        "perch.backend.x11.backend.build_close_message", lambda *_a: message
+    )
 
     asyncio.run(backend.close_window("w1"))
 
-    win.send_event.assert_called_once()
+    win.send_event.assert_called_once_with(message, event_mask=0, propagate=False)
     display.kill_client.assert_not_called()
 
 

@@ -134,8 +134,10 @@ def test_raise_for_error_unsupported() -> None:
 
 
 def test_raise_for_error_unmapped_kind_raises_backend_error() -> None:
-    with pytest.raises(BackendError):
+    with pytest.raises(BackendError) as excinfo:
         _raise_for_error({"ok": False, "error": "something_else", "message": "???"})
+    # The plain base class, not one of its subclasses.
+    assert type(excinfo.value) is BackendError
 
 
 def test_is_available_requires_gnome_desktop(monkeypatch: pytest.MonkeyPatch) -> None:
