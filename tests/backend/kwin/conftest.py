@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import select
 import shutil
 import signal
 import subprocess
@@ -23,6 +24,10 @@ import time
 from collections.abc import Iterator
 
 import pytest
+
+
+def _have_dbus_daemon() -> bool:
+    return shutil.which("dbus-daemon") is not None
 
 
 def _have_tools() -> bool:
@@ -47,17 +52,21 @@ def _start_dbus_daemon() -> tuple[subprocess.Popen[bytes], str]:
         )
     finally:
         os.close(wfd)
-    address = ""
+    # Wait on the pipe with select() so the deadline holds even while the
+    # daemon is up and silent; a blocking read would hang past it. End of
+    # file means the daemon exited, and there is nothing left to wait for.
+    raw = b""
     deadline = time.monotonic() + 10.0
-    with os.fdopen(rfd, "r") as r:
-        while time.monotonic() < deadline:
-            ch = r.read(1)
-            if not ch:
-                time.sleep(0.02)
-                continue
-            if ch == "\n":
+    with os.fdopen(rfd, "rb", buffering=0) as r:
+        while b"\n" not in raw:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not select.select([r], [], [], remaining)[0]:
                 break
-            address += ch
+            chunk = r.read(256)
+            if not chunk:
+                break
+            raw += chunk
+    address = raw.split(b"\n", 1)[0].decode().strip()
     if not address:
         proc.terminate()
         raise RuntimeError("dbus-daemon failed to publish an address")

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import shutil
+import tempfile
+from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -9,8 +13,6 @@ import pytest
 from perch import instance
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from pytestqt.qtbot import QtBot
 
 
@@ -64,12 +66,28 @@ def test_cli_refuses_to_start_a_second_copy(
 # ── PERC-0043: `perch --settings` reaches the running copy ──────────────────
 
 
+@pytest.fixture
+def short_runtime_dir(monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """A runtime dir with a short path.
+
+    A Unix socket path tops out near 108 bytes, and tmp_path under a long
+    TMPDIR or --basetemp is longer than that, so listen() would fail for
+    a reason that has nothing to do with Perch.
+    """
+    runtime = Path(tempfile.mkdtemp(prefix="perch-", dir="/tmp"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    try:
+        yield runtime
+    finally:
+        shutil.rmtree(runtime, ignore_errors=True)
+
+
 def test_a_settings_request_reaches_the_running_copy(
-    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    qtbot: QtBot, short_runtime_dir: Path
 ) -> None:
-    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    del short_runtime_dir
     channel = instance.InstanceChannel()
-    assert channel.listen()
+    assert channel.listen(), channel.error_string()
     got: list[bool] = []
     channel.settings_requested.connect(lambda: got.append(True))
     assert instance.request_settings()
@@ -98,7 +116,20 @@ def test_cli_settings_hands_off_to_the_running_copy(
     del qapp, xdg_env
     from perch import __main__ as entry
 
+    requests: list[bool] = []
+
+    def _request() -> bool:
+        requests.append(True)
+        return True
+
+    def _must_not_run(**_kwargs: object) -> None:
+        raise AssertionError("a second copy went on to start the app")
+
     monkeypatch.setattr(instance, "acquire_instance_lock", lambda: None)
-    monkeypatch.setattr(instance, "request_settings", lambda: True)
+    monkeypatch.setattr(instance, "request_settings", _request)
+    # Without the guard a regression past the lock check runs the whole
+    # app and the suite hangs instead of failing.
+    monkeypatch.setattr("perch.app.main", _must_not_run)
     assert entry.cli(["--settings"]) == 0
+    assert requests == [True]
     assert "already running" not in capsys.readouterr().err

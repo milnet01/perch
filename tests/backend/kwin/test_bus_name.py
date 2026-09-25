@@ -11,14 +11,14 @@ from collections.abc import Iterator
 
 import pytest
 
-from .conftest import _have_tools, _start_dbus_daemon
+from .conftest import _have_dbus_daemon, _start_dbus_daemon
 
 _NAME = "io.github.milnet01.Perch.BusNameTest"
 
 
 @pytest.fixture
 def private_bus(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    if not _have_tools():
+    if not _have_dbus_daemon():
         pytest.skip("dbus-daemon not installed")
     proc, address = _start_dbus_daemon()
     monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", address)

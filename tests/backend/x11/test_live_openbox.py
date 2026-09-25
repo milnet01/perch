@@ -15,15 +15,17 @@ Tests marked with ``@pytest.mark.x11`` and CI can gate them with
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import pytest
 from PySide6.QtCore import QCoreApplication
 
-from perch.backend.types import Geometry, WindowState
+from perch.backend.types import Geometry, WindowInfo, WindowState
 from perch.backend.x11 import X11Backend
 from perch.backend.x11.hotkeys import (
     HotkeyBusyError,
@@ -49,12 +51,32 @@ def _qapp(qapp: object) -> None:
 # A condition wait returns as soon as it holds, so its ceiling is generous:
 # a 3 s ceiling lost the race to xclock start-up on a loaded box (PERC-0071).
 async def _pump_until(cond: object, duration_s: float = 1.5) -> None:
-    t0 = time.time()
-    while time.time() - t0 < duration_s:
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < duration_s:
         QCoreApplication.processEvents()
         await asyncio.sleep(0.05)
         if callable(cond) and cond():
             return
+
+
+async def _poll_window(
+    b: X11Backend,
+    wid: str,
+    pred: Callable[[WindowInfo], bool],
+    duration_s: float = 10.0,
+) -> WindowInfo:
+    """Pump events until ``pred(get_window(wid))`` holds, or the ceiling.
+
+    Returns the last read, so the caller's assertion reports what the WM
+    actually did rather than timing out silently.
+    """
+    t0 = time.monotonic()
+    info = await b.get_window(wid)
+    while not pred(info) and time.monotonic() - t0 < duration_s:
+        QCoreApplication.processEvents()
+        await asyncio.sleep(0.05)
+        info = await b.get_window(wid)
+    return info
 
 
 def _have(name: str) -> bool:
@@ -73,20 +95,22 @@ def test_start_emits_backend_connected_and_lists_virtual_output(
         b.backend_connected.connect(lambda: connected.append(True))
 
         await b.start()
-        assert connected == [True]
+        try:
+            assert connected == [True]
 
-        outs = await b.list_outputs()
-        # Xvfb publishes a single synthetic output named "screen".
-        assert len(outs) == 1
-        assert outs[0].geometry.w == 1920
-        assert outs[0].geometry.h == 1080
-        assert outs[0].is_connected is True
+            outs = await b.list_outputs()
+            # Xvfb publishes a single synthetic output named "screen".
+            assert len(outs) == 1
+            assert outs[0].geometry.w == 1920
+            assert outs[0].geometry.h == 1080
+            assert outs[0].is_connected is True
 
-        # Openbox defaults to 4 desktops.
-        assert await b.desktop_count() == 4
-        assert await b.current_desktop() == 0
+            # Openbox defaults to 4 desktops.
+            assert await b.desktop_count() == 4
+            assert await b.current_desktop() == 0
 
-        await b.stop()
+        finally:
+            await b.stop()
 
     asyncio.run(run())
 
@@ -105,42 +129,49 @@ def test_window_opened_fires_on_xclock_spawn_and_geometry_round_trip(
         b.window_opened.connect(lambda info: opened.append(info.app_id))
         b.window_closed.connect(lambda wid: closed.append(wid))
         await b.start()
-
-        env = {"DISPLAY": openbox_display, "PATH": "/usr/bin:/bin"}
-        xc = subprocess.Popen(
-            ["xclock", "-geometry", "100x100+500+300"], env=env
-        )
         try:
-            await _pump_until(lambda: bool(opened), duration_s=10.0)
-            assert opened == ["xclock"]
 
-            wins = await b.list_windows()
-            assert any(w.app_id == "xclock" for w in wins)
-            wid = next(w.id for w in wins if w.app_id == "xclock")
-
-            # Round-trip set_geometry. Openbox may offset by its 1 px border;
-            # we assert within a 5 px tolerance rather than exact equality.
-            await b.set_geometry(wid, Geometry(300, 200, 400, 300))
-            await _pump_until(lambda: False, duration_s=0.5)
-            info = await b.get_window(wid)
-            assert abs(info.geometry.x - 300) <= 5
-            assert abs(info.geometry.y - 200) <= 5
-            assert info.geometry.w == 400
-            assert info.geometry.h == 300
-        finally:
+            env = {"DISPLAY": openbox_display, "PATH": os.environ.get("PATH", "")}
+            xc = subprocess.Popen(
+                ["xclock", "-geometry", "100x100+500+300"], env=env
+            )
             try:
-                xc.terminate()
-                xc.wait(timeout=2.0)
-            except subprocess.TimeoutExpired:
-                xc.kill()
-                xc.wait()
+                await _pump_until(lambda: bool(opened), duration_s=10.0)
+                assert opened == ["xclock"]
 
-        # window_closed should fire once xclock exits and Openbox removes
-        # the entry from _NET_CLIENT_LIST.
-        await _pump_until(lambda: bool(closed), duration_s=10.0)
-        assert closed, "window_closed never fired for xclock"
+                wins = await b.list_windows()
+                assert any(w.app_id == "xclock" for w in wins)
+                wid = next(w.id for w in wins if w.app_id == "xclock")
 
-        await b.stop()
+                # Round-trip set_geometry. Openbox may offset by its 1 px border;
+                # we assert within a 5 px tolerance rather than exact equality.
+                await b.set_geometry(wid, Geometry(300, 200, 400, 300))
+                info = await _poll_window(
+                    b,
+                    wid,
+                    lambda i: abs(i.geometry.x - 300) <= 5
+                    and abs(i.geometry.y - 200) <= 5
+                    and (i.geometry.w, i.geometry.h) == (400, 300),
+                )
+                assert abs(info.geometry.x - 300) <= 5
+                assert abs(info.geometry.y - 200) <= 5
+                assert info.geometry.w == 400
+                assert info.geometry.h == 300
+            finally:
+                try:
+                    xc.terminate()
+                    xc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    xc.kill()
+                    xc.wait()
+
+            # window_closed should fire once xclock exits and Openbox removes
+            # the entry from _NET_CLIENT_LIST.
+            await _pump_until(lambda: bool(closed), duration_s=10.0)
+            assert closed, "window_closed never fired for xclock"
+
+        finally:
+            await b.stop()
 
     asyncio.run(run())
 
@@ -153,33 +184,37 @@ def test_set_state_toggles_fullscreen_and_back(openbox_display: str) -> None:
     async def run() -> None:
         b = X11Backend(display_name=openbox_display)
         await b.start()
-
-        env = {"DISPLAY": openbox_display, "PATH": "/usr/bin:/bin"}
-        xc = subprocess.Popen(["xclock"], env=env)
         try:
-            opened_ids: list[str] = []
-            b.window_opened.connect(lambda info: opened_ids.append(info.id))
-            await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
-            wid = opened_ids[0]
 
-            await b.set_state(wid, WindowState.FULLSCREEN)
-            await _pump_until(lambda: False, duration_s=0.5)
-            info = await b.get_window(wid)
-            assert info.state is WindowState.FULLSCREEN
-
-            await b.set_state(wid, WindowState.NORMAL)
-            await _pump_until(lambda: False, duration_s=0.5)
-            info = await b.get_window(wid)
-            assert info.state is WindowState.NORMAL
-        finally:
+            env = {"DISPLAY": openbox_display, "PATH": os.environ.get("PATH", "")}
+            xc = subprocess.Popen(["xclock"], env=env)
             try:
-                xc.terminate()
-                xc.wait(timeout=2.0)
-            except subprocess.TimeoutExpired:
-                xc.kill()
-                xc.wait()
+                opened_ids: list[str] = []
+                b.window_opened.connect(lambda info: opened_ids.append(info.id))
+                await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
+                wid = opened_ids[0]
 
-        await b.stop()
+                await b.set_state(wid, WindowState.FULLSCREEN)
+                info = await _poll_window(
+                    b, wid, lambda i: i.state is WindowState.FULLSCREEN
+                )
+                assert info.state is WindowState.FULLSCREEN
+
+                await b.set_state(wid, WindowState.NORMAL)
+                info = await _poll_window(
+                    b, wid, lambda i: i.state is WindowState.NORMAL
+                )
+                assert info.state is WindowState.NORMAL
+            finally:
+                try:
+                    xc.terminate()
+                    xc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    xc.kill()
+                    xc.wait()
+
+        finally:
+            await b.stop()
 
     asyncio.run(run())
 
@@ -194,27 +229,29 @@ def test_close_window_causes_window_closed_signal(openbox_display: str) -> None:
         closed: list[str] = []
         b.window_closed.connect(lambda wid: closed.append(wid))
         await b.start()
-
-        env = {"DISPLAY": openbox_display, "PATH": "/usr/bin:/bin"}
-        xc = subprocess.Popen(["xclock"], env=env)
         try:
-            opened_ids: list[str] = []
-            b.window_opened.connect(lambda info: opened_ids.append(info.id))
-            await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
-            wid = opened_ids[0]
 
-            await b.close_window(wid)
-            await _pump_until(lambda: bool(closed), duration_s=10.0)
-            assert wid in closed
-        finally:
-            # If close_window succeeded, xc has exited; .wait is instant.
+            env = {"DISPLAY": openbox_display, "PATH": os.environ.get("PATH", "")}
+            xc = subprocess.Popen(["xclock"], env=env)
             try:
-                xc.wait(timeout=2.0)
-            except subprocess.TimeoutExpired:
-                xc.kill()
-                xc.wait()
+                opened_ids: list[str] = []
+                b.window_opened.connect(lambda info: opened_ids.append(info.id))
+                await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
+                wid = opened_ids[0]
 
-        await b.stop()
+                await b.close_window(wid)
+                await _pump_until(lambda: bool(closed), duration_s=10.0)
+                assert wid in closed
+            finally:
+                # If close_window succeeded, xc has exited; .wait is instant.
+                try:
+                    xc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    xc.kill()
+                    xc.wait()
+
+        finally:
+            await b.stop()
 
     asyncio.run(run())
 
@@ -230,34 +267,36 @@ def test_register_hotkey_claims_the_grab(openbox_display: str) -> None:
     async def run() -> None:
         b = X11Backend(display_name=openbox_display)
         await b.start()
-        await b.register_hotkey("Ctrl+Alt+F12", "cb-test")
-
-        d2 = _display.Display(openbox_display)
         try:
-            parsed = ParsedHotkey(
-                modifiers=_X.ControlMask | _X.Mod1Mask,
-                keysym_name="F12",
-            )
-            with pytest.raises(HotkeyBusyError):
-                grab_hotkey(d2, parsed, 0)
+            await b.register_hotkey("Ctrl+Alt+F12", "cb-test")
+
+            d2 = _display.Display(openbox_display)
+            try:
+                parsed = ParsedHotkey(
+                    modifiers=_X.ControlMask | _X.Mod1Mask,
+                    keysym_name="F12",
+                )
+                with pytest.raises(HotkeyBusyError):
+                    grab_hotkey(d2, parsed, 0)
+            finally:
+                d2.close()
+
+            await b.unregister_hotkey("cb-test")
+
+            # After unregister, the same grab must succeed from the second display.
+            d3 = _display.Display(openbox_display)
+            try:
+                parsed = ParsedHotkey(
+                    modifiers=_X.ControlMask | _X.Mod1Mask,
+                    keysym_name="F12",
+                )
+                keycode = grab_hotkey(d3, parsed, 0)
+                assert keycode > 0
+            finally:
+                d3.close()
+
         finally:
-            d2.close()
-
-        await b.unregister_hotkey("cb-test")
-
-        # After unregister, the same grab must succeed from the second display.
-        d3 = _display.Display(openbox_display)
-        try:
-            parsed = ParsedHotkey(
-                modifiers=_X.ControlMask | _X.Mod1Mask,
-                keysym_name="F12",
-            )
-            keycode = grab_hotkey(d3, parsed, 0)
-            assert keycode > 0
-        finally:
-            d3.close()
-
-        await b.stop()
+            await b.stop()
 
     asyncio.run(run())
 
@@ -271,9 +310,11 @@ def test_unknown_window_raises_for_live_backend(openbox_display: str) -> None:
     async def run() -> None:
         b = X11Backend(display_name=openbox_display)
         await b.start()
-        with pytest.raises(UnknownWindow):
-            await b.get_window("nonsense")
-        await b.stop()
+        try:
+            with pytest.raises(UnknownWindow):
+                await b.get_window("nonsense")
+        finally:
+            await b.stop()
 
     asyncio.run(run())
 
@@ -286,29 +327,31 @@ def test_set_geometry_with_bogus_monitor_raises_unknown_output(
     async def run() -> None:
         b = X11Backend(display_name=openbox_display)
         await b.start()
-
-        env = {"DISPLAY": openbox_display, "PATH": "/usr/bin:/bin"}
-        if not _have("xclock"):
-            pytest.skip("xclock required")
-        xc = subprocess.Popen(["xclock"], env=env)
         try:
-            opened_ids: list[str] = []
-            b.window_opened.connect(lambda info: opened_ids.append(info.id))
-            await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
-            wid = opened_ids[0]
 
-            with pytest.raises(UnknownOutput):
-                await b.set_geometry(
-                    wid, Geometry(0, 0, 100, 100), monitor="NONEXISTENT-99"
-                )
-        finally:
+            env = {"DISPLAY": openbox_display, "PATH": os.environ.get("PATH", "")}
+            if not _have("xclock"):
+                pytest.skip("xclock required")
+            xc = subprocess.Popen(["xclock"], env=env)
             try:
-                xc.terminate()
-                xc.wait(timeout=2.0)
-            except subprocess.TimeoutExpired:
-                xc.kill()
-                xc.wait()
+                opened_ids: list[str] = []
+                b.window_opened.connect(lambda info: opened_ids.append(info.id))
+                await _pump_until(lambda: bool(opened_ids), duration_s=10.0)
+                wid = opened_ids[0]
 
-        await b.stop()
+                with pytest.raises(UnknownOutput):
+                    await b.set_geometry(
+                        wid, Geometry(0, 0, 100, 100), monitor="NONEXISTENT-99"
+                    )
+            finally:
+                try:
+                    xc.terminate()
+                    xc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    xc.kill()
+                    xc.wait()
+
+        finally:
+            await b.stop()
 
     asyncio.run(run())

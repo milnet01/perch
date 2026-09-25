@@ -2003,7 +2003,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 6, 7, 9.
 
-- 📋 [PERC-0083] **Make the live-compositor tests wait on real conditions and clean up on failure.**
+- ✅ [PERC-0083] **Make the live-compositor tests wait on real conditions and clean up on failure.**
   Group E of docs/reviews/2026-09-25-review-tests.md, 7 findings.
   tests/backend/x11/test_live_openbox.py:124 :166 :171 (HIGH: fixed
   0.5 s waits via _pump_until(lambda: False)), :89 (stop() not in
@@ -2012,6 +2012,16 @@ Goal: fewer first-run support tickets; the config is safe.
   deadline); kwin/test_bus_name.py:21 (skip gate needs kwin_wayland it
   does not use); tests/test_instance.py:72 (socket path length) and :101
   (can hang: perch.app.main not stubbed).
+  Resolved (2026-09-25): all 7 fixed. test_live_openbox.py waits on the
+  real geometry/state via _poll_window (monotonic clock), stops every
+  backend in a finally, and launches xclock with the real PATH; the
+  fullscreen test fell from 1.14 s to under 0.2 s. kwin/conftest.py reads
+  the dbus-daemon address with select() against its deadline and stops at
+  EOF; test_bus_name.py gates on dbus-daemon alone. test_instance.py puts
+  the socket in a short /tmp dir (red with a long --basetemp before, green
+  after), shows error_string() on failure, and stubs perch.app.main. Also
+  closed PERC-0080's test_instance.py:102 there: the handoff stub now
+  records its call.
   **Layman:** Some tests that start a real window manager wait a fixed time instead of for the thing to happen, so they can fail on a busy machine.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 3, 7.
