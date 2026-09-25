@@ -114,3 +114,30 @@ def test_saving_settings_keeps_the_live_status_flags(xdg_env: Path) -> None:
     assert refreshed.backend_degraded is True
     assert refreshed.awaiting_extension is True
     assert refreshed.compositor_missing is True
+
+
+# ── PERC-0075: a settings save reaches the reducer ─────────────────────────
+
+
+def test_a_settings_save_hands_the_new_config_to_the_reducer(
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    xdg_env: Path,
+    tmp_path: Path,
+) -> None:
+    """_on_saved refreshed the tray, autostart and theme but never the
+    reducer, so edited rules and exclusions waited for a restart."""
+    del xdg_env
+    from perch.core.state_store import StateStore
+    from perch.ui.tray import TrayController
+
+    monkeypatch.setattr(autostart, "sync_from_config", lambda _config: None)
+    old = load_or_create()
+    backend = MockBackend()
+    reducer = Reducer(backend, old, StateStore(tmp_path / "state.json"))
+    controller = TrayController(perch_app._initial_tray_state(old, backend=backend))
+    fresh = replace(old)
+
+    perch_app._apply_saved_config(fresh, controller=controller, reducer=reducer, app=qapp)
+
+    assert reducer.config is fresh

@@ -420,6 +420,28 @@ class Reducer:
             return
         self.active_layout = layout
 
+    # ── Config reload ──────────────────────────────────────────────────────
+    def set_config(self, config: Config) -> None:
+        """Swap in a just-saved config (``docs/08-ui.md`` §When a save takes effect).
+
+        The active profile and layout are re-resolved by NAME against the
+        new config, and one that was deleted is dropped. Nothing is
+        reapplied: windows already placed stay put until their next trigger.
+        """
+        self.config = config
+        if self.active_profile is not None:
+            self.active_profile = next(
+                (p for p in config.profiles if p.name == self.active_profile.name),
+                None,
+            )
+        if self.active_layout is not None:
+            self.active_layout = config.layouts.get(self.active_layout.name)
+        self._recompute_effective_layout()
+        self.state_store.set_active(
+            profile=self.active_profile.name if self.active_profile else None,
+            layout=self.active_layout.name if self.active_layout else None,
+        )
+
     # ── Effective layout (base layout + profile overrides) ────────────────
     def _recompute_effective_layout(self) -> None:
         if self.active_layout is None:

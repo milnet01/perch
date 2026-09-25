@@ -76,6 +76,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **A settings save takes effect at once, with no restart.** (PERC-0075)
+  Rules, exclusions, snaps, layouts and profiles edited in the settings
+  window did nothing until Perch restarted. The next window event now
+  obeys them. Windows already placed stay where they are.
+
 - **KDE: Perch now hears when you move or resize a window** (PERC-0046)
   The helper script Perch runs inside KWin used a timer call that doesn't
   exist there, so every window move or resize notification failed

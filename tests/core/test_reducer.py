@@ -989,3 +989,83 @@ async def test_with_no_focused_match_the_first_is_moved(tmp_path: Path) -> None:
     backend.commands.clear()
     await reducer.activate_layout("coding")
     assert _placed(backend) == ["a"]
+
+
+# ── A settings save reaches the reducer (PERC-0075) ───────────────────────
+_FIREFOX_LEFT_HALF = {
+    "rules": [
+        {
+            "match": {"app_id": "firefox"},
+            "apply": {"geometry": "left-half", "monitor": "DP-1"},
+        }
+    ]
+}
+
+
+async def test_set_config_applies_a_new_rule_to_the_next_window(
+    tmp_path: Path,
+) -> None:
+    backend, reducer, _ = await _make({}, tmp_path)
+    await reducer.start()
+
+    reducer.set_config(validate(_FIREFOX_LEFT_HALF))
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    assert _placed(backend) == ["w1"]
+
+
+async def test_set_config_applies_a_new_exclusion_to_the_next_window(
+    tmp_path: Path,
+) -> None:
+    backend, reducer, _ = await _make(_FIREFOX_LEFT_HALF, tmp_path)
+    await reducer.start()
+
+    reducer.set_config(
+        validate({**_FIREFOX_LEFT_HALF, "exclusions": {"patterns": [{"app_id": "firefox"}]}})
+    )
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    assert _placed(backend) == []
+
+
+async def test_set_config_does_not_move_windows_already_placed(
+    tmp_path: Path,
+) -> None:
+    backend, reducer, _ = await _make({}, tmp_path)
+    backend._spawn_window(_window())
+    await reducer.start()
+
+    reducer.set_config(validate(_FIREFOX_LEFT_HALF))
+
+    assert _placed(backend) == []
+
+
+async def test_set_config_keeps_the_active_layout_by_name(tmp_path: Path) -> None:
+    """The layout object is re-read from the new config, so an edited
+    entry takes effect under the same active layout."""
+    _, reducer, _ = await _make(_TWO_CODE_WINDOWS_LAYOUT, tmp_path)
+    await reducer.start()
+    await reducer.activate_layout("coding")
+
+    reducer.set_config(validate(_TWO_CODE_WINDOWS_LAYOUT))
+
+    assert reducer.active_layout is not None
+    assert reducer.active_layout.name == "coding"
+    assert reducer.active_layout is reducer.config.layouts["coding"]
+
+
+async def test_set_config_drops_an_active_layout_that_was_deleted(
+    tmp_path: Path,
+) -> None:
+    _, reducer, _ = await _make(_TWO_CODE_WINDOWS_LAYOUT, tmp_path)
+    await reducer.start()
+    await reducer.activate_layout("coding")
+
+    reducer.set_config(validate({}))
+
+    assert reducer.active_layout is None
+    assert reducer._effective_layout is None

@@ -1,4 +1,5 @@
 <!-- ants-roadmap-format: 1 -->
+<!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
 
 # Perch — Roadmap
 
@@ -1868,7 +1869,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: investigate.
   Source: in-session-2026-09-19, PERC-0061 vulture triage.
 
-- 📋 [PERC-0075] **Make a settings save take effect without restarting Perch.**
+- ✅ [PERC-0075] **Make a settings save take effect without restarting Perch.**
   Found 2026-09-19 while starting PERC-0043's Windows submenu. app.main's
   _on_saved refreshes the tray, autostart and theme, but the Reducer keeps
   the Config it was constructed with: reducer.config is assigned only in
@@ -1882,6 +1883,11 @@ Goal: fewer first-run support tickets; the config is safe.
   rule through the dialog path and assert the next window event obeys
   it. docs/08 should say a save applies immediately. Blocks the
   Windows submenu's 'Exclude this window' action (PERC-0043).
+  Resolved (2026-09-25): Reducer.set_config swaps the config and re-resolves the
+  active profile and layout by name, dropping a deleted one; no reapply.
+  app._apply_saved_config calls it from the dialog's saved signal, so the
+  save wiring is testable. Tests: tests/core/test_reducer.py (set_config
+  cases) and tests/test_app_startup.py. docs/08 §When a save takes effect.
   **Layman:** Changes you make in Perch's settings only work after you restart Perch.
   Kind: fix.
   Source: in-session-2026-09-19.

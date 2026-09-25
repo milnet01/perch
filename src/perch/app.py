@@ -110,6 +110,26 @@ def _initial_tray_state(
     )
 
 
+def _apply_saved_config(
+    config: Config,
+    *,
+    controller: TrayController,
+    reducer: Reducer,
+    app: QApplication,
+) -> None:
+    """Make a just-saved config live (docs/08 §When a save takes effect)."""
+    reducer.set_config(config)
+    controller.set_state(_with_config(controller.state, config))
+    # Toggle autostart in sync with the just-saved config so the
+    # "Start at login" checkbox has immediate effect — no restart needed.
+    autostart.sync_from_config(config)
+    # Re-apply the theme so a light↔dark flip on Apply takes effect live.
+    # Qt propagates the new palette to every top-level widget, so open
+    # dialogs re-paint without a reconstruction. ``"auto"`` re-probes the
+    # platform colour scheme.
+    apply_theme(app, config.general.theme)
+
+
 def _with_config(state: TrayState, config: Config) -> TrayState:
     """``state`` with the config-derived fields refreshed after a save.
 
@@ -527,18 +547,9 @@ async def main(
             if section is not None:
                 dialog.select_section(section)
             def _on_saved() -> None:
-                fresh = load_or_create()
-                controller.set_state(_with_config(controller.state, fresh))
-                # Toggle autostart in sync with the just-saved config so the
-                # "Start at login" checkbox has immediate effect — no restart
-                # needed.
-                autostart.sync_from_config(fresh)
-                # Re-apply the theme so a light↔dark flip on Apply takes
-                # effect live. Qt propagates the new palette to every
-                # top-level widget, so open dialogs re-paint without a
-                # reconstruction. ``"auto"`` re-probes the platform colour
-                # scheme.
-                apply_theme(app, fresh.general.theme)
+                _apply_saved_config(
+                    load_or_create(), controller=controller, reducer=reducer, app=app
+                )
 
             dialog.saved.connect(_on_saved)
             dialog_ref[0] = dialog
