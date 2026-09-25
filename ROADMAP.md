@@ -1895,7 +1895,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-09-19.
 
-- 📋 [PERC-0076] **Cut the next release to GitHub.**
+- ✅ [PERC-0076] **Cut the next release to GitHub.**
   Requested by the user 2026-09-19. Current version is 1.1.0
   (pyproject.toml); CHANGELOG.md [Unreleased] holds this session's
   fixes plus two Added entries (perch --settings, and the tray error
@@ -1904,6 +1904,11 @@ Goal: fewer first-run support tickets; the config is safe.
   and decide with the user whether to ship before or after the
   remaining PERC-0043 work and the settings-save fix above; the KWin
   geometry-event fix (PERC-0046) is the strongest reason not to wait.
+  Resolved (2026-09-25): 1.2.0 released after PERC-0075, by the user's
+  choice; the rest of PERC-0043 goes in the next release. Commit 39834eb,
+  tag v1.2.0, CI green. Release:
+  https://github.com/milnet01/perch/releases/tag/v1.2.0 with
+  Perch-1.2.0-x86_64.AppImage and SHA256SUMS.txt from release.yml.
   **Layman:** Publish a new version of Perch with this round of fixes.
   Kind: release.
   Source: user-request-2026-09-19.
