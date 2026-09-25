@@ -788,7 +788,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: feature.
   Source: user-request-2026-08-27.
 
-- 📋 [PERC-0043] **Build the four documented features the audit found missing.**
+- 📋 [PERC-0043] **Build the two documented features still missing: the tray's Windows submenu and the full Rules page.**
   Each is promised by a document and has no implementation behind it:
   `perch --settings` (docs/08-ui.md:47, and the only recovery route offered
   to a user whose tray icon is invisible); the tray's Windows submenu
@@ -832,6 +832,9 @@ Goal: fewer first-run support tickets; the config is safe.
   trimmed to match. The Rules page is BUILT as documented: add and edit
   rules (reusing MatchEditor / GeometryEditor), the dry-run toggle and the
   trace panel.
+  Split (2026-09-25): the two shipped halves moved to PERC-0077 so the
+  1.2.0 changelog cites a shipped item. This item now covers the Windows
+  submenu and the Rules page only.
   **Layman:** Four things the manual says Perch can do that it currently cannot do at all.
   Kind: implement.
   Source: review-code 2026-08-31 (lanes app-shell, ui-shell, ui-dialog).
@@ -1904,6 +1907,17 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Publish a new version of Perch with this round of fixes.
   Kind: release.
   Source: user-request-2026-09-19.
+
+- ✅ [PERC-0077] **Ship `perch --settings` and the tray's error state, split out of PERC-0043.**
+  The two halves of PERC-0043 that shipped in commit 108731a, split out so
+  the 1.2.0 changelog cites a shipped item. (1) `perch --settings` asks a
+  running Perch to open the settings window over perch.sock
+  (src/perch/instance.py InstanceChannel), or starts Perch and opens it.
+  (2) UI-only mode sets compositor_missing, so the tray shows its error
+  state. PERC-0043 keeps the Windows submenu and the Rules page.
+  **Layman:** You can open Perch's settings from a terminal, and the tray icon shows when no supported desktop was found.
+  Kind: implement.
+  Source: in-session-2026-09-25, split out of PERC-0043.
 
 ## v1.2 — Smarts
 

@@ -8,9 +8,11 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-25
+
 ### Added
 
-- **`perch --settings` opens the settings window, even when the tray icon is hidden** (PERC-0043)
+- **`perch --settings` opens the settings window, even when the tray icon is hidden** (PERC-0077)
   Run `perch --settings` to open Perch's settings. If Perch is already
   running, its settings window opens; if not, Perch starts and opens it.
   This is the way in on desktops that hide tray icons, such as GNOME
