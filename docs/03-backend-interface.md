@@ -183,6 +183,8 @@ class WindowBackend(QObject):
     ) -> None: ...
         # Atomic-ish: the backend should apply all fields in one compositor call
         # if possible.  Raises BackendUnsupported if any field cannot be set.
+        # ``geom`` is global (§Coordinate system). ``monitor`` names the output
+        # the window belongs on and never offsets ``geom``.
 
     async def set_state(self, wid: WindowId, state: WindowState) -> None: ...
 
