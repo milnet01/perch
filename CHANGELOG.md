@@ -8,7 +8,22 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Changed
+
+- **Pixel positions in a rule count from the monitor it names** (PERC-0084)
+  `x = 120` on `HDMI-1` now means 120 px in from HDMI-1's usable left
+  edge, as percentages and presets already did. A rule that wrote
+  whole-desktop pixels for a second monitor needs its x and y reduced by
+  that monitor's position.
+
 ### Fixed
+
+- **Windows land on the right monitor when a rule names one** (PERC-0084)
+  On X11 a rule naming a second monitor added that monitor's offset twice
+  and put the window off-screen. A rule that only names a monitor now
+  moves the window there at the same spot, shrunk to fit if needed, on
+  every backend; before, the config loader refused such a rule even
+  though the settings window let you create one.
 
 - **Running Perch's tests no longer touches the developer's desktop session** (PERC-0078)
   On a Plasma Wayland desktop the backend compliance tests loaded Perch's

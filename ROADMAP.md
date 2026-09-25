@@ -2061,7 +2061,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 3, 7.
 
-- 📋 [PERC-0084] **Settle whether set_geometry takes desktop-absolute or monitor-relative coordinates.**
+- ✅ [PERC-0084] **Settle whether set_geometry takes desktop-absolute or monitor-relative coordinates.**
   docs/03 never says which frame set_geometry's Geometry is in, and the
   code uses both. The resolver expands presets against the target
   monitor's work area in desktop-absolute pixels (a maximize on HDMI-1 at
@@ -2077,6 +2077,16 @@ Goal: fewer first-run support tickets; the config is safe.
   state.json already stores; the core translates a monitor-only move into
   the target monitor itself; X11 stops adding the origin; docs/03 states
   the frame. Needs a failing test per backend first.
+  Resolved (2026-09-25): settled as desktop-absolute at the backend
+  (docs/03 §Coordinate system already said so) and monitor-relative in
+  the config, by the user's decision. docs/07 gated by review-contract
+  (3 loops, cap; record docs/reviews/2026-09-25-docs-07-review.md).
+  Code: X11Backend.set_geometry no longer adds the output origin; the
+  resolver offsets absolute pixels from the target work area and
+  translates a monitor-only move (_translate_to); parse_action accepts
+  monitor alone; the reducer passes a desktop only when the rule sets
+  one. Tests red first: resolver x3, actions, x11 skeleton, reducer.
+  Sway, Hyprland and GNOME already treated geom as global.
   **Layman:** On a second monitor, Perch can put a window in the wrong place: off-screen on X11, or not moved at all on KDE.
   Kind: fix.
   Source: in-session-2026-09-25, found tightening PERC-0080's test_reducer.py:517.

@@ -515,9 +515,9 @@ class Reducer:
             return
 
         target_monitor = placement.monitor or window.monitor
-        target_desktop = (
-            placement.desktop if placement.desktop is not None else window.desktop
-        )
+        # docs/07 §Apply order step 2: a desktop only when the rule sets one,
+        # so a backend without can_set_desktop still places the window.
+        target_desktop = placement.desktop
 
         if placement.unmaximize_first:
             await self._set_state_safe(window, WindowState.NORMAL)
@@ -548,7 +548,7 @@ class Reducer:
         window: WindowInfo,
         geometry: Geometry,
         monitor: OutputName,
-        desktop: DesktopIndex,
+        desktop: DesktopIndex | None,
     ) -> None:
         self._expected_geometry[window.id] = geometry
         try:
@@ -572,7 +572,9 @@ class Reducer:
             self._expected_geometry.pop(window.id, None)
             return
 
-        self._remember(window, geometry, monitor, desktop)
+        self._remember(
+            window, geometry, monitor, desktop if desktop is not None else window.desktop
+        )
 
     async def _set_state_safe(
         self,

@@ -100,6 +100,12 @@ def resolve_action(
             target_monitor = window.monitor
         output = _find_output(target_monitor, outputs)
         geometry = _resolve_geometry(expr, output.work_area, window)
+    elif target_monitor is not None and target_monitor != window.monitor:
+        # docs/07 §Apply order step 3: a monitor-only move keeps the
+        # window's offset from its current work area's corner. The backend
+        # takes global coordinates, so passing the old geometry through
+        # would leave the window where it was.
+        geometry = _translate_to(window, outputs, target_monitor)
 
     desktop = _resolve_desktop(action.desktop, window)
 
@@ -193,8 +199,12 @@ def _resolve_geometry(
     expr: GeometryExpr, work_area: Geometry, window: WindowInfo
 ) -> Geometry:
     if isinstance(expr, AbsoluteGeometry):
-        # Clamp into the work area — a rule cannot push a window off-screen.
-        return _clamp(Geometry(expr.x, expr.y, expr.w, expr.h), work_area)
+        # docs/07 §Geometry resolution 3: offsets from the work area's
+        # corner, clamped into it — a rule cannot push a window off-screen.
+        return _clamp(
+            Geometry(work_area.x + expr.x, work_area.y + expr.y, expr.w, expr.h),
+            work_area,
+        )
     if isinstance(expr, PercentGeometry):
         # Round half-to-even to keep outputs stable across repeat evals, then
         # clamp on the same terms as the absolute branch — the percentages are
@@ -225,6 +235,28 @@ def _resolve_geometry(
     raise ResolveError(
         f"unexpanded preset {expr!r} reached geometry resolver; this is a bug"
     )
+
+
+def _translate_to(
+    window: WindowInfo, outputs: list[OutputInfo], target: OutputName
+) -> Geometry:
+    """``window``'s geometry moved onto ``target`` at the same offset.
+
+    The offset is from the top-left of the work area the window is on now.
+    A window whose current output is unknown keeps its global position,
+    and either way the result is shrunk and clamped into the target.
+    """
+    target_area = _find_output(target, outputs).work_area
+    geom = window.geometry
+    current = next((o for o in outputs if o.name == window.monitor), None)
+    if current is not None:
+        geom = Geometry(
+            target_area.x + geom.x - current.work_area.x,
+            target_area.y + geom.y - current.work_area.y,
+            geom.w,
+            geom.h,
+        )
+    return _clamp(geom, target_area)
 
 
 def _round(x: float) -> int:

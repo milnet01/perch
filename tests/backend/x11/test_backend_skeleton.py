@@ -219,6 +219,46 @@ def test_set_geometry_sends_desktop_before_placement(
     assert sent == ["desktop-msg", "place-msg"]
 
 
+def test_set_geometry_with_a_monitor_does_not_offset_the_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """docs/03 §Coordinate system: ``geom`` is global, and ``monitor``
+    never offsets it. Adding HDMI-1's origin put a window placed at
+    x=2600 on HDMI-1 at x=5160, off-screen (PERC-0084)."""
+    import asyncio
+    from unittest.mock import MagicMock
+
+    from perch.backend.types import OutputInfo
+    from perch.backend.x11 import backend as x11_backend
+
+    placed: list[tuple[int, int, int, int]] = []
+    monkeypatch.setattr(
+        x11_backend,
+        "build_moveresize_message",
+        lambda _win, _atoms, x, y, w, h: placed.append((x, y, w, h)),
+    )
+    backend = X11Backend()
+    display = MagicMock()
+    monkeypatch.setattr(backend, "_require_connected", lambda: display)
+    monkeypatch.setattr(backend, "_require_atoms", MagicMock())
+    backend._windows["w1"] = MagicMock()
+    backend._outputs_cache["HDMI-1"] = OutputInfo(
+        name="HDMI-1",
+        geometry=Geometry(2560, 0, 1920, 1080),
+        work_area=Geometry(2560, 0, 1920, 1040),
+        scale=1.0,
+        refresh_mhz=60000,
+        is_primary=False,
+        is_connected=True,
+    )
+
+    asyncio.run(
+        backend.set_geometry("w1", Geometry(2600, 40, 800, 600), monitor="HDMI-1")
+    )
+
+    assert placed == [(2600, 40, 800, 600)]
+
+
 # ── PERC-0047: a server without the RandR extension ──────────────────────────
 # python-xlib binds the xrandr_* methods onto the drawable class only once the
 # extension is present, so on a RandR-less server the call raises

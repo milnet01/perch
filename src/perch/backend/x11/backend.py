@@ -402,18 +402,14 @@ class X11Backend(WindowBackend):
         if win is None:
             raise UnknownWindow(f"no window with id {wid!r}")
 
-        # Monitor parameter: translate the requested (x, y) into root-absolute
-        # coords by adding the output's origin. Then validate the output is
-        # known. The X11 backend has no native "move to output N" primitive —
-        # the geometry offset is how every EWMH tool does it.
+        # ``geom`` is already root-absolute (docs/03 §Coordinate system) and
+        # ``monitor`` never offsets it: X11 has no "move to output N"
+        # primitive, so the core computes the position on the target output
+        # and the monitor is only validated here.
+        if monitor is not None and monitor not in self._outputs_cache:
+            raise UnknownOutput(f"no output named {monitor!r}")
         target_x = geom.x
         target_y = geom.y
-        if monitor is not None:
-            out = self._outputs_cache.get(monitor)
-            if out is None:
-                raise UnknownOutput(f"no output named {monitor!r}")
-            target_x = out.geometry.x + geom.x
-            target_y = out.geometry.y + geom.y
 
         root = d.screen().root
 

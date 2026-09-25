@@ -348,7 +348,8 @@ def test_maximized_false_with_monitor_only_flags_unmaximize_first(
     placement = resolve_action(
         ApplyAction(monitor="HDMI-1", maximized=False), _w(), outputs, {}
     )
-    assert placement.geometry is None
+    # The move itself: (0, 0) on DP-1's work area is HDMI-1's corner.
+    assert placement.geometry == Geometry(2560, 360, 800, 600)
     assert placement.monitor == "HDMI-1"
     assert placement.unmaximize_first
 
@@ -405,3 +406,52 @@ def test_maximized_false_with_geometry_flags_unmaximize_first(
     # reducer doesn't double-issue ``set_state(NORMAL)``.
     assert placement.maximized is None
     assert placement.geometry == Geometry(0, 0, 1280, 1400)
+
+
+
+# ── PERC-0084: the frame of absolute pixels and of a monitor-only move ─────
+def test_absolute_pixels_count_from_the_target_monitor(
+    outputs: list[OutputInfo],
+) -> None:
+    """docs/07 §Geometry resolution 3: from the target work area's corner."""
+    placement = resolve_action(
+        ApplyAction(geometry=AbsoluteGeometry(x=120, y=40, w=800, h=600), monitor="HDMI-1"),
+        _w(),
+        outputs,
+        {},
+    )
+    # HDMI-1 work area starts at (2560, 360).
+    assert placement.geometry == Geometry(2680, 400, 800, 600)
+
+
+def test_a_monitor_only_move_keeps_the_offset_on_the_new_monitor(
+    outputs: list[OutputInfo],
+) -> None:
+    """docs/07 §Apply order step 3: 100 px in on DP-1 is 100 px in on HDMI-1."""
+    window = replace(_w(), geometry=Geometry(100, 100, 800, 600))
+    placement = resolve_action(
+        ApplyAction(monitor="HDMI-1"), window, outputs, {}
+    )
+    assert placement.monitor == "HDMI-1"
+    assert placement.geometry == Geometry(2660, 460, 800, 600)
+
+
+def test_a_monitor_only_move_shrinks_a_window_too_big_for_the_target(
+    outputs: list[OutputInfo],
+) -> None:
+    window = replace(_w(), geometry=Geometry(100, 100, 2400, 1300))
+    placement = resolve_action(
+        ApplyAction(monitor="HDMI-1"), window, outputs, {}
+    )
+    # Shrunk to HDMI-1's work area (2560, 360, 1920, 1040) and clamped in.
+    assert placement.geometry == Geometry(2560, 360, 1920, 1040)
+
+
+def test_a_monitor_only_rule_for_the_current_output_sends_no_geometry(
+    outputs: list[OutputInfo],
+) -> None:
+    placement = resolve_action(
+        ApplyAction(monitor="current", desktop=2), _w(), outputs, {}
+    )
+    assert placement.monitor == "DP-1"
+    assert placement.geometry is None

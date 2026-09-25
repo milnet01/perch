@@ -122,8 +122,8 @@ def parse_action(raw: Any, prefix: str) -> ApplyAction:
 
     Rejections (mirroring ``docs/07-rules-engine.md`` §Validation):
 
-    * ``apply`` block with no effect (none of geometry/snap/maximized/desktop
-      set) — the rule would do nothing.
+    * ``apply`` block with no effect (none of geometry/snap/monitor/maximized/
+      desktop set) — the rule would do nothing.
     * ``maximized = true`` combined with an explicit ``geometry`` or ``snap``
       (semantic contradiction; the two mechanisms fight for control of the
       window state).
@@ -150,10 +150,16 @@ def parse_action(raw: Any, prefix: str) -> ApplyAction:
     desktop = _parse_desktop(raw.get("desktop"), f"{prefix}.desktop")
     maximized = _opt_bool(raw, "maximized", prefix)
 
-    if geometry is None and snap is None and maximized is None and desktop is None:
+    if (
+        geometry is None
+        and snap is None
+        and monitor is None
+        and maximized is None
+        and desktop is None
+    ):
         raise ActionValidationError(
             f"{prefix} has no effect — set at least one of "
-            f"'geometry', 'snap', 'maximized', 'desktop'"
+            f"'geometry', 'snap', 'monitor', 'maximized', 'desktop'"
         )
     if maximized is True and (geometry is not None or snap is not None):
         raise ActionValidationError(

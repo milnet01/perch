@@ -148,7 +148,7 @@ async def test_window_opened_fires_matching_rule(tmp_path: Path) -> None:
         args for name, args in backend.commands.entries if name == "set_geometry"
     ]
     assert geom_calls == [
-        ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", 0),
+        ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", None),
     ]
 
 
@@ -294,7 +294,7 @@ async def test_unpause_re_enables_placement(tmp_path: Path) -> None:
         args for name, args in backend.commands.entries if name == "set_geometry"
     ]
     assert geom_calls == [
-        ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", 0),
+        ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", None),
     ]
 
 
@@ -334,7 +334,7 @@ async def test_reapply_reevaluates_with_unchanged_topology(
     await reducer.reapply()
 
     assert len(_geom()) == 2
-    assert _geom()[-1] == ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", 0)
+    assert _geom()[-1] == ("w1", Geometry(2560, 360, 960, 1040), "HDMI-1", None)
 
 
 # ── Feedback-loop prevention ───────────────────────────────────────────────
@@ -532,8 +532,9 @@ async def test_maximized_true_calls_set_state(tmp_path: Path) -> None:
     geom_calls = [
         args for n, args in backend.commands.entries if n == "set_geometry"
     ]
-    # The move lands on HDMI-1. Its geometry is PERC-0084's to settle.
-    assert [(call[0], call[2]) for call in geom_calls] == [("w1", "HDMI-1")]
+    # The move keeps the window's offset: (100, 100) on DP-1's work area is
+    # (100, 100) on HDMI-1's, which starts at (2560, 360).
+    assert geom_calls == [("w1", Geometry(2660, 460, 800, 600), "HDMI-1", None)]
 
     # set_state arg was MAXIMIZED
     state_calls = [
@@ -776,7 +777,7 @@ async def test_profile_override_with_no_matching_base_is_appended(
         args for n, args in backend.commands.entries if n == "set_geometry"
     ]
     # signal was not in the base layout; the override adds it.
-    assert geom_calls == [("sig", Geometry(2560, 360, 1920, 1040), "HDMI-1", 0)]
+    assert geom_calls == [("sig", Geometry(2560, 360, 1920, 1040), "HDMI-1", None)]
 
 
 # ── Profile default_layout ────────────────────────────────────────────────
@@ -1035,7 +1036,7 @@ async def test_set_config_applies_a_new_rule_to_the_next_window(
     await reducer.handle_window_opened(window)
 
     geom_calls = [args for n, args in backend.commands.entries if n == "set_geometry"]
-    assert geom_calls == [("w1", Geometry(0, 0, 1280, 1400), "DP-1", 0)]
+    assert geom_calls == [("w1", Geometry(0, 0, 1280, 1400), "DP-1", None)]
 
 
 async def test_set_config_applies_a_new_exclusion_to_the_next_window(
@@ -1091,3 +1092,20 @@ async def test_set_config_drops_an_active_layout_that_was_deleted(
 
     assert reducer.active_layout is None
     assert reducer._effective_layout is None
+
+
+# ── PERC-0084: a desktop is passed only when the rule sets one ────────────
+async def test_a_rule_without_a_desktop_leaves_the_window_on_its_own(
+    tmp_path: Path,
+) -> None:
+    """docs/07 §Apply order step 2. Passing the window's own desktop on
+    every call made a backend without can_set_desktop refuse every
+    placement, a plain snap included."""
+    backend, reducer, _ = await _make(_FIREFOX_LEFT_HALF, tmp_path)
+    await reducer.start()
+    window = _window()
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+
+    geom_calls = [args for n, args in backend.commands.entries if n == "set_geometry"]
+    assert [call[3] for call in geom_calls] == [None]

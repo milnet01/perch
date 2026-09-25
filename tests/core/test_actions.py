@@ -273,3 +273,12 @@ def test_monitor_all_rejected_inside_a_geometry_table() -> None:
             {"geometry": {"x": 0, "y": 0, "w": 10, "h": 10, "monitor": "all"}},
             "x",
         )
+
+
+
+def test_a_monitor_alone_is_an_effect() -> None:
+    """docs/07 §Validation: "move this app to that screen" is a rule, and
+    the settings window already offers it (PERC-0084)."""
+    action = parse_action({"monitor": "HDMI-1"}, "r")
+    assert action.monitor == "HDMI-1"
+    assert action.geometry is None
