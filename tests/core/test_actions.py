@@ -69,12 +69,18 @@ def test_absolute_geometry_accepts_monitor_inside() -> None:
 def test_percent_geometry() -> None:
     a = parse_action(
         {
-            "geometry": {"x": "0%", "y": "0%", "w": "60%", "h": "70%"},
+            "geometry": {"x": "10%", "y": "20%", "w": "60%", "h": "70%"},
         },
         "x",
     )
     assert isinstance(a.geometry, PercentGeometry)
-    assert a.geometry.w_pct == pytest.approx(0.6)
+    # Distinct values per field, so a dropped or swapped field fails.
+    assert (a.geometry.x_pct, a.geometry.y_pct, a.geometry.w_pct, a.geometry.h_pct) == (
+        pytest.approx(0.1),
+        pytest.approx(0.2),
+        pytest.approx(0.6),
+        pytest.approx(0.7),
+    )
 
 
 def test_percent_with_space_and_decimal() -> None:

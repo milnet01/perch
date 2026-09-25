@@ -8,6 +8,7 @@ via the reducer integration tests.
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -96,11 +97,20 @@ def test_load_future_version_rejected(state_path: Path) -> None:
         json.dumps(
             {
                 "schema_version": CURRENT_STATE_SCHEMA_VERSION + 1,
-                "windows": {},
+                "windows": {
+                    "app:konsole": {
+                        "identity": "app:konsole",
+                        "geometry": {"x": 0, "y": 0, "w": 400, "h": 300},
+                        "monitor": "DP-1",
+                        "desktop": 0,
+                        "last_seen": _RECENT,
+                    }
+                },
             }
         )
     )
-    # Surfaces as a warning + empty state — we never load a future-version file.
+    # Surfaces as a warning + empty state — we never load a future-version
+    # file, so its record is absent although it is well formed.
     store = StateStore(state_path)
     store.load()
     assert store.state.windows == {}
@@ -148,7 +158,17 @@ async def test_set_active_deduplicates(state_path: Path) -> None:
 
 
 # ── Atomic flush ────────────────────────────────────────────────────────────
-async def test_flush_writes_atomically(state_path: Path) -> None:
+async def test_flush_writes_atomically(
+    state_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replaced: list[tuple[str, str]] = []
+    real_replace = os.replace
+
+    def _recording_replace(src: str | Path, dst: str | Path) -> None:
+        replaced.append((Path(src).name, Path(dst).name))
+        real_replace(src, dst)
+
+    monkeypatch.setattr("perch.core.state_store.os.replace", _recording_replace)
     store = StateStore(state_path)
     store.load()
     store.record_window(
@@ -156,7 +176,9 @@ async def test_flush_writes_atomically(state_path: Path) -> None:
     )
     await store.flush()
 
-    assert state_path.exists()
+    # Written to a sibling and renamed into place, never written in place.
+    assert replaced == [(state_path.name + ".tmp", state_path.name)]
+    assert not state_path.with_name(state_path.name + ".tmp").exists()
     raw = json.loads(state_path.read_text())
     assert raw["windows"]["app:firefox"]["geometry"]["w"] == 800
 
@@ -184,7 +206,9 @@ async def test_flush_rotates_old_to_bak(state_path: Path) -> None:
 
     assert state_path.exists()
     bak = state_path.with_name(state_path.name + ".bak")
-    assert bak.exists()
+    # The backup is the previous document, not a copy of the new one.
+    assert json.loads(bak.read_text())["windows"]["app:a"]["geometry"]["x"] == 0
+    assert json.loads(state_path.read_text())["windows"]["app:a"]["geometry"]["x"] == 10
 
 
 # ── Regression: a newer-schema file must survive, not just be refused ───────

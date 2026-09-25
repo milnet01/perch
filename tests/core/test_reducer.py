@@ -338,7 +338,16 @@ async def test_reapply_reevaluates_with_unchanged_topology(
 
 
 # ── Feedback-loop prevention ───────────────────────────────────────────────
-async def test_set_geometry_echo_is_dropped(tmp_path: Path) -> None:
+async def test_set_geometry_echo_is_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # last_seen has one-second resolution, so without a clock that moves on
+    # every read a recorded echo would carry the same stamp and pass.
+    ticks = iter(range(10_000))
+    monkeypatch.setattr(
+        "perch.core.state_store._utc_now_iso",
+        lambda: f"2026-01-01T00:00:{next(ticks):02d}+00:00",
+    )
     backend, reducer, store = await _make(
         {
             "rules": [
@@ -388,7 +397,7 @@ async def test_user_drag_updates_state(tmp_path: Path) -> None:
 async def test_window_closed_clears_expected_geometry(
     tmp_path: Path,
 ) -> None:
-    backend, reducer, _ = await _make(
+    backend, reducer, store = await _make(
         {
             "rules": [
                 {
@@ -403,12 +412,13 @@ async def test_window_closed_clears_expected_geometry(
     window = _window()
     backend._spawn_window(window)
     await reducer.handle_window_opened(window)
+    placed = store.state.windows["app:firefox"].geometry
 
     reducer.handle_window_closed("w1")
-    # No assertion error or leak — the expected_geometry dict is private but
-    # we verify through behaviour: a late geometry_changed is ignored
-    # because the WindowInfo cache is gone.
+    # A late geometry_changed is ignored because the WindowInfo cache is
+    # gone: the remembered geometry stays the placed one.
     reducer.handle_geometry_changed("w1", Geometry(1, 2, 3, 4), "DP-1", 0)
+    assert store.state.windows["app:firefox"].geometry == placed == Geometry(0, 0, 2560, 1400)
 
 
 # ── Topology / profile switching ───────────────────────────────────────────
@@ -519,6 +529,11 @@ async def test_maximized_true_calls_set_state(tmp_path: Path) -> None:
     assert "set_geometry" in names
     assert "set_state" in names
     assert names.index("set_geometry") < names.index("set_state")
+    geom_calls = [
+        args for n, args in backend.commands.entries if n == "set_geometry"
+    ]
+    # The move lands on HDMI-1. Its geometry is PERC-0084's to settle.
+    assert [(call[0], call[2]) for call in geom_calls] == [("w1", "HDMI-1")]
 
     # set_state arg was MAXIMIZED
     state_calls = [
@@ -761,8 +776,7 @@ async def test_profile_override_with_no_matching_base_is_appended(
         args for n, args in backend.commands.entries if n == "set_geometry"
     ]
     # signal was not in the base layout; the override adds it.
-    assert len(geom_calls) == 1
-    assert geom_calls[0][0] == "sig"
+    assert geom_calls == [("sig", Geometry(2560, 360, 1920, 1040), "HDMI-1", 0)]
 
 
 # ── Profile default_layout ────────────────────────────────────────────────
@@ -950,6 +964,13 @@ async def test_a_lone_window_event_does_not_notify(tmp_path: Path) -> None:
 
     assert reported == []
 
+    # The next pass reports its own skipped entry once, with nothing the
+    # lone event might have queued.
+    await reducer.activate_layout("coding")
+    assert len(reported) == 1
+    assert len(reported[0]) == 1
+    assert "DP-9" in reported[0][0]
+
 
 # ── PERC-0066: one window per layout entry ─────────────────────────────────
 _TWO_CODE_WINDOWS_LAYOUT = {
@@ -1013,7 +1034,8 @@ async def test_set_config_applies_a_new_rule_to_the_next_window(
     backend._spawn_window(window)
     await reducer.handle_window_opened(window)
 
-    assert _placed(backend) == ["w1"]
+    geom_calls = [args for n, args in backend.commands.entries if n == "set_geometry"]
+    assert geom_calls == [("w1", Geometry(0, 0, 1280, 1400), "DP-1", 0)]
 
 
 async def test_set_config_applies_a_new_exclusion_to_the_next_window(

@@ -27,7 +27,9 @@ def test_configure_logging_is_idempotent(tmp_path: Path) -> None:
     configure_logging(log_path=log_path)
     logger = configure_logging(log_path=log_path)
     # Exactly one file handler + one stream handler, not doubled.
+    # (RotatingFileHandler is itself a StreamHandler, so count all.)
     assert sum(isinstance(h, RotatingFileHandler) for h in logger.handlers) == 1
+    assert len(logger.handlers) == 2
 
 
 def test_configure_logging_creates_parent_dir(tmp_path: Path) -> None:

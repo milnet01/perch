@@ -1964,7 +1964,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 1, 2, 3.
 
-- 📋 [PERC-0080] **Tighten the core, config and app tests that would pass with the feature broken.**
+- ✅ [PERC-0080] **Tighten the core, config and app tests that would pass with the feature broken.**
   Group B2 of docs/reviews/2026-09-25-review-tests.md, 24 dim-1 findings.
   core: test_engine_performance.py:157, test_exclusions.py:71 and :55,
   test_actions.py:77, test_layouts.py:57, test_reducer.py:341 :388 :517
@@ -1973,6 +1973,13 @@ Goal: fewer first-run support tickets; the config is safe.
   and :49, test_config_atomic_write.py:16, test_instance.py:102,
   test_logging_setup.py:29. Two HIGH: test_reducer.py:341 (second-
   precision last_seen hides a missed echo drop) and :388 (no assertion).
+  Resolved (2026-09-25): all 24 fixed (test_instance.py:102 under
+  PERC-0083). Mutation-checked where cheap: disabling the reducer's echo
+  drop, keeping the closed window's cache, and bypassing the engine's
+  dock short-circuit each left the old test green and turn the new one
+  red. test_reducer.py:517 now pins the target monitor only; its geometry
+  is PERC-0084's, found while tightening it: the core, KWin and X11
+  disagree on whether set_geometry coordinates are desktop-absolute.
   **Layman:** Some tests of Perch's core logic would still pass if the thing they check stopped working.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 4, 5, 6, 7.
@@ -2035,6 +2042,26 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Some tests that start a real window manager wait a fixed time instead of for the thing to happen, so they can fail on a busy machine.
   Kind: test.
   Source: review-tests 2026-09-25 (PERC-0063), lanes 2, 3, 7.
+
+- 📋 [PERC-0084] **Settle whether set_geometry takes desktop-absolute or monitor-relative coordinates.**
+  docs/03 never says which frame set_geometry's Geometry is in, and the
+  code uses both. The resolver expands presets against the target
+  monitor's work area in desktop-absolute pixels (a maximize on HDMI-1 at
+  x=2560 sends Geometry(2560, 360, 1920, 1040)). KWin's main.js assigns
+  frameGeometry as given, so absolute. X11Backend.set_geometry adds the
+  named output's origin (target_x = out.geometry.x + geom.x), so it reads
+  the same value as monitor-relative and places that window at x=5120,
+  off-screen. The reverse case: a monitor-only rule passes the window's
+  current geometry through with the new monitor (reducer._execute), which
+  X11's offset moves correctly and KWin's absolute assignment leaves on
+  the old monitor. The live openbox tests cannot see it: Xvfb has one
+  output at 0,0. Proposed direction: desktop-absolute everywhere, as
+  state.json already stores; the core translates a monitor-only move into
+  the target monitor itself; X11 stops adding the origin; docs/03 states
+  the frame. Needs a failing test per backend first.
+  **Layman:** On a second monitor, Perch can put a window in the wrong place: off-screen on X11, or not moved at all on KDE.
+  Kind: fix.
+  Source: in-session-2026-09-25, found tightening PERC-0080's test_reducer.py:517.
 
 ## v1.2 — Smarts
 

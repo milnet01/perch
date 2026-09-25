@@ -26,6 +26,7 @@ import time
 import pytest
 
 from perch.backend.types import Geometry, WindowInfo, WindowState, WindowType
+from perch.core import engine
 from perch.core.actions import ApplyAction, PercentGeometry
 from perch.core.engine import ApplyActionDecision, TriggerEvent, evaluate
 from perch.core.matching import MatchPattern
@@ -120,15 +121,27 @@ def test_evaluate_scales_under_budget(
     )
 
 
-def test_evaluate_short_circuits_on_builtin_exclusion() -> None:
+def test_evaluate_short_circuits_on_builtin_exclusion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Exclusion path is O(1) regardless of rules list size.
 
     If this regresses to linear we'll see 500-dock-windows take the
     same time as 500-matching-windows, which defeats the whole purpose
-    of the builtin exclusion gate.
+    of the builtin exclusion gate. The time budget alone cannot see that:
+    a linear walk of 500 non-matching rules still fits inside it, so the
+    rule matcher is counted as well.
     """
     rules = _make_rules(500)
     kw = _default_kwargs(rules)
+    matched: list[object] = []
+    real_match = engine.match_window
+
+    def _counting_match(pattern: MatchPattern, window: WindowInfo) -> bool:
+        matched.append(window)
+        return real_match(pattern, window)
+
+    monkeypatch.setattr(engine, "match_window", _counting_match)
 
     docks = [
         WindowInfo(
@@ -158,3 +171,4 @@ def test_evaluate_short_circuits_on_builtin_exclusion() -> None:
         f"builtin-exclusion short-circuit took {elapsed:.3f}s for "
         "500 dock windows (budget 0.5s)"
     )
+    assert matched == [], "a dock window reached the rule matcher"

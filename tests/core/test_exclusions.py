@@ -54,6 +54,8 @@ def test_parse_user_exclusions_happy_path() -> None:
     )
     assert len(patterns) == 2
     assert patterns[0].app_id == "plasmashell"
+    assert patterns[1].wm_class == "Plasma*"
+    assert patterns[1].types == (WindowType.SPLASH,)
 
 
 def test_parse_user_exclusions_rejects_empty_pattern() -> None:
@@ -69,7 +71,9 @@ def test_parse_user_exclusions_rejects_bad_field() -> None:
 
 def test_is_user_excluded_matches_any() -> None:
     patterns = parse_user_exclusions(
-        [{"app_id": "plasmashell"}, {"app_id": "firefox"}]
+        # The window is plasmashell, and its pattern is second, so checking
+        # only the first pattern fails.
+        [{"app_id": "firefox"}, {"app_id": "plasmashell"}]
     )
     window = _w(WindowType.NORMAL)
     assert is_user_excluded(window, patterns)

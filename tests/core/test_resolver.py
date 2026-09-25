@@ -7,6 +7,8 @@ and the ``maximized=false + geometry`` unmaximize-first contract.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from perch.backend.types import (
@@ -146,11 +148,8 @@ def test_absolute_geometry_clamped_to_work_area(
         outputs,
         {},
     )
-    geom = placement.geometry
-    assert geom is not None
-    # The rectangle is pushed back inside DP-1's work area.
-    assert geom.x + geom.w <= 2560
-    assert geom.y + geom.h <= 1400
+    # Pushed back inside DP-1's work area (0, 0, 2560, 1400), size kept.
+    assert placement.geometry == Geometry(2060, 900, 500, 500)
 
 
 # ── Monitor keywords ──────────────────────────────────────────────────────
@@ -299,11 +298,11 @@ def test_desktop_integer(outputs: list[OutputInfo]) -> None:
 def test_desktop_current(outputs: list[OutputInfo]) -> None:
     placement = resolve_action(
         ApplyAction(geometry=PresetGeometry(name="maximize"), desktop="current"),
-        _w(),
+        replace(_w(), desktop=3),
         outputs,
         {},
     )
-    assert placement.desktop == 0
+    assert placement.desktop == 3
 
 
 def test_desktop_all_maps_to_sticky(outputs: list[OutputInfo]) -> None:
@@ -372,10 +371,8 @@ def test_percent_geometry_is_clamped_into_the_work_area(
         outputs,
         {},
     )
-    work_area = outputs[0].work_area
-    assert placement.geometry is not None
-    assert placement.geometry.x >= work_area.x
-    assert placement.geometry.y >= work_area.y
+    # Clamped to the work area's corner; the half-size is kept.
+    assert placement.geometry == Geometry(0, 0, 1280, 700)
 
 
 def test_oversized_percent_geometry_shrinks_to_the_work_area(

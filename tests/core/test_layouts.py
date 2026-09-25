@@ -55,6 +55,7 @@ def test_parse_layout_with_windows() -> None:
     assert isinstance(entries[0].apply.geometry, PercentGeometry)
     assert entries[0].apply.monitor == "primary"
     assert entries[1].apply.geometry == PresetGeometry(name="maximize")
+    assert entries[1].apply.monitor == "HDMI-1"
 
 
 def test_layout_empty_name_rejected() -> None:

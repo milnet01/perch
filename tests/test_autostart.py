@@ -57,8 +57,14 @@ def test_xdg_enable_is_idempotent(
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     autostart.xdg_enable()
+    entry_dir = tmp_path / "autostart"
+    first = sorted(p.name for p in entry_dir.iterdir())
+    content = (entry_dir / first[0]).read_text(encoding="utf-8")
     autostart.xdg_enable()
     # No exception, still exactly one file with the expected content.
+    assert sorted(p.name for p in entry_dir.iterdir()) == first
+    assert len(first) == 1
+    assert (entry_dir / first[0]).read_text(encoding="utf-8") == content
     assert autostart.xdg_is_enabled()
 
 
@@ -138,12 +144,22 @@ def test_sync_from_config_disabled(
 # ── is_flatpak probe ─────────────────────────────────────────────────────────
 
 
-def test_is_flatpak_false_on_dev_host() -> None:
-    # /.flatpak-info is never present on a host — be extra defensive if
-    # someone runs tests inside a Flatpak sandbox (skip).
-    if Path("/.flatpak-info").is_file():
-        pytest.skip("running inside a Flatpak sandbox")
-    assert not autostart.is_flatpak()
+@pytest.mark.parametrize("sandboxed", [True, False])
+def test_is_flatpak_follows_the_sandbox_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sandboxed: bool
+) -> None:
+    """Both answers, driven by the marker file, so neither host nor sandbox
+    decides which branch is tested."""
+    from perch import paths
+
+    marker = tmp_path / "flatpak-info"
+    if sandboxed:
+        marker.write_text("[Application]\n", encoding="utf-8")
+    real_path = paths.Path
+    monkeypatch.setattr(
+        paths, "Path", lambda p: marker if p == "/.flatpak-info" else real_path(p)
+    )
+    assert autostart.is_flatpak() is sandboxed
 
 
 # ── Portal path (mocked) ─────────────────────────────────────────────────────

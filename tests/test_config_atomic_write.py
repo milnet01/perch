@@ -15,6 +15,7 @@ def test_atomic_write_creates_file(tmp_path: Path) -> None:
     assert target.read_text(encoding="utf-8") == "hello = 1\n"
     # Tmp and bak must not linger after a clean write.
     assert not target.with_suffix(target.suffix + ".tmp").exists()
+    assert not target.with_suffix(target.suffix + ".bak").exists()
 
 
 def test_atomic_write_rotates_previous_to_bak(tmp_path: Path) -> None:

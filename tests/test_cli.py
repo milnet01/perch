@@ -41,13 +41,17 @@ def test_fresh_xdg_creates_default_config(xdg_env: Path) -> None:
     assert "[general]" in text
 
 
-def test_malformed_config_exits_nonzero(xdg_env: Path) -> None:
+def test_malformed_config_exits_nonzero(
+    xdg_env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     config_path = xdg_env / "config" / "perch" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text("not = valid [ toml", encoding="utf-8")
 
     exit_code = entry.cli(["--check-config"])
     assert exit_code == 1
+    # The pinpoint error names the file the user has to fix.
+    assert str(config_path) in capsys.readouterr().err
 
 
 def test_malformed_config_falls_back_to_backup(xdg_env: Path) -> None:
@@ -59,3 +63,8 @@ def test_malformed_config_falls_back_to_backup(xdg_env: Path) -> None:
     )
     exit_code = entry.cli(["--check-config"])
     assert exit_code == 0
+    # The backup was used, not defaults: its light theme is what loads,
+    # and the primary was not rewritten with a seeded default.
+    from perch.config import load_or_create
+
+    assert load_or_create().general.theme == "light"
