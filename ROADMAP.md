@@ -2114,6 +2114,20 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: review-contract 2026-09-25 on docs/07, loop 3 (docs/reviews/2026-09-25-docs-07-review.md).
 
+- 📋 [PERC-0086] **Re-render the April tray-menu and rules-editor screenshots the app listing still shows.**
+  docs/screenshots/tray-menu.png and rules-editor.png were last rendered
+  2026-04-20 (142bc0c). The tray menu has since gained Pause Perch (renamed
+  from Pause restore), Donate and Report an issue, and the settings window
+  was rebuilt. The AppStream metainfo, docs/08-ui.md and the KDE Store
+  listing all cite them. scripts/render-screenshots.py grabs only the
+  top-level menu, so the snap presets never appear; render the Snap submenu
+  beside it (a working composite, with a larger font rather than
+  QT_SCALE_FACTOR, which clips offscreen, was made 2026-09-28 for the Hub
+  website). Re-run after PERC-0043 rebuilds the Rules page.
+  **Layman:** The pictures app stores show of Perch's menu are from before several menu changes.
+  Kind: doc-fix.
+  Source: in-session-2026-09-28 Hub website page check.
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.
