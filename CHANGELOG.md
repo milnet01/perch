@@ -18,6 +18,10 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **The settings window's tables no longer cut their text off** (PERC-0087)
+  Each column of the Windows, Rules, Layouts and Profiles tables is now as
+  wide as its text, so names, matches and sizes read in full.
+
 - **Switching tabs no longer snaps a moved window back to its rule** (PERC-0085)
   A title or state change re-ran the matching rule, so a browser window
   you had dragged jumped back on every tab switch. Perch now re-applies

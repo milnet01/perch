@@ -22,11 +22,13 @@ from perch.ui.dialog import (
     SECTION_EXCLUSIONS,
     SECTION_GENERAL,
     SECTION_HOTKEYS,
+    SECTION_LAYOUTS,
     SECTION_RULES,
     ConfigDialog,
     ExclusionsPage,
     GeneralPage,
     HotkeysPage,
+    LayoutsPage,
     RulesPage,
 )
 
@@ -424,3 +426,32 @@ def test_sidebar_is_wide_enough_for_its_labels(
     sidebar.item(0).setText("A section label far longer than any English one")
     dialog._fit_sidebar()
     assert sidebar.width() >= sidebar.sizeHintForColumn(0)
+
+
+def _assert_columns_fit_text(view: Any) -> None:
+    """Every column but the stretching last one is as wide as its text."""
+    model = view.model()
+    assert model is not None and model.rowCount() > 0
+    for column in range(model.columnCount() - 1):
+        assert view.columnWidth(column) >= view.sizeHintForColumn(column), (
+            f"column {column} cuts its text off"
+        )
+
+
+def test_rules_and_layout_tables_fit_their_text(
+    qtbot: QtBot, tmp_path: Path, xdg_env: Path
+) -> None:
+    """PERC-0087: columns stayed at Qt's default width and cut text off."""
+    dialog, _path, _saves = _open_dialog(tmp_path, xdg_env)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    qtbot.waitExposed(dialog)
+
+    rules_page = dialog._pages[SECTION_RULES]
+    assert isinstance(rules_page, RulesPage)
+    _assert_columns_fit_text(rules_page.view)
+
+    dialog.select_section(SECTION_LAYOUTS)
+    layouts_page = dialog._pages[SECTION_LAYOUTS]
+    assert isinstance(layouts_page, LayoutsPage)
+    _assert_columns_fit_text(layouts_page.entries_view)

@@ -2128,6 +2128,19 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: doc-fix.
   Source: in-session-2026-09-28 Hub website page check.
 
+- ✅ [PERC-0087] **Size the settings tables' columns to their text instead of cutting it off.**
+  The Windows, Rules, Layouts and Profiles tables leave every column at
+  Qt's default width, so identities, rule names, matches and geometries
+  show as "app:kons…" or "2560x14…" at any normal font size. Seen while
+  recording the website demo video (2026-10-02). Covers the column-sizing
+  half of PERC-0043's 2026-09-25 note; the Rules page rebuild stays there.
+  Resolved (2026-10-02): one helper, _fit_columns_to_text, sizes every
+  column to its text on all four tables; tests in test_dialog.py and
+  test_windows_pane.py were red first.
+  **Layman:** The settings window cuts words off in its tables; make each column wide enough to read.
+  Kind: fix.
+  Source: in-session-2026-10-02 Hub website demo video.
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.

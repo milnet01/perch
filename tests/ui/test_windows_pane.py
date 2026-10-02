@@ -300,3 +300,19 @@ def test_apply_preset_keeps_its_task_and_moves_the_window(
 
     asyncio.run(run())
     assert "set_geometry" in backend.commands.names()
+
+
+def test_page_columns_fit_their_text(
+    qtbot: QtBot, backend: MockBackend, store: StateStore
+) -> None:
+    """PERC-0087: columns stayed at Qt's default width and cut text off."""
+    page = WindowsPage(backend=backend, state_store=store)
+    qtbot.addWidget(page)
+    backend._spawn_window(_window("1", "org.kde.konsole", "a shell"))
+    page.show()
+    qtbot.waitExposed(page)
+    assert page.view is not None and page.model is not None
+    for column in range(page.model.columnCount()):
+        assert page.view.columnWidth(column) >= page.view.sizeHintForColumn(
+            column
+        ), f"column {column} cuts its text off"

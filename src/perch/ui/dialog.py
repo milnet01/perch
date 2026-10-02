@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
+    QHeaderView,
     QInputDialog,
     QLabel,
     QLineEdit,
@@ -143,6 +144,17 @@ def _section_label(section: str) -> str:
         ),
     }
     return labels[section]
+
+
+def _fit_columns_to_text(view: QTableView) -> None:
+    """Size every column to its text; the last one takes the spare width.
+
+    Qt's default leaves each column 100 px wide, which cut identities,
+    rule names and geometries off at any ordinary font size (PERC-0087).
+    """
+    header = view.horizontalHeader()
+    header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+    header.setStretchLastSection(True)
 
 
 # ── Working state held across edits ─────────────────────────────────────
@@ -356,7 +368,7 @@ class WindowsPage(QWidget):
         self.view.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )
-        self.view.horizontalHeader().setStretchLastSection(False)
+        _fit_columns_to_text(self.view)
         self.view.verticalHeader().setVisible(False)
 
         hint = QLabel(
@@ -722,7 +734,7 @@ class RulesPage(QWidget):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.view.verticalHeader().setSectionsMovable(False)
-        self.view.horizontalHeader().setStretchLastSection(True)
+        _fit_columns_to_text(self.view)
 
         self.delete_button = QPushButton(self.tr("Delete rule"))
         self.delete_button.setEnabled(False)
@@ -1003,7 +1015,7 @@ class LayoutsPage(QWidget):
         self.entries_view.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )
-        self.entries_view.horizontalHeader().setStretchLastSection(True)
+        _fit_columns_to_text(self.entries_view)
         self.entries_view.verticalHeader().setVisible(False)
         self.entries_view.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
@@ -1510,7 +1522,7 @@ class ProfilesPage(QWidget):
         self.overrides_view.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )
-        self.overrides_view.horizontalHeader().setStretchLastSection(True)
+        _fit_columns_to_text(self.overrides_view)
         self.overrides_view.verticalHeader().setVisible(False)
         self.overrides_view.doubleClicked.connect(
             lambda _i: self._on_edit_override()
@@ -2017,7 +2029,7 @@ class _OverrideEditorDialog(QDialog):
         self.entries_view.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )
-        self.entries_view.horizontalHeader().setStretchLastSection(True)
+        _fit_columns_to_text(self.entries_view)
         self.entries_view.verticalHeader().setVisible(False)
         self._model = _LayoutEntriesModel(self._entries)
         self.entries_view.setModel(self._model)
