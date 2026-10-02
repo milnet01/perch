@@ -94,7 +94,7 @@ class Capabilities:
     notes:                  str = ""       # human-readable caveats
 ```
 
-The `can_preplace_windows` bit was added during Phase 2 research. "Pre-placement" means the backend can apply remembered geometry *before* the window's first paint, so the user doesn't see it flash at its default location and then move. Only the KWin backend currently claims this, and even there it is best-effort (see [05-backend-kwin.md](05-backend-kwin.md) — KWin scripting provides no hard guarantee but in practice flicker is rarely visible). X11, Mutter, Sway, and Hyprland all return `False` — their respective protocols do not expose the hook. The core uses this bit to tell the user, up front, when Perch is running in a session where "restore on open" will be visually snappy vs. "restore on open, with a visible snap."
+"Pre-placement" means the backend applies remembered geometry *before* the window's first paint, so the window does not flash at its default place and then move. No backend claims it. X11, Mutter, Sway and Hyprland expose no such hook. KWin's best-effort version was removed in M9.f.15 because it left windows stuck on top, and its backend now returns `False` too.
 
 `WindowInfo` is always a snapshot. The core never holds a reference to a live backend object — if it wants fresh data it asks the backend again.
 
@@ -226,18 +226,9 @@ All errors carry a short human-readable message in `args[0]`. Backends must not 
 
 ## Capability negotiation
 
-The core reads `capabilities` once at startup and again whenever `backend_connected` fires. Every feature in the UI is conditional on a capability:
+Each backend fills in `capabilities` to record what it can do. Its design doc, or its `STATUS.md` for a stub, says why each bit is set.
 
-| Feature | Requires |
-|---|---|
-| Snap presets | `can_set_position`, `can_set_size` |
-| "Send window to monitor 2" | `can_set_monitor` |
-| Virtual-desktop rules | `can_set_desktop` |
-| Auto-restore on open | `can_observe_geometry` + `can_set_position` + `can_set_size` |
-| Pre-paint placement ("snappy restore") | `can_preplace_windows` |
-| Global hotkeys (backend-registered) | `can_register_hotkeys` (else fall back) |
-
-Disabled features render greyed out with a tooltip quoting `capabilities.notes`.
+The core does not read `capabilities`, and no UI feature is hidden or greyed out on one. The core calls the method it needs and handles `BackendUnsupported` at that call. The action is logged at WARNING and skipped, except that a refused maximise falls back to the target monitor's work area ([02-state-format.md](02-state-format.md) §Apply actions).
 
 ## Identity helpers
 
@@ -304,5 +295,5 @@ If you find yourself reading the config file from a backend, something is wrong 
 The originally open questions were resolved during Phase 2 research:
 
 - **`focus_window(wid)`**: deferred to v1.x. Not needed for M1…M9 features (layouts can set geometry without raising a specific window; the tray's "Windows" submenu raises via the compositor's default behaviour on click). A later need for an explicit raise primitive will add the method.
-- **Pre-paint placement capability**: added as `can_preplace_windows` (see above). Only KWin sets it true; all others set it false and document the visible-snap consequence.
+- **Pre-paint placement capability**: added as `can_preplace_windows` (see above). No backend sets it true since M9.f.15.
 - **Output position normalisation**: geometries in `state.json` are stored as the compositor reports them (not normalised to primary-origin). The topology key in a profile captures the output positions verbatim, so cross-topology matching already handles the "plugged monitor in the other position" case without needing normalisation. Documented in [09-layouts-profiles.md](09-layouts-profiles.md).

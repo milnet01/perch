@@ -1123,6 +1123,13 @@ Goal: fewer first-run support tickets; the config is safe.
   backend_connected, and that every UI feature is conditional on one; it
   also says restore-on-open is gated on can_observe_geometry. Nothing
   outside src/perch/backend/ reads any capability field.
+  Progress (2026-10-02): docs/03 done for its two listed items. The user
+  chose to fix the doc, not the code: §Capability negotiation now says
+  the core reads no capability and handles BackendUnsupported per call
+  (the gating idea is filed as PERC-0090), and can_preplace_windows is
+  described as claimed by no backend since M9.f.15. Next: docs/05
+  §Pre-placement hook and its capabilities block, docs/04 §Reading
+  geometry, docs/08's mutators, then the KWin command vocabulary.
   **Layman:** The manual describes things the code does not do, and vice versa.
   Kind: doc-fix.
   Source: review-code 2026-08-31 (all ten lanes).
@@ -2172,6 +2179,16 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Track down which automatic test froze once, using the clues the new safety net prints next time.
   Kind: investigate.
   Source: in-session-2026-10-02 push gate hang.
+
+- 💭 [PERC-0090] **Hide or grey out features a backend's capabilities say it cannot do.**
+  docs/03 used to promise this; the user chose on 2026-10-02 to make the
+  doc describe the code instead (PERC-0051). Today every refusal is
+  handled per call through BackendUnsupported. Worth building once a stub
+  backend (Mutter, Sway, Hyprland) ships with real gaps, since X11 and
+  KWin can do everything the UI offers.
+  **Layman:** Grey out the options a desktop can't support, instead of letting them quietly do nothing.
+  Kind: feature.
+  Source: user-decision-2026-10-02 PERC-0051 docs/03.
 
 ## v1.2 — Smarts
 
