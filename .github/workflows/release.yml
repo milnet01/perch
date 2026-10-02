@@ -23,6 +23,7 @@ permissions:
 jobs:
   appimage:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       # On a real release, build the freshly-tagged code. On a manual dispatch
       # (used to backfill an existing release), build the branch the workflow was
