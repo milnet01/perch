@@ -69,6 +69,11 @@ itself.
 The project `.venv` is still the environment to point an editor at — the gate
 does not use it for the test job.
 
+**A hung test fails the run instead of stalling it.** Any test still running
+after 60 seconds prints every thread's stack (`faulthandler_timeout` in
+`pyproject.toml`, so CI and a bare `pytest` do it too). Each local test run is
+stopped after ten minutes, as each CI job is by its `timeout-minutes`.
+
 **The compositor JavaScript is linted with ESLint**, which needs Node.js and
 `npm` on `PATH`. The gate runs `npm ci` itself the first time (into the
 gitignored `node_modules/`) and whenever `package-lock.json` changes; the

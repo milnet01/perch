@@ -187,8 +187,12 @@ for ver in "${MATRIX[@]}"; do
   # would run (and they are live + flaky). Exclude them so a green local_CI
   # implies a green CI (the whole point of the gate); run them deliberately
   # with `pytest -m x11`. DBUS_SESSION_BUS_ADDRESS points at nothing, as in
-  # ci.yml: no test may reach this desktop's real session bus.
-  run "pytest ($ver)" env PATH="$BIN:$PATH" QT_QPA_PLATFORM=offscreen \
+  # ci.yml: no test may reach this desktop's real session bus. `timeout`
+  # mirrors the test job's timeout-minutes: the suite takes seconds, so a run
+  # past ten minutes is a hang and fails rather than stalling the push
+  # (PERC-0088); pyproject's faulthandler_timeout has already printed where.
+  run "pytest ($ver)" timeout --kill-after=10 600 \
+    env PATH="$BIN:$PATH" QT_QPA_PLATFORM=offscreen \
     DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/perch-test-bus \
     pytest -ra -m "not x11 and not kwin"
 done

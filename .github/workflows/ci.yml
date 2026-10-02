@@ -17,6 +17,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -88,6 +89,7 @@ jobs:
     # to record it. Stdlib-only, so there is nothing to install. This is the
     # same script `./local_CI.sh --docs` runs for a documentation-only push.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -117,6 +119,7 @@ jobs:
     # Runs independent of the test matrix so validation failures surface
     # without blocking on the Python test grid.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

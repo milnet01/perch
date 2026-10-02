@@ -2141,6 +2141,38 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-10-02 Hub website demo video.
 
+- ✅ [PERC-0088] **An intermittent test-suite hang must fail fast with a stack trace, not stall the push gate.**
+  2026-10-02: the pre-push gate's pytest (3.13) run sat in poll() for
+  over 15 minutes; the same suite takes about 5 s. It did not recur in
+  15 direct runs or the next gate run. The stuck process held an sd-bus
+  "user" connection with 768 bytes it could not send, so suspect a test
+  whose bus outlives the private dbus-daemon it was opened on (the
+  bus-name and KWin fixtures open one). Nothing bounded the run, and
+  nothing printed which test hung. Fix: pytest's faulthandler_timeout
+  prints the stuck stack; a per-run time limit on each pytest step,
+  locally and as timeout-minutes on every GitHub job, fails the run.
+  Root cause stays open until a dump names the test.
+  Resolved (2026-10-02): faulthandler_timeout = 60 in pyproject prints
+  the stuck stack (checked: a 4 s probe under a 1 s limit named its file
+  and line); local_CI.sh stops each pytest run at 600 s (probe: exit 124);
+  ci.yml jobs carry timeout-minutes 15/10/10. The root cause is
+  PERC-0089.
+  **Layman:** A rare freeze in the automatic tests stalled a push for a quarter of an hour; make it stop quickly and say where it froze.
+  Kind: fix.
+  Source: in-session-2026-10-02 push gate hang.
+
+- 📋 [PERC-0089] **Find the test behind the 2026-10-02 intermittent pytest hang.**
+  Seen once, in the pre-push gate's 3.13 run; not reproduced in 16 runs
+  since. The stuck process held an sd-bus "user" connection with unsent
+  bytes, which points at a bus left open after its private dbus-daemon
+  was stopped (test_bus_name.py's fixture, or the KWin conftest). The
+  next occurrence prints its stack (PERC-0088); read it from the push
+  log rather than guessing. To keep it: push with output to
+  .audit/push.log, never through `| tail`.
+  **Layman:** Track down which automatic test froze once, using the clues the new safety net prints next time.
+  Kind: investigate.
+  Source: in-session-2026-10-02 push gate hang.
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.
