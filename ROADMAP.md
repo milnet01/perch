@@ -2190,6 +2190,53 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: feature.
   Source: user-decision-2026-10-02 PERC-0051 docs/03.
 
+- 📋 [PERC-0091] **Stop a KDE runtime update from breaking installed Flatpak copies of Perch.**
+  Seen 2026-10-02: the locally installed Flatpak (built 2026-08-27 on
+  org.kde.Platform//6.11 + io.qt.PySide.BaseApp//6.11) dies at import with
+  `QtCore.abi3.so: undefined symbol _ZN14QObjectPrivateC2E16QtPrivate_6_11_1`.
+  The runtime moved to Qt 6.11.2 on 2026-09-19; PySide6 links Qt private
+  API, which is tagged with the exact Qt patch version. Perch's log stops
+  2026-09-14. Reproduce: flatpak run --no-documents-portal
+  --command=python3 io.github.milnet01.Perch -c "import PySide6.QtCore".
+  Upstream: flathub/io.qt.PySide.BaseApp#44 (open since 2026-09-10, no
+  maintainer reply); FreeCAD hit the same 6.11.1->6.11.2 break
+  (flathub/org.freecad.FreeCAD#97). The KDE runtime ships no PySide6, and
+  no evidence Flathub rebuilds dependent apps automatically.
+  Only the Flatpak is exposed: the AppImage bundles PyPI PySide6 with its
+  own Qt, and the RPM uses the distro's PySide6. The Flatpak is not yet on
+  Flathub, so no user but this machine has it.
+  The user's requirement (2026-10-02): no user may ever have to rebuild or
+  fix anything after a runtime update. Recommended route, unverified:
+  move the Flatpak to org.freedesktop.Platform with a sha256-pinned
+  PySide6-Essentials wheel from PyPI (own Qt, about 80 MB), trimmed to
+  QtCore/QtGui/QtWidgets/QtDBus plus xcb and wayland plugins. Prove before
+  adopting: tray icon (SNI over D-Bus) works, Plasma theming acceptable,
+  flatpak-builder-lint passes, Flathub accepts a binary wheel. The
+  fallback, staying on the BaseApp and rebuilding the same day the runtime
+  moves, does not meet the requirement. Changes docs/10-packaging.md
+  §Flatpak, a contract: gate it. Also tell the ants-projects-hub-website
+  session if the install story changes.
+  **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
+  Kind: fix.
+  Source: user-request-2026-10-02 (Perch dead on the user's login).
+
+- 📋 [PERC-0092] **Make Perch fully work on GNOME Wayland.**
+  The user's priority (2026-10-02): next after the Flatpak runtime fix,
+  because Perch is for all Linux users. Today GNOME Wayland is a stub
+  (README: stub, help wanted): the Mutter backend sees no window or output
+  events (so no restore-on-open), has no hotkeys, needs a GNOME Shell
+  extension the user installs by hand (a Flatpak cannot install it), and
+  the tray needs the AppIndicator extension (Perch already detects that and
+  says so). Existing parts: PERC-0073 (event streams), PERC-0019 (publish
+  the extension on extensions.gnome.org), PERC-0070 (the extension telling
+  Perch's calls apart). Several subsystems and real design choices, so
+  start with write-spec; the authoritative design today is
+  docs/06-backend-stubs.md §Mutter / GNOME Shell and
+  src/perch/backend/mutter/STATUS.md.
+  **Layman:** Perch should work for GNOME users as well as it does for KDE users.
+  Kind: feature.
+  Source: user-decision-2026-10-02.
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.
