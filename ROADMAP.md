@@ -2176,6 +2176,14 @@ Goal: fewer first-run support tickets; the config is safe.
   next occurrence prints its stack (PERC-0088); read it from the push
   log rather than guessing. To keep it: push with output to
   .audit/push.log, never through `| tail`.
+  Seen again 2026-10-07, pre-push gate, pytest (3.12), at 802a31c.
+  The stack contradicts the D-Bus guess: tests/backend/test_compliance.py
+  hung in the `backend` fixture (tests/backend/conftest.py, `await
+  b.start()`), in X11Backend.start -> Xlib.display.Display() ->
+  protocol/display.py send_and_recv. The X server accepted the socket and
+  never answered the connection setup. Next: find which display the
+  compliance run gets (pytest-xvfb's Xvfb, or the host's), and whether a
+  connect timeout belongs in X11Backend.start.
   **Layman:** Track down which automatic test froze once, using the clues the new safety net prints next time.
   Kind: investigate.
   Source: in-session-2026-10-02 push gate hang.
@@ -2252,6 +2260,18 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** An AppImage copy of Perch with Start at login switched on never actually starts at login.
   Kind: fix.
   Source: in-session-2026-10-07 (found installing the AppImage stopgap for PERC-0091).
+
+- 📋 [PERC-0094] **The AppImage prints a libtinfo warning from the system bash at every start.**
+  Seen 2026-10-07 running Perch-1.2.0-x86_64.AppImage --help:
+  `/bin/bash: /tmp/.mount_perch*/usr/lib/libtinfo.so.6: no version
+  information available (required by /lib64/libreadline.so.8)`.
+  AppRun exports LD_LIBRARY_PATH (packaging/appimage/build.sh) before
+  running the bash wrapper usr/bin/python3.12, so the host bash loads
+  the bundled libtinfo. Likely fix: drop libtinfo from the harvested
+  libs, or set LD_LIBRARY_PATH only on the final python exec.
+  **Layman:** Starting the AppImage from a terminal prints a confusing warning line, though Perch works.
+  Kind: fix.
+  Source: in-session-2026-10-07 (AppImage 1.2.0 on openSUSE Tumbleweed).
 
 ## v1.2 — Smarts
 
