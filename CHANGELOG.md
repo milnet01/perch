@@ -18,6 +18,10 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ### Fixed
 
+- **The AppImage starts at login when Start at login is on** (PERC-0093)
+  The login entry ran `perch`, which an AppImage does not install, so
+  Perch never started. It now runs the AppImage file itself.
+
 - **The settings window's tables no longer cut their text off** (PERC-0087)
   Each column of the Windows, Rules, Layouts and Profiles tables is now as
   wide as its text, so names, matches and sizes read in full.

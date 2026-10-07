@@ -98,7 +98,7 @@ The interface is defined in [03-backend-interface.md](03-backend-interface.md). 
 
 ### Autostart
 
-Perch installs a `perch.desktop` XDG autostart entry (`~/.config/autostart/perch.desktop` for user installs, or from Flatpak metadata). The UI has a "Start Perch at login" checkbox that toggles this. Autostart itself is not a backend concern.
+Outside Flatpak, Perch writes an XDG autostart entry at `$XDG_CONFIG_HOME/autostart/io.github.milnet01.Perch.desktop`; under Flatpak it asks the Background portal instead. The UI has a "Start Perch at login" checkbox that toggles this. Details, including the AppImage's `Exec` line: [10-packaging.md § Autostart](10-packaging.md#autostart). Autostart itself is not a backend concern.
 
 ## Threading model
 

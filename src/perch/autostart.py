@@ -5,6 +5,7 @@ Two transports, one ``sync(enabled)`` façade:
 * **XDG path** (non-Flatpak). Writes or removes
   ``$XDG_CONFIG_HOME/autostart/io.github.milnet01.Perch.desktop``. This is
   the freedesktop autostart spec — every session manager picks it up.
+  Under an AppImage the entry runs ``$APPIMAGE`` rather than ``perch``.
 * **Portal path** (Flatpak). Calls
   ``org.freedesktop.portal.Background.RequestBackground`` with
   ``autostart=True``. Portal shows the user a permission prompt on first
@@ -78,11 +79,28 @@ Name=Perch
 GenericName=Window Geometry Manager
 Comment=Remember where your windows belong
 Icon=io.github.milnet01.Perch
-Exec=perch
+Exec={exec}
 Terminal=false
 Categories=Utility;
 X-GNOME-Autostart-enabled=true
 """
+
+
+def _exec_value() -> str:
+    """The autostart entry's ``Exec`` value.
+
+    An AppImage puts no ``perch`` on ``$PATH``; its runtime sets ``$APPIMAGE``
+    to the file's absolute path, so that path is what the session manager must
+    run. It is quoted per the Desktop Entry spec: inside the quotes a double
+    quote, a backtick, ``$`` and ``\\`` take a backslash, the file's own string escaping
+    then doubles every backslash, and a literal ``%`` is written ``%%``. Every
+    startup re-syncs, so a newer AppImage rewrites the path itself.
+    """
+    appimage = os.environ.get("APPIMAGE")
+    if not appimage:
+        return "perch"
+    arg = "".join("\\" + c if c in '"`$\\' else c for c in appimage)
+    return '"' + arg.replace("\\", "\\\\").replace("%", "%%") + '"'
 
 
 def xdg_is_enabled() -> bool:
@@ -108,7 +126,9 @@ def xdg_enable() -> None:
     # Atomic write via temp-and-rename — a half-written autostart file
     # would confuse the session manager on next login.
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(_XDG_DESKTOP_TEMPLATE, encoding="utf-8")
+    tmp.write_text(
+        _XDG_DESKTOP_TEMPLATE.format(exec=_exec_value()), encoding="utf-8"
+    )
     os.chmod(tmp, 0o644)
     os.replace(tmp, path)
     log.info("autostart enabled (XDG): %s", path)

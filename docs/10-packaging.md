@@ -396,7 +396,11 @@ effect immediately without a restart:
 - **Non-Flatpak**: writes or removes
   `$XDG_CONFIG_HOME/autostart/io.github.milnet01.Perch.desktop` with
   `X-GNOME-Autostart-enabled=true`. Atomic temp-and-rename so a
-  half-written file never reaches the session manager.
+  half-written file never reaches the session manager. Its `Exec` is
+  `perch`, except under an AppImage, which puts no `perch` on `$PATH`.
+  There it is the `$APPIMAGE` path the AppImage runtime sets, quoted per
+  the Desktop Entry spec. Each startup re-syncs, so a newer AppImage
+  rewrites the path.
 - **Flatpak**: calls `org.freedesktop.portal.Background.RequestBackground`
   with `autostart=true` and `commandline=["perch"]`. That method returns
   the object path of an `org.freedesktop.portal.Request`, not the result —
