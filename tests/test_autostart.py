@@ -43,13 +43,43 @@ def test_xdg_enable_writes_desktop_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("APPIMAGE", raising=False)
     autostart.xdg_enable()
     path = autostart.autostart_file()
     content = path.read_text(encoding="utf-8")
     assert "[Desktop Entry]" in content
-    assert "Exec=perch" in content
+    assert "Exec=perch" in content.splitlines()
     assert "X-GNOME-Autostart-enabled=true" in content
     assert autostart.xdg_is_enabled()
+
+
+def _exec_line(content: str) -> str:
+    lines = [line for line in content.splitlines() if line.startswith("Exec=")]
+    assert len(lines) == 1, content
+    return lines[0]
+
+
+@pytest.mark.parametrize(
+    ("appimage", "expected"),
+    [
+        # A space needs the quotes; the Desktop Entry spec allows them always.
+        ("/home/u/My Apps/Perch-1.2.0-x86_64.AppImage",
+         'Exec="/home/u/My Apps/Perch-1.2.0-x86_64.AppImage"'),
+        # Inside quotes `$` is escaped with a backslash, which the file's own
+        # string escaping doubles; a literal `%` is written `%%`.
+        ("/opt/a$b/100%/Perch.AppImage", 'Exec="/opt/a\\\\$b/100%%/Perch.AppImage"'),
+    ],
+)
+def test_xdg_enable_under_appimage_execs_the_appimage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, appimage: str, expected: str
+) -> None:
+    # PERC-0093: an AppImage puts no `perch` on PATH, so `Exec=perch` starts
+    # nothing at login. The AppImage runtime sets $APPIMAGE to the file's path.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("APPIMAGE", appimage)
+    autostart.xdg_enable()
+    content = autostart.autostart_file().read_text(encoding="utf-8")
+    assert _exec_line(content) == expected
 
 
 def test_xdg_enable_is_idempotent(

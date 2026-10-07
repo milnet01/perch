@@ -2237,6 +2237,18 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: feature.
   Source: user-decision-2026-10-02.
 
+- 🚧 [PERC-0093] **Start at login works for the AppImage.**
+  Seen 2026-10-07: the XDG autostart entry always says `Exec=perch`.
+  An AppImage puts no `perch` on PATH, so the session manager finds
+  nothing to run and Perch silently stays off; README promises the
+  toggle works. Fix: when `$APPIMAGE` is set (the AppImage runtime sets
+  it to the file's absolute path), write that path, quoted per the
+  Desktop Entry spec. Every startup re-syncs, so an updated AppImage
+  rewrites the line itself.
+  **Layman:** An AppImage copy of Perch with Start at login switched on never actually starts at login.
+  Kind: fix.
+  Source: in-session-2026-10-07 (found installing the AppImage stopgap for PERC-0091).
+
 ## v1.2 — Smarts
 
 Goal: Perch learns instead of only obeying.
