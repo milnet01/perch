@@ -2184,6 +2184,9 @@ Goal: fewer first-run support tickets; the config is safe.
   never answered the connection setup. Next: find which display the
   compliance run gets (pytest-xvfb's Xvfb, or the host's), and whether a
   connect timeout belongs in X11Backend.start.
+  Decision (user, 2026-10-08): take a short, capped look (about an hour)
+  BEFORE starting PERC-0091. If it is not solved in that time, record
+  the findings here and move on to PERC-0091.
   **Layman:** Track down which automatic test froze once, using the clues the new safety net prints next time.
   Kind: investigate.
   Source: in-session-2026-10-02 push gate hang.
@@ -2224,6 +2227,13 @@ Goal: fewer first-run support tickets; the config is safe.
   moves, does not meet the requirement. Changes docs/10-packaging.md
   §Flatpak, a contract: gate it. Also tell the ants-projects-hub-website
   session if the install story changes.
+  Progress (2026-10-07/08): stopgap in place on the user's machine. The
+  1.2.0 AppImage is ~/Applications/Perch-1.2.0-x86_64.AppImage, linked as
+  ~/.local/bin/perch (the old April pip shim is kept, renamed
+  perch.pip-shim-2026-04.bak), and it owns the login entry. Decision
+  (user, 2026-10-08): keep the dead Flatpak installed; it is the test
+  case the new build must replace and start cleanly from. Upstream
+  flathub/io.qt.PySide.BaseApp#44 still open, no reply since 2026-09-15.
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).
