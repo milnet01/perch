@@ -91,15 +91,28 @@
   <screenshots>
     <screenshot type="default">
       <caption>The tray menu showing active profile and snap presets</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.2.0/docs/screenshots/tray-menu.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v2.0.0/docs/screenshots/tray-menu.png</image>
     </screenshot>
     <screenshot>
       <caption>The rules editor matching windows by class and title</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v1.2.0/docs/screenshots/rules-editor.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v2.0.0/docs/screenshots/rules-editor.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release version="2.0.0" date="2026-10-08" type="stable">
+      <url type="details">https://github.com/milnet01/perch/blob/v2.0.0/CHANGELOG.md#200--2026-10-08</url>
+      <description>
+        <p>Windows land where rules say.</p>
+        <ul>
+          <li>Pixel positions in a rule now count from the monitor it names: <code>x = 120</code> on HDMI-1 is 120 px in from that monitor's usable left edge. A rule that used whole-desktop pixels for a second monitor needs its x and y reduced by that monitor's position.</li>
+          <li>A rule that only names a monitor now moves its window there, at the same spot and shrunk to fit if needed, on every backend. Before, X11 put the window off-screen and the config loader refused the rule.</li>
+          <li>The AppImage starts at login when Start at login is on.</li>
+          <li>The settings window's tables no longer cut their text off.</li>
+          <li>Switching tabs no longer snaps a moved window back to its rule.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.0" date="2026-09-25" type="stable">
       <url type="details">https://github.com/milnet01/perch/blob/v1.2.0/CHANGELOG.md#120---2026-09-25</url>
       <description>

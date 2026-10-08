@@ -8,6 +8,10 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-10-08
+
+**Theme:** Windows land where rules say.
+
 ### Changed
 
 - **Pixel positions in a rule count from the monitor it names** (PERC-0084)
