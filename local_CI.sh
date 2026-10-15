@@ -36,16 +36,25 @@
 # here, because appstreamcli validates it in the packaging job -- it is a gate
 # input wearing an XML extension. A wrong guess here must cost time, never
 # coverage, so anything not listed takes the full gate.
+#
+# Output is quiet by default: one PASS line per check, and for a failing check
+# the tail of its output plus the path of its full log. Whoever reads the run --
+# a person, or a Claude session behind the pre-push hook -- needs the verdict
+# and the failures, not every passing check's output. -v / --verbose streams
+# every check's output as it runs.
 
 set -uo pipefail
 cd "$(dirname "$0")"
 
 DOCS_ONLY=false
-case "${1:-}" in
-  --docs) DOCS_ONLY=true ;;
-  "")     ;;
-  *)      printf 'usage: %s [--docs]\n' "$0" >&2; exit 2 ;;
-esac
+VERBOSE=false
+for arg in "$@"; do
+  case "$arg" in
+    --docs)       DOCS_ONLY=true ;;
+    -v|--verbose) VERBOSE=true ;;
+    *)            printf 'usage: %s [--docs] [-v|--verbose]\n' "$0" >&2; exit 2 ;;
+  esac
+done
 
 # Use the project's .venv (the documented dev environment, see
 # docs/contributing-dev-setup.md) if present, so python/ruff/mypy/pytest all
@@ -84,14 +93,33 @@ fi
 
 PYTHON="$(command -v python || command -v python3)"
 FAILED=()
+# One log per check. Outside the checkout, because the pre-push hook runs this
+# script in a throwaway worktree and a log inside it would vanish with it.
+# Removed on a green run, kept on a red one for the FAIL lines to point at.
+LOG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/perch-local-ci.XXXXXX") ||
+  { printf 'local_CI.sh: cannot create a log directory\n' >&2; exit 2; }
+FAIL_TAIL=60
 
 run() {  # run "<label>" <command...>
   local label="$1"; shift
-  printf '%s\n' "${BOLD}== ${label} ==${RESET}"
-  if "$@"; then
-    printf '   %sPASS%s: %s\n\n' "$GREEN" "$RESET" "$label"
+  if $VERBOSE; then
+    printf '%s\n' "${BOLD}== ${label} ==${RESET}"
+    if "$@"; then
+      printf '   %sPASS%s: %s\n\n' "$GREEN" "$RESET" "$label"
+    else
+      printf '   %sFAIL%s: %s\n\n' "$RED" "$RESET" "$label"
+      FAILED+=("$label")
+    fi
+    return
+  fi
+  local log="$LOG_DIR/${label//[^[:alnum:]]/_}.log"
+  if "$@" >"$log" 2>&1; then
+    printf '   %sPASS%s: %s\n' "$GREEN" "$RESET" "$label"
   else
-    printf '   %sFAIL%s: %s\n\n' "$RED" "$RESET" "$label"
+    printf '   %sFAIL%s: %s -- last %d lines (full log: %s)\n' \
+      "$RED" "$RESET" "$label" "$FAIL_TAIL" "$log"
+    tail -n "$FAIL_TAIL" "$log" | sed 's/^/   | /'
+    printf '\n'
     FAILED+=("$label")
   fi
 }
@@ -110,8 +138,10 @@ verdict() {  # verdict "<label>" -- print the summary and exit
   if ((${#FAILED[@]})); then
     printf '%s\n' "${RED}${BOLD}${label} FAILED — ${#FAILED[@]} check(s) below. Fix before pushing.${RESET}"
     for f in "${FAILED[@]}"; do printf '  %s- %s%s\n' "$RED" "$f" "$RESET"; done
+    if $VERBOSE; then rm -rf "$LOG_DIR"; else printf 'Full logs: %s\n' "$LOG_DIR"; fi
     exit 1
   fi
+  rm -rf "$LOG_DIR"
   printf '%s\n' "${GREEN}${BOLD}All ${label} checks passed — safe to push.${RESET}"
   exit 0
 }

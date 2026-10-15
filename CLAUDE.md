@@ -135,18 +135,10 @@ The repo ships with a small amount of Claude-Code-specific tooling at `.claude/`
 
 - `/perch-docs-check` — on-demand drift scan across `docs/`. Grep-based, read-only, no subagents. Invoke after non-trivial doc changes and before `cut-release`.
 
-**Built-in skills and subagents to prefer over bespoke work:**
+**Skills and subagents describe themselves; only Perch-specific wiring is listed here:**
 
-- `check-code` → the routine static-analysis sweep. Runs the tools Perch's languages call for and names every applicable tool that did **not** run, with the reason.
-- `write-test` → writes the test that fails before the fix exists and proves it red by running it. Use after every bug fix.
-- `locate-defect` → narrows a vague bug report to one file:line and one testable hypothesis. Use when a report doesn't pin a file.
-- `review-code`, `review-tests`, `review-contract`, `close-findings` → the cold-review family. The first three report and stop; `close-findings` is where a findings list goes.
-- `/simplify`, `/code-review`, `/security-review` — built-in commands, diff- or branch-scoped, where the skills above are corpus-scoped.
 - The **Perch-specific drift analyser** is a hand-invoked extra that `check-code` does not cover: `audit_config.yaml` at the repo root carries detectors for retired KWin API symbols, swapped libraries (`dbus-next` / `python-ewmh`), `asyncio.get_event_loop()`, and Python 3.11 floor strays. Run it with `python3 /mnt/Games/Scripts/Linux/Vestige/tools/audit/audit.py --config audit_config.yaml` — the analyser lives under a neighbouring project by historical accident, not by design. Reports write to `.audit/` (gitignored).
-- `cut-release` — drives the release flow end to end (pre-flight → bump → build/test → `local_CI.sh` → commit → tag → push → publish), wired to `.claude/bump.json`. `cut-release --check` is the read-only readiness report and the cheapest way to ask "can we ship?".
-- `general-purpose` subagent — for web research (e.g. the Phase 2 / 2.5 research dispatches). Isolates the research round-trip from the main context window.
-- `Explore` subagent — for broad codebase surveys.
-- `Plan` subagent — for design-intensive planning that shouldn't pollute the main context.
+- `cut-release` is wired to `.claude/bump.json`.
 
 **Not added deliberately:** no project-specific subagents. The built-ins cover everything Perch needs; adding more would only fragment attention.
 

@@ -50,7 +50,10 @@ in a few minutes instead of burning a CI run.
 ```
 
 It runs every check rather than stopping at the first failure like CI does, and
-prints `safe to push` only when all pass. It must stay in lockstep with
+prints `safe to push` only when all pass. Output is quiet: one `PASS` line per
+check, and for a failing check the end of its output and the path of its full
+log. Logs go in a `perch-local-ci.*` directory under `$TMPDIR` (or `/tmp`); a
+green run deletes its own. `./local_CI.sh -v` streams every check's output. It must stay in lockstep with
 `ci.yml` — see the hard rule in [`CLAUDE.md`](../CLAUDE.md), which
 `tools/ci_lockstep_check.py` enforces mechanically.
 
