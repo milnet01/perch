@@ -2245,6 +2245,15 @@ Goal: fewer first-run support tickets; the config is safe.
   (user, 2026-10-08): keep the dead Flatpak installed; it is the test
   case the new build must replace and start cleanly from. Upstream
   flathub/io.qt.PySide.BaseApp#44 still open, no reply since 2026-09-15.
+  Finding (2026-11-04): Flathub's requirements page, section "Building
+  from source", says every runtime dependency in the manifest must be
+  built from source, with case-by-case exceptions for well-known
+  vendors (flathub-infra/documentation,
+  docs/02-for-app-authors/02-requirements.md). A PyPI PySide6 wheel
+  bundles prebuilt Qt, so the recommended route needs that exception or
+  fails review. The current manifest's sdbus and regex wheels are
+  compiled too and face the same rule. Route choice returned to the
+  user.
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).
