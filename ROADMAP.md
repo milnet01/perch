@@ -2273,6 +2273,19 @@ Goal: fewer first-run support tickets; the config is safe.
   prove tray, theming and lint; asking Flathub for the exception
   still needs the user's OK at that point. Trailer footage
   (inbox 565) comes after this item (user, 2026-11-05).
+  Built (2026-11-05, 57c32b9): manifest on org.freedesktop.Platform//26.08
+  with PySide6-Essentials/shiboken6 6.12.0 wheels, trimmed by
+  trim-pyside6.sh, plus MIT Kerberos 1.22.2 from source (QtNetwork
+  links libgssapi_krb5; the runtime lacks it). Installed over the dead
+  Flatpak on this machine: the reproduce command now prints Qt 6.12.0.
+  Proven: offline build, tray registers on Plasma Wayland (user saw
+  icon, menu, Fusion dialog), dark scheme followed, single-instance
+  socket, ldd clean, flatpak-builder-lint manifest clean.
+  Left: (1) the manual checks needing a real Perch run from the
+  Flatpak (KWin script install, geometry restore, settings save);
+  (2) a release whose tag contains trim-pyside6.sh, since the manifest
+  pins v2.0.0, which lacks it; (3) the Flathub PR asking for the Qt
+  wheel exception, which needs the user's go.
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).
