@@ -1,5 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
+<!-- ants-roadmap-id-high-water: PERC=94 -->
 
 # Perch — Roadmap
 
@@ -2168,7 +2169,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-10-02 push gate hang.
 
-- 📋 [PERC-0089] **Find the test behind the 2026-10-02 intermittent pytest hang.**
+- ✅ [PERC-0089] **Find the test behind the 2026-10-02 intermittent pytest hang.**
   Seen once, in the pre-push gate's 3.13 run; not reproduced in 16 runs
   since. The stuck process held an sd-bus "user" connection with unsent
   bytes, which points at a bus left open after its private dbus-daemon
@@ -2187,6 +2188,16 @@ Goal: fewer first-run support tickets; the config is safe.
   Decision (user, 2026-10-08): take a short, capped look (about an hour)
   BEFORE starting PERC-0091. If it is not solved in that time, record
   the findings here and move on to PERC-0091.
+  Solved 2026-11-04. The compliance run connects to pytest-xvfb's own
+  Xvfb (pyvirtualdisplay, -displayfd), not the host's. pyvirtualdisplay
+  pipes Xvfb's stderr and never reads it. Xvfb resets each time its last
+  client leaves and each reset writes about 530 bytes of xkbcomp
+  warnings; at about the 120th connect the 64 KiB pipe filled, Xvfb
+  blocked, and the next connect hung in send_and_recv (reproduced, same
+  stack). Fix: xvfb_args = ["-noreset"] in pyproject.toml; 400 connects
+  then ran clean. Regression test: tests/backend/test_session_display.py
+  (red without -noreset, green with). CI's Ubuntu Xvfb likely prints
+  fewer warnings, which is why it never hung there (unverified).
   **Layman:** Track down which automatic test froze once, using the clues the new safety net prints next time.
   Kind: investigate.
   Source: in-session-2026-10-02 push gate hang.

@@ -123,6 +123,10 @@ asyncio_mode = "auto"
 qt_api = "pyside6"
 xvfb_width = 1280
 xvfb_height = 720
+# Without -noreset, Xvfb resets whenever its last client leaves and writes
+# keymap warnings to a stderr pipe pytest-xvfb never reads; once that pipe
+# fills, Xvfb blocks and the next X11 compliance test hangs (PERC-0089).
+xvfb_args = ["-noreset"]
 # A test still running after this many seconds prints every thread's stack,
 # so a hang names itself instead of stalling silently (PERC-0088).
 faulthandler_timeout = 60

@@ -17,10 +17,14 @@ drift.
   so most backend/core tests are `async`.
 - **pytest-xvfb** — when the `Xvfb` binary is present, it wraps the whole test
   session in a virtual framebuffer (`xvfb_width`/`xvfb_height` in the ini block)
-  and sets `$DISPLAY`. The default suite runs under offscreen QPA and simply
-  ignores it (see below); it is a safety net so a stray real-window test can't
-  paint onto the host desktop. The live `x11` tests spawn their own Xvfb rather
-  than relying on it.
+  and sets `$DISPLAY`. Qt runs under offscreen QPA and ignores it (see below),
+  so a stray real-window test can't paint onto the host desktop. The X11
+  backend's compliance run does connect to it, once per test. The ini block
+  passes `-noreset`: without it Xvfb resets each time its last client leaves,
+  writes keymap warnings to a stderr pipe pytest-xvfb never reads, and blocks
+  once that pipe is full, which hangs the next connection (PERC-0089).
+  `tests/backend/test_session_display.py` fails if the server resets. The live
+  `x11` tests spawn their own Xvfb rather than relying on it.
 
 The dev toolchain installs via `pip install -e ".[dev]"` (the `dev` extra in
 `pyproject.toml`). See [contributing-dev-setup.md](contributing-dev-setup.md).
