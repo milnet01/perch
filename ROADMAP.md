@@ -2254,6 +2254,20 @@ Goal: fewer first-run support tickets; the config is safe.
   fails review. The current manifest's sdbus and regex wheels are
   compiled too and face the same rule. Route choice returned to the
   user.
+  Routes for the user's choice (2026-11-04), each meeting the
+  no-rebuild requirement unless noted:
+  A. Build the trial on org.freedesktop.Platform//26.08 with the
+  PyPI PySide6-Essentials wheel (6.12.0, abi3, manylinux_2_34, about
+  80 MiB), prove tray, theming and lint, then ask Flathub for the
+  well-known-vendor exception (the Qt Company builds those wheels).
+  Asking Flathub is outward-facing and needs the user. Recommended.
+  B. Same build, shipped outside Flathub as a .flatpak bundle on the
+  GitHub release. No Flathub listing.
+  C. Build Qt and PySide6 from source inside the manifest on the
+  freedesktop runtime. Flathub-clean; very long builds, and Perch then
+  owns Qt security updates.
+  D. Drop the Flatpak; AppImage, RPM and AUR remain.
+  Staying on the BaseApp fails the requirement (user, 2026-10-02).
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).
