@@ -8,6 +8,14 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Fixed
+
+- **A KDE runtime update no longer breaks the Flatpak** (PERC-0091)
+  The Flatpak now builds on the freedesktop runtime and carries its own
+  Qt 6.12, so a runtime update cannot leave it failing to start. Its
+  dialogs use Qt's Fusion style instead of Breeze. They still follow the
+  desktop's light or dark colour scheme.
+
 ## [2.0.0] — 2026-10-08
 
 **Theme:** Windows land where rules say.

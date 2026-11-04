@@ -1,4 +1,4 @@
-# Generated with flatpak-pip-generator --runtime=org.kde.Sdk//6.11 --prefer-wheels=hatchling,packaging,pathspec,pluggy,python-xlib,qasync,regex,sdbus,six,tomlkit,trove-classifiers --wheel-arches=x86_64 --yaml -o /mnt/Games/Scripts/Linux/perch/packaging/flathub/python3-deps qasync>=0.28,<1 sdbus>=0.14.2,<1 python-xlib>=0.33 tomlkit>=0.13,<1 regex>=2020.11.13 hatchling>=1.24
+# Generated with flatpak-pip-generator --runtime=org.freedesktop.Sdk//26.08 --prefer-wheels=hatchling,packaging,pathspec,pluggy,python-xlib,qasync,regex,sdbus,six,tomlkit,trove-classifiers --wheel-arches=x86_64 --yaml -o /mnt/Games/Scripts/Linux/perch/packaging/flathub/python3-deps qasync>=0.28,<1 sdbus>=0.14.2,<1 python-xlib>=0.33 tomlkit>=0.13,<1 regex>=2020.11.13 hatchling>=1.24
 name: python3-deps
 buildsystem: simple
 build-commands: []
@@ -43,8 +43,8 @@ modules:
     sources:
       - &id001
         type: file
-        url: https://files.pythonhosted.org/packages/13/bc/8c13eb66537dce1d2bd3a57132902f38d0e7f5bb46fa9f4daed9fe9d76ee/tomlkit-0.15.1-py3-none-any.whl
-        sha256: 177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304
+        url: https://files.pythonhosted.org/packages/da/46/7d84138a60a8bd796825b2d38ebe92d0d16501ca57d501b7c5d677401bbc/tomlkit-0.15.2-py3-none-any.whl
+        sha256: 05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437
   - name: python3-regex
     buildsystem: simple
     build-commands:
@@ -52,8 +52,8 @@ modules:
         --prefix=${FLATPAK_DEST} "regex>=2020.11.13" --no-build-isolation
     sources:
       - type: file
-        url: https://files.pythonhosted.org/packages/20/3b/000c79c3f9c06b7542225a5d3a7f9a85405da7224b3b9af94a491d07abea/regex-2026.9.10-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
-        sha256: bafa41b0dd63669e5c0f8adf3d24819efeb73c847f492eb011212eb352e69041
+        url: https://files.pythonhosted.org/packages/a9/4d/041d9458a645fee4fce4d642a89d27271a3cfcd91095104f6dde44da70bf/regex-2026.9.29-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: 2f7f7aa47b229f2b39a2ae2596d2ad5625d77b5eb9856fac2dab3eb506cdd0a0
         only-arches:
           - x86_64
   - name: python3-hatchling
@@ -63,15 +63,15 @@ modules:
         --prefix=${FLATPAK_DEST} "hatchling>=1.24" --no-build-isolation
     sources:
       - type: file
-        url: https://files.pythonhosted.org/packages/f6/89/268c7e4b2bcf2071047366c4c3b4b0e89f640e13ea7bfdaf1df6c40e5140/hatchling-1.32.3-py3-none-any.whl
-        sha256: d05b350af5d9aa5bf7b34b434a45a742b99e67d0b48ea67d240cfeab98e13945
+        url: https://files.pythonhosted.org/packages/32/64/4afe5dd77b2939a93e8c9513f8082dbd049ecba9c1484a379a0f6ae29d6b/hatchling-1.33.0-py3-none-any.whl
+        sha256: 415290b84f464d2884303fca8974d38e7b85579069fab02a15db0828fbb1446d
       - type: file
         url: https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl
         sha256: a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189
       - type: file
-        url: https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl
-        sha256: e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+        url: https://files.pythonhosted.org/packages/40/9e/2b38731e0fc536806f16490e1a12d7f0dc2a1235aa8cc07bcc75416a7daa/pluggy-1.7.0-py3-none-any.whl
+        sha256: 7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec
       - *id001
       - type: file
-        url: https://files.pythonhosted.org/packages/7c/a4/81502f486f01db95bc8320646a8a12511f5e556cb63d5e224d91816605c4/trove_classifiers-2026.6.1.19-py3-none-any.whl
-        sha256: ab4c4ec93cc4a4e7815fa759906e05e6bb3f2fbd92ea0f897288c6a43efd15b3
+        url: https://files.pythonhosted.org/packages/30/81/0da8afb52a71d0a4f2bd3152357b1a441e393b286374802b9d3addab4ab5/trove_classifiers-2026.9.21.13-py3-none-any.whl
+        sha256: 8b1ff4f9c191b1040b71c37f1e445ab99732911e3cd91de52838453a854d7a17

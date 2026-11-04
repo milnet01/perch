@@ -11,30 +11,30 @@
 #
 # Choices, and why each one:
 #   * Deps come from pyproject.toml's [project.dependencies], the single
-#     source of truth, MINUS PySide6 -- io.qt.PySide.BaseApp supplies PySide6
-#     and Qt, and flatpak-pip-generator refuses to pin PySide6 for exactly
-#     that reason. Perch itself is not included; the manifest's own module
+#     source of truth, MINUS PySide6 -- flatpak-pip-generator refuses to pin
+#     it, so the manifest pins the PySide6-Essentials and shiboken6 wheels by
+#     hand. Perch itself is not included; the manifest's own module
 #     pip-installs it from its git clone.
-#   * --runtime runs pip inside org.kde.Sdk so the wheels match that Sdk's
-#     python ABI. A wheel built for the wrong ABI installs and then fails to
-#     import, which is the expensive way to find out.
+#   * --runtime runs pip inside org.freedesktop.Sdk so the wheels match that
+#     Sdk's python ABI. A wheel built for the wrong ABI installs and then
+#     fails to import, which is the expensive way to find out.
 #   * --prefer-wheels is DERIVED from a resolver dry run, never hand-listed.
 #     The generator errors on a --prefer-wheels package that ships no wheel,
 #     so the list must be the has-a-wheel subset; deriving it means a new
 #     sdist-only dependency needs no edit here.
 #   * --wheel-arches is x86_64 only, matching flathub.json's only-arches.
 #     aarch64 is a follow-up: it needs the whole closure re-resolved for that
-#     arch, and sdbus is the one native package in it.
+#     arch, and sdbus and regex are the native packages in it.
 #
-# Requires: flatpak with org.kde.Sdk//6.11, and an interpreter carrying
+# Requires: flatpak with org.freedesktop.Sdk//26.08, and an interpreter carrying
 # `requirements-parser` and `PyYAML` (the generator's own dependencies).
 # Network is needed HERE; the build it feeds is offline.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-RUNTIME_BRANCH="${RUNTIME_BRANCH:-6.11}"
-SDK="org.kde.Sdk//${RUNTIME_BRANCH}"
+RUNTIME_BRANCH="${RUNTIME_BRANCH:-26.08}"
+SDK="org.freedesktop.Sdk//${RUNTIME_BRANCH}"
 GENERATOR="${GENERATOR:-$HERE/.flatpak-pip-generator.py}"
 # Pinned to a commit, not `master`: this script downloads and EXECUTES the file,
 # so a moving ref means every run can execute different unreviewed code. Bump the
@@ -80,7 +80,7 @@ if ! flatpak info "$SDK" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Runtime deps from pyproject, minus PySide6 (the BaseApp's job), PLUS the
+# Runtime deps from pyproject, minus PySide6 (pinned in the manifest), PLUS the
 # build backend. The backend is needed because the manifest pip-installs
 # Perch with --no-build-isolation: with isolation on, pip would fetch
 # hatchling from PyPI, and the Flathub builder has no network. Reading it

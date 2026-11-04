@@ -13,8 +13,8 @@ Prerequisites:
   Tumbleweed, `dnf install flatpak-builder` on Fedora, etc.).
 - The runtimes:
   ```sh
-  flatpak install flathub org.kde.Platform//6.11 org.kde.Sdk//6.11 \
-      io.qt.PySide.BaseApp//6.11 org.flatpak.Builder
+  flatpak install flathub org.freedesktop.Platform//26.08 \
+      org.freedesktop.Sdk//26.08 org.flatpak.Builder
   ```
 
 The script owns none of the work itself — it runs the pieces in the
@@ -36,9 +36,10 @@ exact steps for the Flathub submission (both automated and manual).
 ## Current state (through M8)
 
 - **App ID reserved (de facto)**: `io.github.milnet01.Perch`. The ID follows GitHub reverse-DNS per Flathub convention. Reservation is implicit — nobody else will use this ID because only `milnet01` on GitHub can.
-- **Manifest**: `packaging/flathub/io.github.milnet01.Perch.yml`, pinned to the `v1.0.0` tag and its immutable commit. `finish-args` is the minimum set that still works: no `--device=dri` (Perch renders no 3D surface; the tray icon and dialogs work on llvmpipe), and named `--talk-name` entries rather than a session-bus socket.
-- **Runtime target**: KDE Platform 6.11, with `io.qt.PySide.BaseApp//6.11` supplying PySide6 and Qt. The BaseApp is built against that same runtime, and ships python 3.13 — which is the ABI the pinned wheels target.
-- **Dependencies not supplied by the runtime or the BaseApp**: `qasync`, `sdbus`, `python-xlib`, `tomlkit`, `regex`, plus the `hatchling` build backend. All are sha256-pinned in the committed `python3-deps.yaml`.
+- **Manifest**: `packaging/flathub/io.github.milnet01.Perch.yml`, pinned to a release tag and its immutable commit. `finish-args` is the minimum set that still works: no `--device=dri` (Perch renders no 3D surface; the tray icon and dialogs work on llvmpipe), and named `--talk-name` entries rather than a session-bus socket.
+- **Runtime target**: `org.freedesktop.Platform//26.08`, which ships python 3.14 — the ABI the pinned wheels target. Qt and PySide6 are bundled from the PySide6-Essentials and shiboken6 wheels on PyPI, sha256-pinned in the manifest and trimmed by `trim-pyside6.sh`. Why not the KDE runtime and `io.qt.PySide.BaseApp`: `docs/10-packaging.md` § Flatpak.
+- **Flathub policy**: Flathub's requirements ask for every runtime dependency to be built from source, with case-by-case exceptions for well-known vendors. The Qt wheels need that exception; the PR body that `packaging/submit/flathub.sh` writes asks for it.
+- **Other dependencies**: `qasync`, `sdbus`, `python-xlib`, `tomlkit`, `regex`, plus the `hatchling` build backend, all sha256-pinned in the committed `python3-deps.yaml`; and MIT Kerberos, built from source in the manifest because QtNetwork links it and the runtime lacks it.
 - **Metainfo + desktop entry validated**: `appstream-util validate-relax --nonet` and `desktop-file-validate` are part of the CI packaging job (`.github/workflows/ci.yml`), so submission-blockers surface in every PR.
 
 ## What must exist before submitting
@@ -57,8 +58,8 @@ sha256-pinned source. `packaging/flathub/generate-pip-sources.sh` produces
 that closure as a single `python3-deps.yaml`, and **it is committed**.
 
 It reads `[project.dependencies]` from `pyproject.toml` (minus PySide6,
-which the BaseApp supplies and which the generator refuses to pin for that
-reason) plus `[build-system].requires`, so `pyproject.toml` stays the one
+which the generator refuses to pin, so the manifest pins its wheels by
+hand) plus `[build-system].requires`, so `pyproject.toml` stays the one
 source of truth. The build backend is in there because the manifest
 installs Perch with `--no-build-isolation`; with isolation on, pip would
 try to fetch `hatchling` from PyPI and the offline build would fail.
@@ -153,7 +154,7 @@ After the first submission merges, Flathub creates a dedicated per-app repo (`fl
 ## Follow-up links
 
 - Flathub contributor docs: <https://docs.flathub.org/>
-- `org.kde.Platform` version tracker: <https://invent.kde.org/flatpak/flatpak-kde-runtime>
+- `org.freedesktop.Platform` releases: <https://gitlab.com/freedesktop-sdk/freedesktop-sdk>
 - flatpak-builder-tools (pip generator): <https://github.com/flatpak/flatpak-builder-tools/tree/master/pip>
 - `appstream-util` reference: <https://www.freedesktop.org/software/appstream-glib/appstream-util.1.html>
 

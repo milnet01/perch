@@ -13,8 +13,8 @@
 # to an offline-unbuildable sdist fails HERE rather than in review.
 #
 # Requires: flatpak-builder, and from Flathub:
-#   flatpak install flathub org.kde.Platform//6.11 org.kde.Sdk//6.11 \
-#       io.qt.PySide.BaseApp//6.11
+#   flatpak install flathub org.freedesktop.Platform//26.08 \
+#       org.freedesktop.Sdk//26.08
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -89,19 +89,34 @@ echo ">> install --user from the local repo"
 flatpak-builder --user --force-clean --install \
     "$BUILDDIR" "$MANIFEST"
 
-# --- Smoke. Two checks, because they fail differently. -----------------------
+# --- Smoke. Three checks, because they fail differently. ---------------------
 # `--check-config` returns BEFORE any Qt import (see src/perch/__main__.py), so
 # on its own it proves the config layer and nothing about Qt. The import check
-# is what catches a Qt wheel whose shared-library dependencies the runtime does
-# not ship -- an ImportError before any window appears, which is the failure
-# mode a display-less build cannot otherwise see.
-echo ">> smoke 1/2: perch --version and --check-config"
+# catches a Qt wheel whose shared-library dependencies the runtime does not
+# ship -- an ImportError before any window appears, which is the failure mode
+# a display-less build cannot otherwise see. It covers only what is imported,
+# so the ldd check covers the rest: every bundled library and Qt plugin, which
+# Qt loads later and by name. It is also what proves trim-pyside6.sh removed
+# nothing a kept library needs.
+echo ">> smoke 1/3: perch --version and --check-config"
 flatpak run --command=perch "$APP_ID" --version
 flatpak run --command=perch "$APP_ID" --check-config
 
-echo ">> smoke 2/2: the runtime imports resolve inside the sandbox"
+echo ">> smoke 2/3: the runtime imports resolve inside the sandbox"
 flatpak run --command=python3 "$APP_ID" -c \
-    'import PySide6.QtWidgets, qasync, sdbus, Xlib, tomlkit, regex; print("PERCH_IMPORTS_OK")'
+    'import PySide6.QtWidgets, PySide6.QtNetwork, PySide6.QtDBus, PySide6.QtSvg, qasync, sdbus, Xlib, tomlkit, regex, perch.instance; print("PERCH_IMPORTS_OK")'
+
+echo ">> smoke 3/3: every bundled library finds its dependencies"
+# shellcheck disable=SC2016  # expanded inside the sandbox, not here
+flatpak run --command=sh "$APP_ID" -c '
+    missing=0
+    for f in $(find /app/lib -name "*.so*" -type f); do
+        out=$(ldd "$f" 2>&1 | grep "not found") || continue
+        echo "!! $f: $out" >&2
+        missing=1
+    done
+    exit "$missing"'
+echo "   all bundled libraries resolve"
 
 cat <<'EOT'
 

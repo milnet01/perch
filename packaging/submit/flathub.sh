@@ -22,8 +22,8 @@
 #     with 2FA on the GitHub account -- both are Flathub requirements.
 #
 # Preconditions: `gh` authenticated, `flatpak-builder`, and the runtimes
-#   flatpak install flathub org.kde.Platform//6.11 org.kde.Sdk//6.11 \
-#       io.qt.PySide.BaseApp//6.11 org.flatpak.Builder
+#   flatpak install flathub org.freedesktop.Platform//26.08 \
+#       org.freedesktop.Sdk//26.08 org.flatpak.Builder
 #
 # It stages and STOPS by default. --push is the outward-facing step.
 set -euo pipefail
@@ -154,11 +154,22 @@ Version: $VERSION
 Perch is a window geometry manager for Plasma: it remembers where each
 window belongs and restores it when the window reopens.
 
-The manifest builds on org.kde.Platform//6.11 with io.qt.PySide.BaseApp for
-PySide6 and Qt. The four remaining Python dependencies are sha256-pinned
-wheels in python3-deps.yaml, generated from pyproject.toml, so the build is
-network-free. flathub.json restricts the buildbot to x86_64, which is the
-arch the pinned sdbus wheel covers.
+The manifest builds on org.freedesktop.Platform//26.08 and bundles Qt from
+the Qt Company's PySide6-Essentials wheel on PyPI, trimmed to the modules
+Perch loads. It does not use io.qt.PySide.BaseApp on the KDE runtime:
+PySide6 links Qt's private API, which is tagged with the exact Qt patch
+release, so each KDE runtime patch update broke installed copies until they
+were rebuilt (see flathub/io.qt.PySide.BaseApp#44). A bundled Qt only
+changes when the manifest does.
+
+Requested exception: the Requirements page asks for runtime dependencies to
+be built from source, with exceptions for well-known vendors. The PySide6
+and shiboken6 wheels are built and published by the Qt Company, and are
+sha256-pinned. The other Python dependencies are sha256-pinned wheels in
+python3-deps.yaml, generated from pyproject.toml; MIT Kerberos (which
+QtNetwork links) is built from source. The build is network-free.
+flathub.json restricts the buildbot to x86_64, which is the arch the pinned
+wheels cover.
 
 These finish-args entries need justification:
 

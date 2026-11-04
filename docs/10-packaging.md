@@ -141,18 +141,37 @@ and is the only copy — it is what gets submitted, so a second copy here
 would be a second thing to keep true. [`packaging/flathub/SUBMISSION.md`](../packaging/flathub/SUBMISSION.md)
 is the runbook. The decisions worth knowing without opening either:
 
-- **`org.kde.Platform//6.11`**, with **`io.qt.PySide.BaseApp//6.11`**
-  supplying PySide6 and Qt. The BaseApp is built against that same runtime
-  and ships python 3.13, which is the ABI the pinned wheels target. Perch
-  is a Plasma application, so the KDE runtime is the right base rather than
-  freedesktop.
-- **The remaining dependencies are sha256-pinned and committed** in
+- **`org.freedesktop.Platform//26.08`, with Qt bundled.** A runtime update
+  must never break an installed copy, and nobody should have to rebuild
+  anything after one (the user's requirement, 2026-10-02; PERC-0091).
+  The KDE runtime with `io.qt.PySide.BaseApp` cannot meet that. PySide6
+  links Qt's private API, which is tagged with the exact Qt patch
+  release. So the runtime's move from Qt 6.11.1 to 6.11.2 left installed
+  copies dying at `import PySide6.QtCore`
+  (flathub/io.qt.PySide.BaseApp#44). A bundled Qt only changes when the
+  manifest does.
+- **Qt comes from the Qt Company's PySide6-Essentials and shiboken6 wheels**
+  on PyPI, sha256-pinned in the manifest. They are abi3 wheels, so they
+  import on the runtime's python 3.14. `trim-pyside6.sh` cuts them to
+  the modules Perch loads, and `flatpak-build.sh` checks with `ldd` that
+  nothing kept lost a dependency. Flathub's requirements ask for runtime
+  dependencies to be built from source, with exceptions for well-known
+  vendors. These wheels need that exception, and the submission PR asks
+  for it.
+- **The look is Qt's Fusion style, not Breeze.** A Qt that does not match
+  the host's cannot load the host's Breeze style plugin. The tray menu is
+  drawn by Plasma, so it looks native. The dialogs follow the desktop's
+  light or dark colour scheme through the portal theme.
+- **MIT Kerberos is built from source in the manifest.** QtNetwork links
+  `libgssapi_krb5`, which the freedesktop runtime lacks. Perch needs
+  QtNetwork for its single-instance socket.
+- **The other Python dependencies are sha256-pinned and committed** in
   `packaging/flathub/python3-deps.yaml`, generated from `pyproject.toml` by
   `generate-pip-sources.sh`. Flathub's builders have no network, so nothing
   may be resolved at build time — including the `hatchling` build backend,
   which is why it is in the closure too.
 - **`flathub.json` restricts the buildbot to x86_64**, the arch the pinned
-  `sdbus` wheel covers.
+  native wheels cover.
 - **`finish-args` carries no `--socket=session-bus`.** Named `--talk-name`
   entries are how a sandboxed app reaches specific services; the blanket
   socket makes them meaningless and Flathub's linter rejects it. Each
@@ -349,7 +368,7 @@ Ubuntu 24.04 "Noble" ships Python **3.12** (OK) but **PySide6 6.4** (too old; we
 
 Workarounds, in preference order:
 
-1. **Use the Flatpak** — the `org.kde.Platform` runtime plus the PySide BaseApp ship a current PySide6, and the bundle is self-contained.
+1. **Use the Flatpak** — it bundles a current PySide6 and Qt, and is self-contained.
 2. **`pipx install perch`** — pipx resolves Perch's pins and installs `PySide6>=6.8` from PyPI into its own venv, independent of the distro package.
 3. **Snap** (if we ever ship one) — bundles its own Qt.
 

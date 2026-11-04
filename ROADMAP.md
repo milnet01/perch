@@ -2212,7 +2212,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: feature.
   Source: user-decision-2026-10-02 PERC-0051 docs/03.
 
-- 📋 [PERC-0091] **Stop a KDE runtime update from breaking installed Flatpak copies of Perch.**
+- 🚧 [PERC-0091] **Stop a KDE runtime update from breaking installed Flatpak copies of Perch.**
   Seen 2026-10-02: the locally installed Flatpak (built 2026-08-27 on
   org.kde.Platform//6.11 + io.qt.PySide.BaseApp//6.11) dies at import with
   `QtCore.abi3.so: undefined symbol _ZN14QObjectPrivateC2E16QtPrivate_6_11_1`.
@@ -2268,6 +2268,11 @@ Goal: fewer first-run support tickets; the config is safe.
   owns Qt security updates.
   D. Drop the Flatpak; AppImage, RPM and AUR remain.
   Staying on the BaseApp fails the requirement (user, 2026-10-02).
+  Decision (user, 2026-11-05): route A. Build the trial on
+  org.freedesktop.Platform with the PyPI PySide6-Essentials wheel,
+  prove tray, theming and lint; asking Flathub for the exception
+  still needs the user's OK at that point. Trailer footage
+  (inbox 565) comes after this item (user, 2026-11-05).
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).
