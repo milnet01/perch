@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: PERC=94 -->
+<!-- ants-roadmap-id-high-water: PERC=96 -->
 
 # Perch — Roadmap
 
@@ -2334,6 +2334,42 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Starting the AppImage from a terminal prints a confusing warning line, though Perch works.
   Kind: fix.
   Source: in-session-2026-10-07 (AppImage 1.2.0 on openSUSE Tumbleweed).
+
+- 📋 [PERC-0095] **Restore a reopened window reliably on KWin Wayland, not one time in six.**
+  Seen 2026-11-08 on Plasma Wayland with KCalc saved at 311,207 in
+  state.json, both from the Flatpak and from source (.venv), so not
+  packaging. The reducer logs evaluate(app:kcalc, opened) ->
+  RestoreLastSeen() and the KWin script answers ok:true for the batch
+  setDesktop + setFrameGeometry 2-5 ms after windowAdded. A probe KWin
+  script logging frameGeometryChanged showed two failure shapes: moved to
+  311,207, then back to KWin's own spot 1600,803 one millisecond later;
+  or never moved. Landed in about one run in six. A probe that set
+  frameGeometry synchronously in windowAdded, or 5 ms later with the same
+  setDesktop and sendClientToScreen steps, stuck every time, so the
+  race is not timing alone. Where: doSetFrameGeometry in
+  src/perch/backend/kwin/script/contents/code/main.js. Open question:
+  what moves the window back (KWin's initial placement or configure,
+  or a second request). No live test covers reopen-and-restore
+  (tests/backend/kwin/test_live_kwin.py). Also stale: docs/05-backend-kwin.md
+  still says can_preplace_windows = True; the code says False since M9.f.15.
+  Probes: .audit/geo/ (gitignored).
+  **Layman:** When you reopen a window, Perch usually fails to put it back where you left it.
+  Kind: fix.
+  Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
+
+- 📋 [PERC-0096] **Let the Flatpak start again after Perch is killed or crashes.**
+  Seen 2026-11-08: after flatpak kill, a fresh start logs "another
+  Perch is already running; exiting" and shows the already-running box.
+  The lock file $XDG_RUNTIME_DIR/perch.lock (in the sandbox,
+  /run/user/1000/.flatpak/io.github.milnet01.Perch/xdg-run/) holds PID 2,
+  app python3.14. Every sandbox gives Perch PID 2, so QLockFile's
+  stale-lock check finds a live process with that PID and name: the new
+  Perch itself. Where: acquire_instance_lock in src/perch/instance.py.
+  Blocks the 2.0.1 release for PERC-0091. Confirm by: start, kill -9,
+  start again inside flatpak run.
+  **Layman:** If the Flatpak version of Perch crashes, it refuses to start again until you log out.
+  Kind: fix.
+  Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
 
 ## v1.2 — Smarts
 
