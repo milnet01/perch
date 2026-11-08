@@ -2286,6 +2286,16 @@ Goal: fewer first-run support tickets; the config is safe.
   (2) a release whose tag contains trim-pyside6.sh, since the manifest
   pins v2.0.0, which lacks it; (3) the Flathub PR asking for the Qt
   wheel exception, which needs the user's go.
+  Manual checks (2026-11-08), Flatpak from 57c32b9 on the real Plasma
+  Wayland desktop: start, KWin script install and load (1.1.3),
+  autostart portal grant, and saving last-seen geometry on close all pass.
+  Restore on reopen fails about five runs in six, from source too:
+  PERC-0095. A killed Flatpak Perch cannot restart until logout:
+  PERC-0096. Settings-dialog save not yet checked (needs clicks).
+  Order agreed pending the user's answer, recommended: PERC-0096, then
+  PERC-0095, then release 2.0.1, then the Flathub PR (the user approved
+  sending the PR text in packaging/submit/flathub.sh after 2.0.1,
+  2026-11-08).
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).
