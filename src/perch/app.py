@@ -210,6 +210,32 @@ async def _cancel_intent_tasks() -> None:
         await asyncio.gather(*pending, return_exceptions=True)
 
 
+# How long main() waits for the last background tasks to take their cancel.
+_REMAINING_TASKS_GRACE_S = 2.0
+
+
+async def _cancel_remaining_tasks() -> None:
+    """Cancel and await every task but this one, while the loop still runs.
+
+    After ``main()`` returns, qasync processes Qt events once more with the
+    loop already marked stopped. Python 3.14 refuses to resume a task there
+    ("is not the running loop") and the wakeup is lost, so ``asyncio.run``'s
+    own cleanup then waits on that task forever (PERC-0100). A task woken
+    during the wait can spawn another, hence the bounded rounds.
+    """
+    current = asyncio.current_task()
+    for _ in range(3):
+        pending = [t for t in asyncio.all_tasks() if t is not current]
+        if not pending:
+            return
+        for task in pending:
+            task.cancel()
+        await asyncio.wait(pending, timeout=_REMAINING_TASKS_GRACE_S)
+    left = [t for t in asyncio.all_tasks() if t is not current]
+    if left:
+        log.warning("background tasks still running at shutdown: %s", left)
+
+
 def _handle_intent(
     intent: Intent,
     *,
@@ -603,6 +629,7 @@ async def main(
             await backend.stop()
         except Exception:
             log.exception("backend shutdown failed")
+        await _cancel_remaining_tasks()
 
     # Async cleanup is done — now tell Qt to wind down. ``app.quit()``
     # stops the qasync loop, which ``asyncio.run`` then closes cleanly.

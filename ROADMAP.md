@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: PERC=99 -->
+<!-- ants-roadmap-id-high-water: PERC=100 -->
 
 # Perch — Roadmap
 
@@ -2475,7 +2475,25 @@ Goal: fewer first-run support tickets; the config is safe.
   while test windows were opening: exits after 5 s, 1 s and 3 s, KWin
   script unloaded; the watchdog did not need to fire. Root cause of the
   hang is still unidentified.
+  Root cause found and fixed 2026-11-11 in PERC-0100: a task wakeup lost
+  after qasync stops the loop, on Python 3.14. The watchdog stays as a
+  backstop.
   **Layman:** Sometimes Perch kept running invisibly after you quit it; now it is made to exit after ten seconds at most.
+  Kind: fix.
+  Source: user-report-2026-11-11.
+
+- ✅ [PERC-0100] **Find and fix the root cause of the shutdown hang behind PERC-0099.**
+  Cause: after main() returns, qasync's run_until_complete processes Qt
+  events once more with the loop marked stopped. Python 3.14 refuses to
+  resume a task there ("loop ... is not the running loop") and the wakeup
+  is lost; asyncio.run's _cancel_all_tasks then waits on that task
+  forever. Seen in the journal for the 19:59 hung run on 2026-11-11.
+  Fix: main() cancels and awaits every remaining task after
+  backend.stop() (docs/01-architecture.md §Teardown order, step 5).
+  tests/test_shutdown_drain.py runs the real main() in a child process;
+  red on 3.14 before the fix (20 s timeout, same error), green after.
+  Python 3.13 never showed the error, so the test is red only on 3.14.
+  **Layman:** Quitting could hang if a window was being handled at that moment; Perch now finishes that work before it exits.
   Kind: fix.
   Source: user-report-2026-11-11.
 

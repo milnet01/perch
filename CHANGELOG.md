@@ -8,6 +8,13 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Fixed
+
+- **Quitting no longer leaves Perch hanging** (PERC-0100)
+  A Quit or logout could hang if a window event was still being handled,
+  which happens most on Python 3.14. Perch now finishes every background
+  task before it exits. The ten-second exit backstop from 2.0.1 stays.
+
 ## [2.0.1] — 2026-11-11
 
 **Theme:** Windows go back where you left them.

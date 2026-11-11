@@ -211,18 +211,26 @@ Teardown order (implemented in `main()`'s `finally` block, [`src/perch/app.py`](
 2. Cancel named background tasks; `await asyncio.gather(..., return_exceptions=True)`.
 3. `await reducer.stop()` — flushes `state.json`.
 4. `await backend.stop()` — unloads the KWin script and releases the D-Bus service name.
-5. `QApplication.quit()` → triggers `aboutToQuit` → sets the close event → `main()` returns.
+5. Cancel every task still running and await them (`_cancel_remaining_tasks`).
+6. `QApplication.quit()` → triggers `aboutToQuit` → sets the close event → `main()` returns.
 
 Steps 3 and 4 are independently guarded: a `state.json` flush that raises on a
 full or read-only `$XDG_STATE_HOME` must not leave the KWin script loaded and
 the bus name held.
 
+Step 5 exists because of how qasync stops. After `main()` returns, qasync
+processes Qt events once more with the loop already marked stopped. Python 3.14
+refuses to resume a task there ("is not the running loop") and the wakeup is
+lost. `asyncio.run` then waits on that task forever: the hang behind PERC-0099,
+fixed in PERC-0100. A window event whose D-Bus reply lands during shutdown is
+enough to trigger it, so no task may outlive step 5.
+
 When teardown begins, `main()` calls its `on_shutdown` hook, and `cli()` uses it
 to arm an exit watchdog (`arm_exit_watchdog` in
 [`src/perch/__main__.py`](../src/perch/__main__.py)). If the process has not
 exited `SHUTDOWN_GRACE_S` seconds later, the watchdog logs a warning and ends it.
-A Quit or logout sometimes hung after steps 3 and 4 had already run, leaving an
-invisible Perch behind (PERC-0099). A clean shutdown cancels the watchdog.
+It stays as a backstop for any hang step 5 does not cover. A clean shutdown
+cancels the watchdog.
 
 ## Dependencies, deferred
 
