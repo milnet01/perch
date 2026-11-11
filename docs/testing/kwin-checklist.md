@@ -5,7 +5,7 @@ Runs alongside the automated `kwin_wayland --virtual` integration suite
 protocol surface in a private session; this checklist covers the things
 that only a real Plasma 6 session on real hardware can exercise —
 KGlobalAccel, portal interactions, per-output scaling, and the visible
-"does pre-placement flicker?" question.
+"does a reopened window end where it was?" question.
 
 **Exit criterion from `11-roadmap.md` §M5**: Plasma 6.6.x smoke-tested,
 every checkbox ticked.
@@ -43,17 +43,15 @@ criterion for M5.
 - [ ] Virtual-desktop changes (Ctrl+F1..F4 or `Meta+Tab` with dynamic
       desktops) fire `current_desktop` correctly.
 
-## Pre-placement (best-effort)
+## Restore on reopen
 
-Pre-paint placement under Wayland is best-effort per
-`docs/05-backend-kwin.md` §Pre-placement hook. Subjective test — fails
-if a user would notice a flicker.
+There is no pre-paint placement (`docs/05-backend-kwin.md` §Placing a
+window as it opens): a brief jump to the remembered spot is expected.
+The window must END at the remembered spot every time.
 
 - [ ] With Perch running and a remembered geometry for Firefox,
-      cold-start Firefox from a fresh launcher invocation. The first
-      frame should appear at or very close to the remembered rectangle
-      (within a few pixels is acceptable; a visible flight-across-
-      screen flicker is a failure).
+      cold-start Firefox from a fresh launcher invocation, several
+      times. It ends at the remembered rectangle each time.
 - [ ] Same for Konsole.
 - [ ] Same for an XWayland client (`xterm` or a Steam game).
 

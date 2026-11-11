@@ -111,15 +111,11 @@ Every method on `io.github.milnet01.Perch.KWin1` has signature `s` (one JSON-enc
 
 `id` is `window.internalId.toString()` (a QUuid), stable for the window's lifetime. `desktop` is 0-based (`-1` = sticky / all desktops); the script converts from KWin's 1-based `x11DesktopNumber` at the boundary.
 
-### Pre-placement hook (best-effort)
+### Placing a window as it opens
 
-The script subscribes to `workspace.windowAdded` and, in the *same event tick*, calls out to Perch asking "is there a remembered geometry for this identity?" (`QueryPlacement(json)`). The reply races the first paint.
+There is no pre-paint placement: `can_preplace_windows = False`. KWin has no `workspace.windowAboutToBeAdded` signal, so a window's first frame appears where KWin put it. The script reports `windowAdded`; for a remembered window the reducer answers `RestoreLastSeen`, and Perch sends `setDesktop` + `setFrameGeometry` as one batch. That lands a few milliseconds after `windowAdded`, so a brief jump is possible.
 
-**No hard guarantee.** Confirmed in Phase 2 + 2.5 research: there is no `workspace.windowAboutToBeAdded` signal, and even setting `window.frameGeometry` synchronously inside the `windowAdded` handler can be visibly late on XWayland clients or on apps that call `xdg_surface.set_window_geometry` *after* mapping.
-
-**De-facto mitigation: temporarily set `window.keepAbove = true`** while applying geometry, then clear it once the first frame has been painted. This doesn't prevent a mis-placed first paint but reduces the perceived "jump" because the window is stacked predictably during the transition. Used by several Plasma 6 tilers.
-
-Perch declares `can_preplace_windows = True` on this backend with a note honestly describing the best-effort semantics. X11 / GNOME / Sway / Hyprland set it to `False`.
+**The hold.** On Plasma Wayland, KWin sometimes moves a window placed this early straight back to its own spot, about a millisecond after accepting the move (PERC-0095). `doSetFrameGeometry` therefore holds the target for `HOLD_MS`. If the window leaves the target while the user is not dragging or resizing it, and it has not gone maximised, fullscreen or minimised (an app restoring its own state), the script puts it back on the next tick, at most `HOLD_MAX_REAPPLY` times. A later `setFrameGeometry`, `setMaximizeMode`, `setFullScreen`, `setMinimized` or `closeWindow` for the same window, or the window closing, ends the hold, so it never fights Perch's own commands. A move after the hold ends is left alone. The virtual KWin used by the live tests does not push windows back by itself; `test_a_placed_window_pushed_straight_back_is_put_back` does the pushing with a second script. `test_a_placed_window_may_maximise_itself` covers the maximised case, but it also passes without that check, because the virtual KWin keeps a maximised window maximised when its position is set.
 
 ## The Python side (`KWinBackend`)
 
@@ -289,11 +285,11 @@ Capabilities(
     can_observe_geometry  = True,
     can_observe_outputs   = True,
     can_register_hotkeys  = True,
-    can_preplace_windows  = True,   # best-effort; occasional flicker acceptable
+    can_preplace_windows  = False,  # placed a few ms after windowAdded
     notes = "KWin scripting on Plasma ≥ 6 via bundled script "
             "+ GlobalShortcuts portal (KGlobalAccel fallback). "
-            "Pre-paint placement is best-effort; occasional first-frame "
-            "flicker is possible but usually imperceptible."
+            "Pre-paint placement is not implemented; a brief "
+            "first-frame jump is possible."
 )
 ```
 

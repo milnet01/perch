@@ -122,10 +122,9 @@ _CAPABILITIES = Capabilities(
     notes=(
         "KWin scripting on Plasma >= 6 via bundled script + "
         "GlobalShortcuts portal (KGlobalAccel fallback when the portal "
-        "is unavailable). Pre-paint placement is not implemented — "
-        "KWin's JS sandbox doesn't expose the signal-connect API that "
-        "the keepAbove dance requires, so first-frame flicker is "
-        "accepted rather than half-fixed."
+        "is unavailable). Pre-paint placement is not implemented; a "
+        "window is placed a few milliseconds after KWin adds it, so a "
+        "brief first-frame jump is possible."
     ),
 )
 

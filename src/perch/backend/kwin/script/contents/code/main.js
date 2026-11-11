@@ -18,6 +18,10 @@ const IF  = "io.github.milnet01.Perch.KWin1";
 
 const GEOMETRY_DEBOUNCE_MS = 50;
 const WM_CLASS_RETRY_MS = 1000;
+// How long a placed window is held at its target, and how often it is put
+// back within that time. See holdGeometry.
+const HOLD_MS = 500;
+const HOLD_MAX_REAPPLY = 3;
 
 // KWin's QJSEngine has no setTimeout / setInterval. QTimer is the timer, and
 // its signal is `timeout` — `triggered` is QAction's and is undefined here,
@@ -121,6 +125,7 @@ function emitWindowAdded(w) {
 
 function emitWindowRemoved(w) {
     if (!w) return;
+    releaseHold(winId(w));
     callDBus(SVC, OBJ, IF, "WindowRemoved", JSON.stringify({ id: winId(w) }));
 }
 
@@ -224,12 +229,14 @@ function doSetFrameGeometry(op) {
     // "Qt is not defined" and the whole command is rejected. Assigning
     // a plain object with ``x/y/width/height`` works on Plasma 6 —
     // KWin converts it to a ``QRect`` via the QML-property coercion.
-    w.frameGeometry = {
+    const rect = {
         x: op.x | 0,
         y: op.y | 0,
         width: op.w | 0,
         height: op.h | 0,
     };
+    w.frameGeometry = rect;
+    holdGeometry(w, rect);
     // ``op.preplace`` used to trigger a keepAbove dance to suppress
     // first-frame flicker during RestoreLastSeen. It connected to
     // ``QTimer.triggered``, which does not exist (the signal is
@@ -240,9 +247,58 @@ function doSetFrameGeometry(op) {
     return { ok: true };
 }
 
+// A window placed within milliseconds of opening is sometimes moved straight
+// back to KWin's own spot about a millisecond later, though KWin accepted the
+// move (PERC-0095; seen on Plasma Wayland, not reproduced in a virtual
+// KWin). So hold the target for HOLD_MS: if the window leaves it while the
+// user is not dragging or resizing it and it has not gone maximised,
+// fullscreen or minimised, put it back, at most HOLD_MAX_REAPPLY times. A later geometry, maximise, fullscreen, minimise or close command
+// for the same window ends the hold, so it never fights Perch itself.
+const _holds = {};
+function releaseHold(id) {
+    const h = _holds[id];
+    if (!h) return;
+    delete _holds[id];
+    h.timer.stop();
+    h.w.frameGeometryChanged.disconnect(h.onChange);
+}
+function holdGeometry(w, rect) {
+    const id = winId(w);
+    if (!id || !w.frameGeometryChanged) return;
+    releaseHold(id);
+    var reapplied = 0;
+    function onChange() {
+        if (_holds[id] !== hold) return;
+        // The user took the window, or it went maximised, fullscreen or
+        // minimised by itself (an app restoring its own state): let it.
+        if (w.move || w.resize || w.fullScreen || w.minimized ||
+            (w.maximizeMode | 0) !== 0) { releaseHold(id); return; }
+        const g = w.frameGeometry;
+        if (g.x === rect.x && g.y === rect.y &&
+            g.width === rect.width && g.height === rect.height) return;
+        if (reapplied >= HOLD_MAX_REAPPLY) { releaseHold(id); return; }
+        reapplied++;
+        // Not from inside KWin's own geometry update: on the next tick.
+        singleShot(0, function () {
+            if (_holds[id] !== hold) return;
+            // Checked again: KWin may report the geometry before the state.
+            if (w.fullScreen || w.minimized || (w.maximizeMode | 0) !== 0) {
+                releaseHold(id);
+                return;
+            }
+            w.frameGeometry = rect;
+        });
+    }
+    const hold = { w: w, onChange: onChange, timer: null };
+    hold.timer = singleShot(HOLD_MS, function () { releaseHold(id); });
+    _holds[id] = hold;
+    w.frameGeometryChanged.connect(onChange);
+}
+
 function doSetFullScreen(op) {
     const w = findWindow(op.id);
     if (!w) return { ok: false, error: "unknown_window", id: op.id };
+    releaseHold(op.id);
     w.fullScreen = !!op.value;
     return { ok: true };
 }
@@ -250,6 +306,7 @@ function doSetFullScreen(op) {
 function doSetMinimized(op) {
     const w = findWindow(op.id);
     if (!w) return { ok: false, error: "unknown_window", id: op.id };
+    releaseHold(op.id);
     w.minimized = !!op.value;
     return { ok: true };
 }
@@ -257,6 +314,7 @@ function doSetMinimized(op) {
 function doSetMaximizeMode(op) {
     const w = findWindow(op.id);
     if (!w) return { ok: false, error: "unknown_window", id: op.id };
+    releaseHold(op.id);
     // setMaximize(vertical:bool, horizontal:bool) — Plasma 6.
     const v = !!op.vertical;
     const h = !!op.horizontal;
@@ -272,6 +330,7 @@ function doSetMaximizeMode(op) {
 function doCloseWindow(op) {
     const w = findWindow(op.id);
     if (!w) return { ok: false, error: "unknown_window", id: op.id };
+    releaseHold(op.id);
     w.closeWindow();
     return { ok: true };
 }
@@ -417,5 +476,5 @@ poll();
 // ``KPlugin.Version`` and ``perch.backend.kwin.BUNDLED_SCRIPT_VERSION``.
 // Kept as a literal here because KWin's JS sandbox has no JSON-file reader;
 // install-time parity is verified by ``tests/backend/kwin/test_bundled_script.py``.
-const SCRIPT_VERSION = "1.1.3";
+const SCRIPT_VERSION = "1.1.4";
 callDBus(SVC, OBJ, IF, "ScriptReady", JSON.stringify({ version: SCRIPT_VERSION }));

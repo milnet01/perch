@@ -41,7 +41,7 @@ SCRIPT_LOAD_NAME: str = "org.milnet01.perch.live"
 
 #: The script version that the Python half is wired to. Kept in one place
 #: so drift between ``metadata.json`` and the installer can be checked.
-BUNDLED_SCRIPT_VERSION: str = "1.1.3"
+BUNDLED_SCRIPT_VERSION: str = "1.1.4"
 
 #: Session-bus name owned by the Python process.
 SERVICE_NAME: str = "io.github.milnet01.Perch"

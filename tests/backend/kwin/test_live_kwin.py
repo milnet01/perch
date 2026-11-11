@@ -235,3 +235,125 @@ def test_the_script_survives_a_kwin_settings_reload(
             await b.stop()
 
     asyncio.run(run())
+
+
+
+# ── A window placed by Perch is held there briefly (PERC-0095) ────────────
+
+_PUSH_JS = """
+for (const w of workspace.windowList()) {
+    if (w.caption === "perch-live-probe") {
+        w.frameGeometry = {x: 600, y: 500, width: w.frameGeometry.width,
+                           height: w.frameGeometry.height};
+    }
+}
+"""
+
+_MAXIMISE_JS = """
+for (const w of workspace.windowList()) {
+    if (w.caption === "perch-live-probe") w.setMaximize(true, true);
+}
+"""
+
+
+async def _place_then_run(
+    tmp_path: Any, steps: Any
+) -> None:
+    """Open the probe window, place it at 100,120 keeping its size, then
+    hand ``steps(where, target, run_js)`` the rest. ``run_js`` runs a
+    one-shot KWin script, standing in for whatever moves the window."""
+    import os
+    import subprocess
+    import sys
+
+    from perch.backend.kwin.scripting import (
+        KWIN_SCRIPTING_OBJ,
+        KWIN_SERVICE,
+        KWinScripting,
+        install_and_run_script,
+        unload_script_if_loaded,
+    )
+    from perch.backend.types import Geometry, WindowInfo
+
+    from .conftest import wayland_socket
+
+    b = KWinBackend(hotkey_provider=MockHotkeyProvider())
+    opened: list[str] = []
+    b.window_opened.connect(
+        lambda info: opened.append(info.id)
+        if info.title == "perch-live-probe"
+        else None
+    )
+    await b.start()
+    scripting = KWinScripting.new_proxy(KWIN_SERVICE, KWIN_SCRIPTING_OBJ)
+
+    async def run_js(source: str) -> None:
+        path = tmp_path / "push.js"
+        path.write_text(source)
+        await unload_script_if_loaded(scripting, "perch-test-push")
+        await install_and_run_script(scripting, path, "perch-test-push")
+
+    async def where() -> WindowInfo:
+        return await b.get_window(opened[0])
+
+    client = subprocess.Popen(
+        [sys.executable, "-c", _CLIENT],
+        env={
+            **os.environ,
+            "QT_QPA_PLATFORM": "wayland",
+            "WAYLAND_DISPLAY": wayland_socket(),
+        },
+    )
+    try:
+        for _ in range(200):
+            if opened:
+                break
+            await asyncio.sleep(0.05)
+        assert opened, "the KWin script never reported the probe window"
+        # Position only, as on the desktop: a size change waits for the
+        # client to confirm it and would overwrite the push afterwards.
+        size = (await where()).geometry
+        target = Geometry(100, 120, size.w, size.h)
+        await b.set_geometry(opened[0], target)
+        await steps(where, target, run_js)
+    finally:
+        await unload_script_if_loaded(scripting, "perch-test-push")
+        client.kill()
+        client.wait()
+        await b.stop()
+
+
+def test_a_placed_window_pushed_straight_back_is_put_back(
+    tmp_path: Any,
+) -> None:
+    """On Plasma Wayland KWin sometimes moved a just-restored window back to
+    its own spot a millisecond after accepting Perch's move. The virtual
+    KWin does not do that by itself, so a second script does the pushing:
+    straight after placement it must be undone, and once the hold is over
+    a move must be left alone."""
+
+    async def steps(where: Any, target: Any, run_js: Any) -> None:
+        await run_js(_PUSH_JS)
+        await asyncio.sleep(0.3)
+        assert (await where()).geometry == target, (
+            "a push straight after placement stuck"
+        )
+        await asyncio.sleep(1.0)
+        await run_js(_PUSH_JS)
+        await asyncio.sleep(0.3)
+        assert (await where()).geometry.x == 600, "a move after the hold was undone"
+
+    asyncio.run(_place_then_run(tmp_path, steps))
+
+
+def test_a_placed_window_may_maximise_itself(tmp_path: Any) -> None:
+    """An app may maximise itself right after opening, restoring its own
+    state. The hold must let it, not pull it back to the placed rect."""
+    from perch.backend.types import WindowState
+
+    async def steps(where: Any, _target: Any, run_js: Any) -> None:
+        await run_js(_MAXIMISE_JS)
+        await asyncio.sleep(0.5)
+        assert (await where()).state == WindowState.MAXIMIZED
+
+    asyncio.run(_place_then_run(tmp_path, steps))

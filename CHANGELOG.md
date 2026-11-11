@@ -22,6 +22,10 @@ Sections under each release are populated on a best-effort basis — empty secti
 - **Perch stays connected when KWin reloads its settings** (PERC-0097)
   Each time KWin reloaded its settings, Perch's window tracking switched
   off without a word until Perch was restarted.
+- **A reopened window goes back where you left it** (PERC-0095)
+  On Plasma Wayland, KWin often moved a just-restored window straight
+  back to its own spot. Perch now puts it back if that happens in the
+  first half second.
 
 ## [2.0.0] — 2026-10-08
 

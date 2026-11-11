@@ -854,9 +854,9 @@ def test_capabilities_match_doc() -> None:
     b = KWinBackend()
     caps = b.capabilities
     assert caps.can_set_position is True
-    # can_preplace_windows is False since M9.f.15: KWin's JS sandbox
-    # doesn't expose the signal-connect API that the keepAbove dance
-    # needed, so Perch doesn't claim to pre-place.
+    # can_preplace_windows is False since M9.f.15: the keepAbove dance
+    # left windows stuck on top, and nothing else places before the
+    # first paint (docs/05 §Placing a window as it opens).
     assert caps.can_preplace_windows is False
     assert caps.can_register_hotkeys is True
     assert "Plasma" in caps.notes

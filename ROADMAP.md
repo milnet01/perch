@@ -2345,7 +2345,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-10-07 (AppImage 1.2.0 on openSUSE Tumbleweed).
 
-- 📋 [PERC-0095] **Restore a reopened window reliably on KWin Wayland, not one time in six.**
+- 🚧 [PERC-0095] **Restore a reopened window reliably on KWin Wayland, not one time in six.**
   Seen 2026-11-08 on Plasma Wayland with KCalc saved at 311,207 in
   state.json, both from the Flatpak and from source (.venv), so not
   packaging. The reducer logs evaluate(app:kcalc, opened) ->
@@ -2363,6 +2363,20 @@ Goal: fewer first-run support tickets; the config is safe.
   (tests/backend/kwin/test_live_kwin.py). Also stale: docs/05-backend-kwin.md
   still says can_preplace_windows = True; the code says False since M9.f.15.
   Probes: .audit/geo/ (gitignored).
+  2026-11-11: fixed. Measured from source on the desktop: 4 of 12 KCalc
+  reopens restored before, 12 of 12 and then 20 of 20 after. Trace:
+  Perch's move, KWin's push-back 0-2 ms later, the script's re-apply
+  within 1 ms, then still. Fix: main.js holds a placed window at its
+  target for HOLD_MS and puts it back (at most HOLD_MAX_REAPPLY times)
+  unless the user drags or resizes it, or it goes maximised, fullscreen
+  or minimised; a later Perch command for the window ends the hold. What
+  pushes it back inside KWin is still not known. Live test
+  test_a_placed_window_pushed_straight_back_is_put_back: red without the
+  fix; the virtual KWin does not push back by itself, so a second script
+  does. docs/05 placement section rewritten (it described a
+  QueryPlacement call and keepAbove trick that no longer exist;
+  can_preplace_windows now False there too). Left: confirm in the
+  rebuilt Flatpak.
   **Layman:** When you reopen a window, Perch usually fails to put it back where you left it.
   Kind: fix.
   Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
