@@ -40,11 +40,9 @@ SCANNED = [
     ROOT / "CODE_OF_CONDUCT.md",
     ROOT / "CHANGELOG.md",
     ROOT / "CLAUDE.md",
-    # Packaging prose a reader follows. SUBMISSION.md is the Flathub
-    # submission record; the AppImage README carries a version bump.json
-    # rewrites.
+    # Packaging prose a reader follows. The AppImage README carries a
+    # version bump.json rewrites.
     ROOT / "packaging/appimage/README.md",
-    ROOT / "packaging/flathub/SUBMISSION.md",
 ]
 
 # Not documents, so no link check — but each states the Python floor, which

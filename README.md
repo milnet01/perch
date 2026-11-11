@@ -60,10 +60,22 @@ sudo dnf install perch
 Your package manager will ask you to trust the repository's signing key the
 first time — that's expected. Afterwards Perch updates with everything else.
 
-> **Coming soon:** one-command installs via Flathub and the AUR —
+### Flatpak
+
+Perch is also a Flatpak, as a file on the
+[**Releases page**](https://github.com/milnet01/perch/releases/latest). It is
+not on Flathub. Download `io.github.milnet01.Perch.flatpak`, then:
+
+```bash
+flatpak install --user io.github.milnet01.Perch.flatpak
+flatpak run io.github.milnet01.Perch
+```
+
+Flatpak fetches the runtime Perch needs the first time. A Flatpak installed
+from a file does not update itself: install the next release's file over it.
+
+> **Coming soon:** a one-command install via the AUR —
 > see the [roadmap](ROADMAP.md#v101--get-it-downloadable).
-> Until then, the AppImage above is the easy button and the RPM repository is
-> the tidy one.
 
 ---
 

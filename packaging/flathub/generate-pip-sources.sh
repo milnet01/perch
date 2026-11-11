@@ -22,7 +22,7 @@
 #     The generator errors on a --prefer-wheels package that ships no wheel,
 #     so the list must be the has-a-wheel subset; deriving it means a new
 #     sdist-only dependency needs no edit here.
-#   * --wheel-arches is x86_64 only, matching flathub.json's only-arches.
+#   * --wheel-arches is x86_64 only, the one arch the Flatpak is built for.
 #     aarch64 is a follow-up: it needs the whole closure re-resolved for that
 #     arch, and sdbus and regex are the native packages in it.
 #

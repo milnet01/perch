@@ -25,8 +25,7 @@ Prerequisites:
   `~/.oscrc`).
 
 **Project**: `home:<user>` on <https://build.opensuse.org>. Promote
-to `X11:Utilities` or `KDE:Extra` once the app is Flathub-listed and
-has user interest.
+to `X11:Utilities` or `KDE:Extra` once the app has user interest.
 
 **Targets enabled**: openSUSE Tumbleweed (primary), Leap 16.0 once
 its PySide6 is ≥ 6.8 (Leap 15.x ships 6.4 — too old, same story as

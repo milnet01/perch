@@ -43,8 +43,8 @@ Highlights
 Install options
 ---------------
 
-- Flatpak (Flathub) — cross-distro, sandboxed, recommended.
-- openSUSE OBS — `home:milnet01/perch`, Tumbleweed and Fedora.
+- AppImage and Flatpak — files on each GitHub release.
+- openSUSE OBS — `home:milnet:perch`, Tumbleweed and Fedora.
 - Arch Linux AUR — `perch` (stable) or `perch-git` (HEAD).
 
 Support
@@ -75,28 +75,20 @@ add more without re-uploading the whole listing.
 
 ## Install path (GHNS)
 
-The KDE Store entry doesn't ship its own Perch binary — it points at
-the Flatpak as the install source. In the store's *Install Command*
-field:
-
-```
-flatpak install --user flathub io.github.milnet01.Perch
-```
-
-Once the Flathub submission lands, this command is the whole wiring.
-Users who hit *Install* in Discover get a Flatpak install, same as
-clicking through from Flathub directly.
+On hold. This listing was written to install the Flathub build, and
+Perch is not on Flathub (user decision, 2026-11-11: Flathub no longer
+accepts new AI-written applications). Which install source the store
+accepts for the GitHub release files is not yet worked out (PERC-0002).
 
 ## Release flow for KDE Store updates
 
-1. Perch ships a new version to Flathub (see
-   `packaging/flathub/SUBMISSION.md`).
+1. Perch ships a new GitHub release.
 2. In the KDE Store web UI, bump the listing's *Version* field to the
    new Perch version.
 3. Upload an updated changelog excerpt (copy the relevant
    `CHANGELOG.md` section).
-4. No new tarball upload is needed — the GHNS install command keeps
-   pulling the latest Flathub build automatically.
+4. Point the install source at the new release (see *Install path*
+   above, on hold).
 
 ## Why not a standalone tarball?
 

@@ -4,9 +4,10 @@ No CLI. Listing goes through store.kde.org's submission web form.
 
 ## Prerequisites
 
-1. **Flathub submission landed first.** The KDE Store entry links at
-   the Flathub build — there's no parallel tarball upload to maintain.
-   See `packaging/submit/flathub.sh`.
+1. **An install source.** On hold: this walkthrough was written to
+   point at a Flathub build, and Perch is not on Flathub (user decision,
+   2026-11-11). Step 4 needs a source for the GitHub release files first
+   (PERC-0002).
 2. KDE Store account at https://store.kde.org. Sign in with an
    OpenDesktop / KDE Identity account.
 
@@ -22,11 +23,7 @@ No CLI. Listing goes through store.kde.org's submission web form.
    - **Homepage:** `https://github.com/milnet01/perch`
    - **Issue tracker:** `https://github.com/milnet01/perch/issues`
    - **License:** GPL-3.0-or-later.
-4. **Install source:** pick *Flatpak* and paste the Flathub install
-   command:
-   ```
-   flatpak install flathub io.github.milnet01.Perch
-   ```
+4. **Install source:** not decided; see prerequisite 1.
 5. **Screenshots:** upload the two images from
    `docs/screenshots/tray-menu.png` and `docs/screenshots/rules-editor.png`.
    They're committed alongside the v1.0.0 tag, so also acceptable:
@@ -38,11 +35,9 @@ No CLI. Listing goes through store.kde.org's submission web form.
 
 ## After acceptance
 
-The listing's "Install" button surfaces the Flathub command on KDE's
-**Get Hot New Stuff** browser (Discover / System Settings → Get New
-Stuff). No per-release republishing needed unless the screenshots or
-description change — the Flathub build the listing points at updates
-independently.
+The listing appears in KDE's **Get Hot New Stuff** browser (Discover /
+System Settings → Get New Stuff). How it follows new releases depends on
+the install source, which is not decided.
 
 ## Updating the listing
 

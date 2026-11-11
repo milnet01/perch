@@ -10,11 +10,10 @@ script assumes:
 
 Each script prints its preconditions on `--help` and refuses to run
 until they are met. No script pushes without explicit re-confirmation
-when the action is hard to reverse (Flathub PR, AUR first-push).
+when the action is hard to reverse (AUR first-push).
 
 | Channel | Script | Platform auth | CLI tool |
 |---|---|---|---|
-| **Flathub** | `flathub.sh` | GitHub token on `gh` (have it) | `flatpak-builder`, `org.flatpak.Builder` |
 | **openSUSE OBS** | `obs.sh` | `~/.config/osc/oscrc` with an openSUSE account | `osc` |
 | **AUR (stable)** | `aur.sh perch` | SSH key registered with AUR account | `git` only |
 | **AUR (-git)** | `aur.sh perch-git` | same | `git` only |
@@ -22,13 +21,13 @@ when the action is hard to reverse (Flathub PR, AUR first-push).
 
 ## Running order
 
-Flathub is the primary cross-distro channel — prioritise it. Then OBS
-(which builds the Fedora RPM as well as the openSUSE one), then AUR
-(Arch), then KDE Store (after the Flathub build is public so the listing
-can point at it).
+OBS first (it builds the Fedora RPM as well as the openSUSE one), then
+AUR (Arch), then KDE Store (on hold: its listing pointed at a Flathub
+build). Perch is not on Flathub (user decision, 2026-11-11); the Flatpak
+ships as a GitHub release file, built by `packaging/flathub/flatpak-build.sh`
+(docs/10-packaging.md § Release mechanics).
 
 ```
-./packaging/submit/flathub.sh           # ~2h for Flathub review to start
 ./packaging/submit/obs.sh               # immediate; builds run on OBS
 ./packaging/submit/aur.sh perch         # immediate
 ./packaging/submit/aur.sh perch-git     # immediate
@@ -36,6 +35,4 @@ can point at it).
 ```
 
 Each script is idempotent where the platform permits (AUR, OBS —
-re-runs overwrite). Flathub is a fork-and-PR flow; re-running
-pushes a new commit to the same fork branch, which Flathub reviewers
-see as an update to the pending PR.
+re-runs overwrite).

@@ -1,7 +1,7 @@
 # =============================================================================
-# Flathub manifest for Perch
+# Flatpak manifest for Perch
 # =============================================================================
-# Runbook and submission steps: SUBMISSION.md next to this file.
+# Built by flatpak-build.sh next to this file; docs/10-packaging.md § Flatpak.
 #
 # Perch builds on the freedesktop runtime and bundles its own Qt, from the
 # PySide6-Essentials wheel on PyPI. It does NOT use the KDE runtime with
@@ -16,10 +16,10 @@
 # take the URL and sha256 from PyPI's JSON API (or the krb5 release page),
 # then rebuild with flatpak-build.sh.
 #
-# SUBMISSION NOTE: the perch module's git source is pinned to a release tag
-# AND its immutable commit. Re-pin both before a Flathub PR, and regenerate
-# python3-deps.yaml if the closure moved. flathub.json beside this manifest
-# restricts the buildbot to x86_64, which is the arch the pinned wheels cover.
+# PIN NOTE: the perch module's git source is pinned to a release tag AND its
+# immutable commit (flatpak-build.sh's default LOCAL=1 build swaps in the
+# checkout). Re-pin both, and regenerate python3-deps.yaml if the closure
+# moved, before a LOCAL=0 build. x86_64 only: the arch the pinned wheels cover.
 # =============================================================================
 
 app-id: io.github.milnet01.Perch

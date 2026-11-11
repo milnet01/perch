@@ -8,6 +8,12 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+### Changed
+
+- **The Flatpak is a download on the release page** (PERC-0091)
+  Each release now carries `io.github.milnet01.Perch.flatpak`. Perch is
+  not on Flathub, which no longer accepts new AI-written applications.
+
 ### Fixed
 
 - **A KDE runtime update no longer breaks the Flatpak** (PERC-0091)

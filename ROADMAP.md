@@ -185,6 +185,14 @@ Goal: anyone can install Perch without building from source.
   screen: the setup wizard opens and does not reappear after Finish, a
   window's geometry survives a close/reopen, and the config dialog opens
   and saves.
+  Decision (user, 2026-11-11): Flathub is DROPPED -- Flathub no longer
+  accepts new AI-written applications. The Flatpak ships instead as
+  io.github.milnet01.Perch.flatpak on each GitHub release (BUNDLE= in
+  packaging/flathub/flatpak-build.sh). packaging/submit/flathub.sh and
+  packaging/flathub/SUBMISSION.md are retired. Channels left on this
+  item: AUR (blocked on the maintainer's account) and KDE Store, whose
+  listing pointed at Flathub and now needs the GitHub release files as
+  its install source.
   **Layman:** Getting Perch listed in the places people normally install Linux software from.
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
@@ -2212,7 +2220,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: feature.
   Source: user-decision-2026-10-02 PERC-0051 docs/03.
 
-- 🚧 [PERC-0091] **Stop a KDE runtime update from breaking installed Flatpak copies of Perch.**
+- ✅ [PERC-0091] **Stop a KDE runtime update from breaking installed Flatpak copies of Perch.**
   Seen 2026-10-02: the locally installed Flatpak (built 2026-08-27 on
   org.kde.Platform//6.11 + io.qt.PySide.BaseApp//6.11) dies at import with
   `QtCore.abi3.so: undefined symbol _ZN14QObjectPrivateC2E16QtPrivate_6_11_1`.
@@ -2296,6 +2304,21 @@ Goal: fewer first-run support tickets; the config is safe.
   PERC-0095, then release 2.0.1, then the Flathub PR (the user approved
   sending the PR text in packaging/submit/flathub.sh after 2.0.1,
   2026-11-08).
+  2026-11-11: settings save checked inside the Flatpak (built from
+  08696a6): ConfigDialog opened as app.py does, offscreen, one General
+  toggle flipped, OK; config.toml changed by exactly that line (the
+  user's file restored after). PERC-0095/0096 fixed and confirmed in the
+  Flatpak. Decision (user, 2026-11-11): no Flathub PR, since Flathub no
+  longer accepts new AI-written apps; release 2.0.1 with the Flatpak as
+  a GitHub release asset (route B's shipping), built as route A built
+  it.
+  2026-11-11: done. Every manual check has passed in a Flatpak built
+  from 08696a6 (start, KWin script, autostart grant, geometry save and
+  restore, settings save), and PERC-0095/0096 are fixed. Step (3), the
+  Flathub PR, is dropped by the user's decision; the Flatpak ships as a
+  GitHub release file from 2.0.1 (BUNDLE= in flatpak-build.sh). Docs
+  swept of Flathub promises; SUBMISSION.md, flathub.json and
+  packaging/submit/flathub.sh retired.
   **Layman:** The Flatpak version of Perch stops starting whenever KDE updates its shared libraries; users must never have to deal with that.
   Kind: fix.
   Source: user-request-2026-10-02 (Perch dead on the user's login).

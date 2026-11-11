@@ -129,7 +129,7 @@ The `tests/test_config_roundtrip.py` fixture exercises the tomlkit comment-prese
 | `src/perch/` | Package source. `__main__.py` is the CLI entry; `app.py` is the async `main()` coroutine; `config/` is the config subsystem; `core/` is the backend-agnostic middle of the program. |
 | `tests/` | pytest suite; `conftest.py` installs an isolated XDG tree per test. |
 | `docs/` | Design docs. Must stay in lockstep with code — see the [no-documentation-debt rule](../CLAUDE.md). |
-| `packaging/` | Flathub manifest scaffold and submission notes. |
+| `packaging/` | Recipes per channel: AppImage, Flatpak, RPM, AUR, KDE Store, and submission scripts. |
 | `data/` | Icons, desktop/metainfo files (progressively populated from M3 onwards). |
 | `.claude/` | Claude Code hooks, skills, settings — see [`CLAUDE.md`](../CLAUDE.md). |
 

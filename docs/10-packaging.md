@@ -6,7 +6,7 @@ Authoritative packaging artefacts live under `packaging/`:
 
 | Path | Channel |
 |---|---|
-| `packaging/flathub/io.github.milnet01.Perch.yml` + `SUBMISSION.md` | Flathub |
+| `packaging/flathub/io.github.milnet01.Perch.yml` + `flatpak-build.sh` | Flatpak (GitHub release file) |
 | `packaging/rpm/perch.spec` + `README.md` | openSUSE OBS (openSUSE and Fedora RPMs) |
 | `packaging/aur/PKGBUILD` + `.SRCINFO`, `packaging/aur/perch-git/PKGBUILD` + `.SRCINFO`, `README.md` | AUR |
 | `packaging/kde-store/LISTING.md` | KDE Store |
@@ -15,7 +15,6 @@ Submission runbooks live under `packaging/submit/`:
 
 | Channel | Runbook | Notes |
 |---|---|---|
-| Flathub | `packaging/submit/flathub.sh` | Needs `flatpak-builder`; stages by default, `--push` opens the PR. |
 | openSUSE OBS | `packaging/submit/obs.sh` | Needs `osc` + `~/.config/osc/oscrc`. Builds the Fedora RPM too. |
 | AUR | `packaging/submit/aur.sh <perch\|perch-git>` | Needs SSH key registered on AUR account. |
 | KDE Store | `packaging/submit/kde-store.md` | Web-only submission — runbook, not CLI. |
@@ -50,10 +49,10 @@ The GitHub namespace (`milnet01`) is chosen as the project owner's stable identi
 | Channel | Who uses it | Status |
 |---|---|---|
 | **AppImage** | Anyone — download one file, run it, no install | recipe at `packaging/appimage/`; the self-contained download attached to each GitHub release (§ AppImage below). **The available download today.** |
-| **Flathub (Flatpak)** | Anyone — primary cross-distro store channel | manifest authored at `packaging/flathub/`; Flathub submission tracked as PERC-0002 in `ROADMAP.md` |
+| **Flatpak** | Anyone who prefers a sandboxed app | `io.github.milnet01.Perch.flatpak` attached to each GitHub release (§ Flatpak below). Not on Flathub: Flathub no longer accepts new AI-written applications (user, 2026-11-11). |
 | **openSUSE OBS** | openSUSE Tumbleweed & Leap users, and Fedora / RHEL clones | spec authored at `packaging/rpm/`; OBS builds both distro families from the one spec; live at OBS project `home:milnet:perch`, building green on openSUSE_Tumbleweed and Fedora_44 |
 | **AUR** | Arch / Manjaro / EndeavourOS | `perch` + `perch-git` PKGBUILDs authored at `packaging/aur/`; AUR push tracked under v1.0.1 (user-maintained is acceptable) |
-| **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`; entry created when Flathub goes live |
+| **KDE Store** | Plasma users browsing Discover / Get New Stuff | listing authored at `packaging/kde-store/LISTING.md`; not live: it was written to point at a Flathub build, and needs the GitHub release files as its install source instead (PERC-0002) |
 | **PyPI** | Python devs who want to `pipx install perch` | not v1 |
 
 The store channels ship their recipes today; getting them *live* (the
@@ -132,14 +131,14 @@ GitHub; `build.sh` accepts `PERCH_APPIMAGE_RUNTIME=/path` to use a local copy
 when that download is unreachable. CI (GitHub Actions) is the intended release
 build — the fetch is reliable there.
 
-## Flatpak (primary)
+## Flatpak
 
 ### Manifest
 
 The manifest is [`packaging/flathub/io.github.milnet01.Perch.yml`](../packaging/flathub/io.github.milnet01.Perch.yml)
-and is the only copy — it is what gets submitted, so a second copy here
-would be a second thing to keep true. [`packaging/flathub/SUBMISSION.md`](../packaging/flathub/SUBMISSION.md)
-is the runbook. The decisions worth knowing without opening either:
+and is the only copy, so a second copy here would be a second thing to
+keep true. The folder keeps its `flathub/` name from when Flathub was the
+plan. The decisions worth knowing without opening it:
 
 - **`org.freedesktop.Platform//26.08`, with Qt bundled.** A runtime update
   must never break an installed copy, and nobody should have to rebuild
@@ -154,10 +153,7 @@ is the runbook. The decisions worth knowing without opening either:
   on PyPI, sha256-pinned in the manifest. They are abi3 wheels, so they
   import on the runtime's python 3.14. `trim-pyside6.sh` cuts them to
   the modules Perch loads, and `flatpak-build.sh` checks with `ldd` that
-  nothing kept lost a dependency. Flathub's requirements ask for runtime
-  dependencies to be built from source, with exceptions for well-known
-  vendors. These wheels need that exception, and the submission PR asks
-  for it.
+  nothing kept lost a dependency.
 - **The look is Qt's Fusion style, not Breeze.** A Qt that does not match
   the host's cannot load the host's Breeze style plugin. The tray menu is
   drawn by Plasma, so it looks native. The dialogs follow the desktop's
@@ -167,22 +163,25 @@ is the runbook. The decisions worth knowing without opening either:
   QtNetwork for its single-instance socket.
 - **The other Python dependencies are sha256-pinned and committed** in
   `packaging/flathub/python3-deps.yaml`, generated from `pyproject.toml` by
-  `generate-pip-sources.sh`. Flathub's builders have no network, so nothing
+  `generate-pip-sources.sh`. The build runs with no network, so nothing
   may be resolved at build time — including the `hatchling` build backend,
   which is why it is in the closure too.
-- **`flathub.json` restricts the buildbot to x86_64**, the arch the pinned
-  native wheels cover.
+- **x86_64 only**, the arch the pinned native wheels cover.
 - **`finish-args` carries no `--socket=session-bus`.** Named `--talk-name`
   entries are how a sandboxed app reaches specific services; the blanket
-  socket makes them meaningless and Flathub's linter rejects it. Each
+  socket makes them meaningless and `flatpak-builder-lint` rejects it. Each
   service Perch needs must therefore be named — including
   `org.kde.StatusNotifierWatcher`, without which the tray icon, and so the
   whole interface, never appears.
 - **No `--device=dri`** — Perch renders no 3D surface, and the tray icon and
   dialogs work on llvmpipe.
 
-Build it locally with [`packaging/flathub/flatpak-build.sh`](../packaging/flathub/flatpak-build.sh),
-which builds offline exactly as Flathub does.
+Build it with [`packaging/flathub/flatpak-build.sh`](../packaging/flathub/flatpak-build.sh),
+which builds offline from pinned sources. `BUNDLE=<file>` also writes the
+release file; it names the Flathub remote as where Flatpak fetches
+`org.freedesktop.Platform`, so `flatpak install --user <file>` works on a
+machine that lacks the runtime. A Flatpak installed from a file does not
+update itself.
 
 ### KWin script delivery from Flatpak — the critical detail
 
@@ -213,7 +212,7 @@ This is documented prominently in the README and the config dialog; it is not co
 
 ### Metainfo
 
-`data/io.github.milnet01.Perch.metainfo.xml` is required by Flathub. It contains:
+`data/io.github.milnet01.Perch.metainfo.xml` is what software centres read to list Perch. It contains:
 
 - Summary + description.
 - Screenshots (hosted in the repo's `docs/screenshots/`).
@@ -374,7 +373,7 @@ Workarounds, in preference order:
 
 Ubuntu 25.04/25.10 ship PySide6 6.7/6.8 and work with the distro package. Ubuntu 26.04 LTS (April 2026, releasing around the same time as this doc is written) is expected to ship PySide6 ≥ 6.8.
 
-The `perch` DEB is built only for **Ubuntu 25.04+ / Debian 13+**. 24.04 users are pointed at Flathub or pipx.
+The `perch` DEB is built only for **Ubuntu 25.04+ / Debian 13+**. 24.04 users are pointed at the Flatpak, the AppImage or pipx.
 
 ## CI
 
@@ -455,17 +454,19 @@ attaches the AppImage) and the versioning policy live in
 the **packaging-channel delta**: what happens to each distribution channel once
 a release is tagged.
 
+- **Flatpak** — built locally with `BUNDLE=dist/io.github.milnet01.Perch.flatpak
+  packaging/flathub/flatpak-build.sh` from the tagged commit, then attached
+  with `gh release upload`. Not built in CI.
 - **AppImage** — built and attached to the GitHub release automatically by
   `.github/workflows/release.yml` (`packaging/appimage/build.sh`), plus a
   `SHA256SUMS.txt`. The `sdist` + wheel are buildable for anyone who wants them
   manually; not published to PyPI.
 - **Downstream channels — manual / external, and only once each is live** (the
   going-live work is PERC-0002, see [`ROADMAP.md`](../ROADMAP.md)):
-  - Flathub: open/refresh the manifest PR against the Flathub repo.
   - openSUSE OBS: re-run `packaging/submit/obs.sh` to upload the new tarball.
 
   - AUR: `perch` PKGBUILD `pkgver` bumped and pushed manually.
-  - KDE Store: updated from the Flatpak artefact.
+  - KDE Store: once live, points at the new release's files.
 
 The `cut-release` skill drives the full sequence; see CLAUDE.md for skill wiring.
 
@@ -473,5 +474,5 @@ The `cut-release` skill drives the full sequence; see CLAUDE.md for skill wiring
 
 - Source tarballs from GitHub are SHA256-summed; the sums are included in the release notes.
 - No GPG signing of tarballs in v1 (GitHub release signatures are the tamper-evident story).
-- Flatpak ships with Flathub's standard verification; OBS signs its RPMs with the openSUSE build keys.
+- The Flatpak file is unsigned, like the AppImage; OBS signs its RPMs with the openSUSE build keys.
 - Reproducible builds are not a v1 target but the Python-only + static-data shape makes them attainable. Tracked in the roadmap.

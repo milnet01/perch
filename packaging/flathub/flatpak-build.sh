@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # flatpak-build.sh — build + install + smoke-test the Perch Flatpak locally.
 #
-# Mirrors what Flathub's builders do, so a green local run is the strongest
-# pre-submission signal available without submitting.
+# The Flatpak ships as a .flatpak file on the GitHub release, not on Flathub
+# (docs/10-packaging.md). This script builds it the way Flathub's builders
+# would, so the result is reproducible from pinned sources.
 #
 #   packaging/flathub/flatpak-build.sh          # build + install --user + smoke
 #   packaging/flathub/flatpak-build.sh --run    # ...then launch the tray app
-#   LOCAL=0 packaging/flathub/flatpak-build.sh  # build the manifest AS SUBMITTED
+#   LOCAL=0 packaging/flathub/flatpak-build.sh  # build the manifest verbatim
+#   BUNDLE=out/perch.flatpak packaging/flathub/flatpak-build.sh
+#                                               # ...and write the release file
 #
 # The build phase runs with NO network -- every source is sha256- or
-# commit-pinned, the same constraint Flathub imposes. A dependency that slips
-# to an offline-unbuildable sdist fails HERE rather than in review.
+# commit-pinned. A dependency that slips to an offline-unbuildable sdist
+# fails here.
 #
 # Requires: flatpak-builder, and from Flathub:
 #   flatpak install flathub org.freedesktop.Platform//26.08 \
@@ -85,6 +88,16 @@ flatpak-builder \
     --repo="$REPODIR" \
     "$BUILDDIR" "$MANIFEST"
 
+# The release file. --runtime-repo lets `flatpak install perch.flatpak`
+# fetch org.freedesktop.Platform itself on a machine that lacks it.
+if [[ -n "${BUNDLE:-}" ]]; then
+    echo ">> bundle: $BUNDLE"
+    mkdir -p "$(dirname "$BUNDLE")"
+    flatpak build-bundle \
+        --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+        "$REPODIR" "$BUNDLE" "$APP_ID" master
+fi
+
 echo ">> install --user from the local repo"
 flatpak-builder --user --force-clean --install \
     "$BUILDDIR" "$MANIFEST"
@@ -122,7 +135,7 @@ cat <<'EOT'
 
 >> Build + smoke green.
 
-   Manual checks a headless build cannot make (do these before submitting):
+   Manual checks a headless build cannot make (do these before releasing):
      - tray icon appears on a real Plasma session, and its menu opens
      - the KWin script installs to ~/.local/share/kwin/scripts/ on first run
      - a window's geometry is remembered and restored across a close/reopen

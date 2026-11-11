@@ -44,7 +44,7 @@ dev = [
     "pytest-asyncio>=1.3,<2",
     "pytest-xvfb>=3",
     # tools/ci_lockstep_check.py parses .github/workflows/ci.yml, and the
-    # Flathub scripts under packaging/flathub/ read and rewrite manifests.
+    # Flatpak scripts under packaging/flathub/ read and rewrite manifests.
     "PyYAML>=6.0.3,<7",
     # Stubs for the above, so mypy --strict can typecheck the tests that
     # read .github/FUNDING.yml.
