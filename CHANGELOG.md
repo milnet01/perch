@@ -8,6 +8,10 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-11-11
+
+**Theme:** Windows go back where you left them.
+
 ### Changed
 
 - **The Flatpak is a download on the release page** (PERC-0091)
@@ -32,6 +36,16 @@ Sections under each release are populated on a best-effort basis — empty secti
   On Plasma Wayland, KWin often moved a just-restored window straight
   back to its own spot. Perch now puts it back if that happens in the
   first half second.
+- **Menus and dialogs are left alone** (PERC-0098)
+  Perch remembered one position per app and put every window of that
+  app there. A tray icon's menu opened far from the click, a dialog
+  opened at title-bar size, and a mail app shrank to the size of its
+  last dialog. Perch now never moves menus or splash screens. It
+  remembers and restores only an app's main window, and only when no
+  other window of that app is already open.
+- **Quit always quits** (PERC-0099)
+  Sometimes Perch kept running, invisible, after you quit it or logged
+  out. It now exits within ten seconds whatever happens.
 
 ## [2.0.0] — 2026-10-08
 
@@ -743,6 +757,6 @@ First stable release. Perch is a persistent, compositor-aware window geometry ma
 
 ### Security
 
-[Unreleased]: https://github.com/milnet01/perch/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/milnet01/perch/compare/v2.0.1...HEAD
 [1.1.0]: https://github.com/milnet01/perch/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/milnet01/perch/releases/tag/v1.0.0

@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: PERC=97 -->
+<!-- ants-roadmap-id-high-water: PERC=99 -->
 
 # Perch — Roadmap
 
@@ -2206,6 +2206,8 @@ Goal: fewer first-run support tickets; the config is safe.
   then ran clean. Regression test: tests/backend/test_session_display.py
   (red without -noreset, green with). CI's Ubuntu Xvfb likely prints
   fewer warnings, which is why it never hung there (unverified).
+  Release note (2.0.1): no CHANGELOG entry -- a test-harness fix (the
+  session Xvfb), nothing a user sees.
   **Layman:** Track down which automatic test froze once, using the clues the new safety net prints next time.
   Kind: investigate.
   Source: in-session-2026-10-02 push gate hang.
@@ -2444,6 +2446,38 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Each time KWin reloaded its settings, Perch stopped tracking windows without a word until you restarted it.
   Kind: fix.
   Source: measurement-2026-11-11 (PERC-0095 baseline).
+
+- ✅ [PERC-0098] **Leave menus and dialogs alone; remember and restore only an app's main window.**
+  Last-seen geometry is one record per app, and every window of the app
+  wrote and received it. KWin popup-menu types (10, 11, 14, 18) mapped to
+  "unknown", so plasmashell tray menus were restored too. PERC-0095's
+  hold then kept the wrong geometry in place. Fix: MENU and SPLASH join
+  the built-in exclusions; the KWin script reports popups as menus and a
+  dialog's parent; last-seen covers only a NORMAL window with no parent
+  that is its app's first open window.
+  Shipped 2026-11-11 in 060d3ea. Live on Plasma Wayland in the rebuilt
+  Flatpak: over two runs of a test window with a QMenu and a QDialog,
+  Perch issued set_geometry for the two main windows only.
+  **Layman:** Tray menus opened far from the click and dialogs opened tiny, because Perch put every window of an app in the same remembered spot.
+  Kind: fix.
+  Source: user-report-2026-11-11.
+
+- ✅ [PERC-0099] **Quit always quits: a hung shutdown no longer leaves Perch running.**
+  Seen twice on the Flatpak 2026-11-11: SIGTERM logged "shutting down",
+  backend.stop() finished (KWin script unloaded), then the process sat
+  idle in its Qt loop forever. The hung run logged qasync "loop ... is not
+  the running loop" for task steps after app.quit(); a clean run did not.
+  Not reproduced in isolation (a pending task, or one awaiting a worker
+  thread, both exit cleanly). Fix: cli() arms a 10 s exit watchdog when
+  teardown begins. Root cause still open: the watchdog's warning in
+  perch.log marks each time it fires.
+  Shipped 2026-11-11 in 8ce0321. Rebuilt Flatpak, three SIGTERMs sent
+  while test windows were opening: exits after 5 s, 1 s and 3 s, KWin
+  script unloaded; the watchdog did not need to fire. Root cause of the
+  hang is still unidentified.
+  **Layman:** Sometimes Perch kept running invisibly after you quit it; now it is made to exit after ten seconds at most.
+  Kind: fix.
+  Source: user-report-2026-11-11.
 
 ## v1.2 — Smarts
 

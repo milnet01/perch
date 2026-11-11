@@ -91,15 +91,30 @@
   <screenshots>
     <screenshot type="default">
       <caption>The tray menu showing active profile and snap presets</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v2.0.0/docs/screenshots/tray-menu.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v2.0.1/docs/screenshots/tray-menu.png</image>
     </screenshot>
     <screenshot>
       <caption>The rules editor matching windows by class and title</caption>
-      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v2.0.0/docs/screenshots/rules-editor.png</image>
+      <image type="source">https://raw.githubusercontent.com/milnet01/perch/v2.0.1/docs/screenshots/rules-editor.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release version="2.0.1" date="2026-11-11" type="stable">
+      <url type="details">https://github.com/milnet01/perch/blob/v2.0.1/CHANGELOG.md#201--2026-11-11</url>
+      <description>
+        <p>Windows go back where you left them.</p>
+        <ul>
+          <li>The Flatpak is now a download on the release page, as <code>io.github.milnet01.Perch.flatpak</code>. Perch is not on Flathub, which no longer accepts new AI-written applications.</li>
+          <li>A KDE runtime update no longer breaks the Flatpak. It builds on the freedesktop runtime and carries its own Qt 6.12, and its dialogs use Qt's Fusion style instead of Breeze. They still follow the desktop's light or dark colour scheme.</li>
+          <li>Perch starts again after it crashes or is killed. The Flatpak used to refuse with "Perch is already running" until you logged out. The single-copy lock is now released by the system the moment Perch stops.</li>
+          <li>Perch stays connected when KWin reloads its settings. Before, each reload switched window tracking off without a word until Perch was restarted.</li>
+          <li>A reopened window goes back where you left it. On Plasma Wayland, KWin often moved a just-restored window back to its own spot. Perch now puts it back if that happens in the first half second.</li>
+          <li>Menus and dialogs are left alone. Perch remembered one position per app and put every window of that app there, so tray menus opened far from the click and dialogs opened at title-bar size. It now never moves menus or splash screens, and remembers and restores only an app's main window.</li>
+          <li>Quit always quits. Sometimes Perch kept running, invisible, after you quit it or logged out. It now exits within ten seconds whatever happens.</li>
+        </ul>
+      </description>
+    </release>
     <release version="2.0.0" date="2026-10-08" type="stable">
       <url type="details">https://github.com/milnet01/perch/blob/v2.0.0/CHANGELOG.md#200--2026-10-08</url>
       <description>
