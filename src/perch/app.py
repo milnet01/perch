@@ -371,8 +371,12 @@ async def main(
     gnome_wayland: bool | None = None,
     settings_requests: InstanceChannel | None = None,
     open_settings: bool = False,
+    on_shutdown: Callable[[], None] | None = None,
 ) -> int:
     """Run Perch. Returns the process exit code.
+
+    ``on_shutdown`` is called once, as teardown begins; ``cli()`` arms its
+    exit watchdog from it (``docs/01-architecture.md`` §Teardown order).
 
     Loads config, chooses a backend via :func:`perch.backend.select`,
     shows the tray icon (when an SNI host is available or the session
@@ -582,6 +586,8 @@ async def main(
 
         await close_event.wait()
     finally:
+        if on_shutdown is not None:
+            on_shutdown()
         # docs/01-architecture.md §Teardown order: cancel background tasks and
         # gather (step 2) before stopping the backend (step 3).
         await _cancel_intent_tasks()

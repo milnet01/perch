@@ -141,3 +141,33 @@ def test_a_settings_save_hands_the_new_config_to_the_reducer(
     perch_app._apply_saved_config(fresh, controller=controller, reducer=reducer, app=qapp)
 
     assert reducer.config is fresh
+
+
+# ── PERC-0099: Quit always quits ───────────────────────────────────────────
+
+
+async def test_main_reports_the_start_of_shutdown(
+    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, xdg_env: Path
+) -> None:
+    """cli() arms its exit watchdog from this hook, so it must fire whenever
+    main() winds down — a failed startup included."""
+    del qtbot, xdg_env
+    monkeypatch.setattr(perch_app, "_select_backend", MockBackend)
+    monkeypatch.setattr(autostart, "sync_from_config", lambda _c: None)
+    config = load_or_create()
+    general = replace(config.general, onboarding_completed=True)
+    monkeypatch.setattr(
+        "perch.app.load_or_create", lambda: replace(config, general=general)
+    )
+
+    async def failing_start(self: Any) -> None:
+        raise OSError("boom")
+
+    monkeypatch.setattr(Reducer, "start", failing_start)
+    calls: list[bool] = []
+    with pytest.raises(OSError, match="boom"):
+        await perch_app.main(
+            have_sni_host=True, gnome_wayland=False,
+            on_shutdown=lambda: calls.append(True),
+        )
+    assert calls == [True]

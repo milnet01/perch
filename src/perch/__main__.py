@@ -21,12 +21,36 @@ import asyncio
 import logging
 import os
 import sys
+import threading
 
 from . import __version__
 from .config import ConfigError, load_or_create
 from .logging_setup import configure_logging, install_qt_bridge
 
 log = logging.getLogger(__name__)
+
+# How long teardown may take before the watchdog ends the process. A clean
+# shutdown takes well under a second; this only fires on a hang.
+SHUTDOWN_GRACE_S = 10.0
+
+
+def arm_exit_watchdog(seconds: float) -> threading.Timer:
+    """Force the process to exit if shutdown has not finished in ``seconds``.
+
+    A Quit or logout sometimes left Perch running after its teardown had
+    already saved state and unloaded the KWin script (PERC-0099). The
+    timer is a daemon, so a shutdown that finishes is never held up by it.
+    """
+
+    def _expire() -> None:
+        log.warning("shutdown did not finish in %.0f s; forcing exit", seconds)
+        logging.shutdown()
+        os._exit(0)
+
+    timer = threading.Timer(seconds, _expire)
+    timer.daemon = True
+    timer.start()
+    return timer
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -129,6 +153,7 @@ def cli(argv: list[str] | None = None) -> int:
     have_host = sni_host_available()
     gnome_wayland = is_gnome_wayland()
 
+    watchdogs: list[threading.Timer] = []
     try:
         return asyncio.run(
             app_main(
@@ -136,6 +161,9 @@ def cli(argv: list[str] | None = None) -> int:
                 gnome_wayland=gnome_wayland,
                 settings_requests=channel,
                 open_settings=args.settings,
+                on_shutdown=lambda: watchdogs.append(
+                    arm_exit_watchdog(SHUTDOWN_GRACE_S)
+                ),
             ),
             loop_factory=QEventLoop,
         )
@@ -144,6 +172,8 @@ def cli(argv: list[str] | None = None) -> int:
         print(f"perch: config error: {exc}", file=sys.stderr)
         return 1
     finally:
+        for timer in watchdogs:
+            timer.cancel()
         instance_lock.unlock()
 
 

@@ -217,6 +217,13 @@ Steps 3 and 4 are independently guarded: a `state.json` flush that raises on a
 full or read-only `$XDG_STATE_HOME` must not leave the KWin script loaded and
 the bus name held.
 
+When teardown begins, `main()` calls its `on_shutdown` hook, and `cli()` uses it
+to arm an exit watchdog (`arm_exit_watchdog` in
+[`src/perch/__main__.py`](../src/perch/__main__.py)). If the process has not
+exited `SHUTDOWN_GRACE_S` seconds later, the watchdog logs a warning and ends it.
+A Quit or logout sometimes hung after steps 3 and 4 had already run, leaving an
+invisible Perch behind (PERC-0099). A clean shutdown cancels the watchdog.
+
 ## Dependencies, deferred
 
 These are *not* in v1 but the architecture is designed so they can be added without core changes:
