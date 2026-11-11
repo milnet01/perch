@@ -2345,7 +2345,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: in-session-2026-10-07 (AppImage 1.2.0 on openSUSE Tumbleweed).
 
-- 🚧 [PERC-0095] **Restore a reopened window reliably on KWin Wayland, not one time in six.**
+- ✅ [PERC-0095] **Restore a reopened window reliably on KWin Wayland, not one time in six.**
   Seen 2026-11-08 on Plasma Wayland with KCalc saved at 311,207 in
   state.json, both from the Flatpak and from source (.venv), so not
   packaging. The reducer logs evaluate(app:kcalc, opened) ->
@@ -2377,11 +2377,13 @@ Goal: fewer first-run support tickets; the config is safe.
   QueryPlacement call and keepAbove trick that no longer exist;
   can_preplace_windows now False there too). Left: confirm in the
   rebuilt Flatpak.
+  2026-11-11: confirmed in a Flatpak built from 08696a6: 12 of 12 KCalc
+  reopens restored, run straight after a KWin settings reload.
   **Layman:** When you reopen a window, Perch usually fails to put it back where you left it.
   Kind: fix.
   Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
 
-- 🚧 [PERC-0096] **Let the Flatpak start again after Perch is killed or crashes.**
+- ✅ [PERC-0096] **Let the Flatpak start again after Perch is killed or crashes.**
   Seen 2026-11-08: after flatpak kill, a fresh start logs "another
   Perch is already running; exiting" and shows the already-running box.
   The lock file $XDG_RUNTIME_DIR/perch.lock (in the sandbox,
@@ -2394,11 +2396,13 @@ Goal: fewer first-run support tickets; the config is safe.
   2026-11-11: fixed in 51f2766 — kernel flock replaces QLockFile;
   regression test red before, green after. Left: live check in a rebuilt
   Flatpak (start, kill -9, start again).
+  2026-11-11: confirmed in a Flatpak built from 08696a6: flatpak kill,
+  lock file left behind, next start runs and loads its script.
   **Layman:** If the Flatpak version of Perch crashes, it refuses to start again until you log out.
   Kind: fix.
   Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
 
-- 🚧 [PERC-0097] **Keep Perch connected to KWin when KWin reloads its settings.**
+- ✅ [PERC-0097] **Keep Perch connected to KWin when KWin reloads its settings.**
   Seen 2026-11-11: a PERC-0095 baseline restored KCalc 0 times in 12.
   Perch (Flatpak, started 15:03) logged nothing after start, its state
   never saw KCalc, and isScriptLoaded(org.milnet01.perch) was false.
@@ -2411,6 +2415,9 @@ Goal: fewer first-run support tickets; the config is safe.
   org.milnet01.perch.live; start() also unloads a ghost under the old name.
   Regression: test_the_script_survives_a_kwin_settings_reload in
   tests/backend/kwin/test_live_kwin.py, red before the fix.
+  2026-11-11: confirmed in a Flatpak built from 08696a6: /KWin
+  reconfigure, isScriptLoaded(org.milnet01.perch.live) still true, and
+  restores still work after it.
   **Layman:** Each time KWin reloaded its settings, Perch stopped tracking windows without a word until you restarted it.
   Kind: fix.
   Source: measurement-2026-11-11 (PERC-0095 baseline).
