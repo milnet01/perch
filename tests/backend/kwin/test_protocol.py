@@ -135,6 +135,13 @@ def test_decode_window_info_treats_zero_pid_as_missing() -> None:
     assert info.pid is None
 
 
+def test_decode_window_info_reads_a_dialogs_parent() -> None:
+    # The script sends "" for a top-level window; Perch stores None.
+    assert decode_window_info({"id": "d", "parent": "main"}).parent == "main"
+    assert decode_window_info({"id": "x", "parent": ""}).parent is None
+    assert decode_window_info({"id": "x"}).parent is None
+
+
 def test_decode_output_entry_uses_expected_defaults() -> None:
     out = decode_output_entry({"name": "HDMI-A-1", "x": 0, "y": 0, "w": 1920, "h": 1080})
     assert out["name"] == "HDMI-A-1"

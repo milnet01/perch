@@ -3,11 +3,11 @@
 Two layers, per ``docs/07-rules-engine.md`` §Evaluation order:
 
 1. **Built-in** (:data:`BUILTIN_EXCLUDED_TYPES`): system surfaces like
-   ``DESKTOP`` and ``DOCK``. Not configurable — managing the panel or the
-   wallpaper would never be correct. The backends generally do not emit
-   ``window_opened`` for X11 override-redirect windows or Wayland
-   layer-shell surfaces in the first place; this list is a belt-and-braces
-   filter for compositors that do.
+   ``DESKTOP`` and ``DOCK``, plus menus and splash screens. Not
+   configurable — managing the panel or a popup menu would never be
+   correct. The backends generally do not emit ``window_opened`` for X11
+   override-redirect windows or Wayland layer-shell surfaces in the first
+   place; this list is a belt-and-braces filter for compositors that do.
 2. **User** (``[exclusions].patterns`` in ``config.toml``): additional
    match patterns the user has added.
 """
@@ -20,11 +20,11 @@ from perch.backend.types import WindowInfo, WindowType
 
 from .matching import MatchPattern, MatchValidationError, match_window, parse_match
 
-# System surfaces that should never be placed, resized, or remembered.
-# Deliberately narrow — MENU and TOOLTIP are also system-adjacent but don't
-# reach the event loop on any current backend, so the guard would be dead code.
+# Surfaces that should never be placed, resized, or remembered. MENU covers
+# popup menus: the KWin backend reports them (a tray icon's menu is one), and
+# moving one puts it far from the click. A splash screen closes on its own.
 BUILTIN_EXCLUDED_TYPES: frozenset[WindowType] = frozenset(
-    {WindowType.DESKTOP, WindowType.DOCK}
+    {WindowType.DESKTOP, WindowType.DOCK, WindowType.MENU, WindowType.SPLASH}
 )
 
 
@@ -35,6 +35,17 @@ class ExclusionValidationError(ValueError):
 def is_builtin_excluded(window: WindowInfo) -> bool:
     """True if ``window`` is covered by the non-configurable built-in filter."""
     return window.type in BUILTIN_EXCLUDED_TYPES
+
+
+def is_main_window(window: WindowInfo) -> bool:
+    """True if ``window`` is an ordinary top-level window, not a dialog.
+
+    Last-seen geometry is keyed by application, so only this kind may write
+    or receive it: a dialog given the main window's geometry, or the reverse,
+    is wrong whichever way round it happens (``docs/07-rules-engine.md``
+    §Evaluation order, step 5).
+    """
+    return window.type is WindowType.NORMAL and not window.parent
 
 
 def is_user_excluded(

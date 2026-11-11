@@ -167,6 +167,7 @@ def decode_window_info(payload: dict[str, Any]) -> WindowInfo:
         monitor=str(payload.get("output", "")),
         desktop=int(payload.get("desktop", -1)),
         role=str(payload.get("role", "")),
+        parent=str(payload.get("parent") or "") or None,
     )
 
 

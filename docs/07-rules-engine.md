@@ -23,11 +23,11 @@ The engine never emits more than one decision per window per event. Chaining ("a
 
 Top to bottom, first match wins. The order is:
 
-1. **Built-in exclusion: system surfaces.** Emits `IGNORE`. Not configurable. Concrete list at `src/perch/core/exclusions.py::BUILTIN_EXCLUDED_TYPES` — currently `WindowType.DESKTOP` and `WindowType.DOCK`. X11 override-redirect windows and Wayland layer-shell surfaces are filtered upstream by the backend and never reach the engine.
+1. **Built-in exclusion: system surfaces.** Emits `IGNORE`. Not configurable. Concrete list at `src/perch/core/exclusions.py::BUILTIN_EXCLUDED_TYPES` — currently `WindowType.DESKTOP`, `WindowType.DOCK`, `WindowType.MENU` and `WindowType.SPLASH`. A popup menu moved by Perch lands far from the click; a splash screen closes on its own. X11 override-redirect windows and Wayland layer-shell surfaces are filtered upstream by the backend and never reach the engine.
 2. **User exclusions** (`[exclusions]` in config). Emits `IGNORE`.
 3. **User rules** (`[[rules]]`, in config order). First match whose `context` also matches — `APPLY_ACTION`. Context mismatches are skipped silently, not treated as misses.
 4. **Active layout**, if one is set and has an entry matching this window. `APPLY_ACTION` using the layout entry's `apply`.
-5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`. Only fires on `OPENED` / `USER_TRIGGER`; on `CHANGED` the engine falls through to `IGNORE`.
+5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`. Only fires on `OPENED` / `USER_TRIGGER`; on `CHANGED` the engine falls through to `IGNORE`. Only for a **main window** — type `NORMAL` with no parent (`is_main_window` in `src/perch/core/exclusions.py`) — and only when no earlier-opened main window of the same app is still open. A dialog or a second window would otherwise take the main window's geometry.
 6. **Do nothing.** (`IGNORE` with `source = "no-match"`.)
 
 This ordering is deliberate:

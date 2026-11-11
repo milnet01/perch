@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 from perch.backend.base import (
     BackendError,
@@ -52,7 +52,7 @@ from .engine import (
     evaluate,
     layout_entry_index,
 )
-from .exclusions import is_builtin_excluded, is_user_excluded
+from .exclusions import is_builtin_excluded, is_main_window, is_user_excluded
 from .identity import UNKNOWN_IDENTITY, compute_identity
 from .layouts import Layout
 from .profiles import (
@@ -181,9 +181,17 @@ class Reducer:
             self._applied_source.pop(info.id, None)
         await self._execute(info, compute_identity(info), decision)
 
-    def _decide(self, info: WindowInfo, trigger: TriggerEvent) -> Decision:
+    def _decide(
+        self,
+        info: WindowInfo,
+        trigger: TriggerEvent,
+        open_windows: Iterable[WindowInfo] | None = None,
+    ) -> Decision:
         identity = compute_identity(info)
-        has_last_seen = self.state_store.get_last_seen(identity) is not None
+        has_last_seen = (
+            self.state_store.get_last_seen(identity) is not None
+            and self._is_first_of_app(info, open_windows)
+        )
         decision = evaluate(
             info,
             trigger,
@@ -204,6 +212,26 @@ class Reducer:
             "evaluate(%s, %s) → %r", identity, trigger.value, decision
         )
         return decision
+
+    def _is_first_of_app(
+        self, info: WindowInfo, open_windows: Iterable[WindowInfo] | None = None
+    ) -> bool:
+        """True unless an earlier-opened main window shares ``info``'s identity.
+
+        Last-seen geometry is one record per application. Only the app's
+        first open window owns it: a second window restored onto the first
+        would hide it, and a compose window moved while the main window is
+        open would overwrite the main window's record. ``open_windows`` is
+        in opening order; it defaults to the windows this reducer tracks.
+        """
+        identity = compute_identity(info)
+        windows = self._windows.values() if open_windows is None else open_windows
+        for w in windows:
+            if w.id == info.id:
+                return True
+            if is_main_window(w) and compute_identity(w) == identity:
+                return False
+        return True
 
     async def handle_window_changed(self, info: WindowInfo) -> None:
         """Re-evaluate this window under the current rules and layout.
@@ -346,7 +374,8 @@ class Reducer:
         try:
             windows = await self.backend.list_windows()
             decisions = {
-                w.id: self._decide(w, TriggerEvent.USER_TRIGGER) for w in windows
+                w.id: self._decide(w, TriggerEvent.USER_TRIGGER, windows)
+                for w in windows
             }
             left_alone = await self._layout_entry_losers(windows, decisions)
             for window in windows:
@@ -643,13 +672,15 @@ class Reducer:
     ) -> None:
         """Record this window's geometry, unless it must not be remembered.
 
-        Two kinds never reach ``state.json``. One the exclusion layer covers
+        Three kinds never reach ``state.json``. One the exclusion layer covers
         (``docs/07-rules-engine.md`` §Evaluation order): Perch does not manage
         it, so restoring it later would be exactly the thing the exclusion
-        asked Perch not to do. And one whose identity is
+        asked Perch not to do. One whose identity is
         :data:`~perch.core.identity.UNKNOWN_IDENTITY`, which every window
         missing both ``app_id`` and ``wm_class`` shares — remembering under it
-        would have unrelated windows overwrite each other.
+        would have unrelated windows overwrite each other. And a dialog, or any
+        window but its app's first open main window: the record is the app's
+        main window, and a secondary window would overwrite it.
         """
         identity = compute_identity(window)
         if identity == UNKNOWN_IDENTITY:
@@ -662,6 +693,9 @@ class Reducer:
             window, self.config.exclusions
         ):
             log.debug("not remembering excluded window %s", identity)
+            return
+        if not is_main_window(window) or not self._is_first_of_app(window):
+            log.debug("not remembering secondary window %s", window.id)
             return
         self.state_store.record_window(identity, geometry, monitor, desktop)
         self.state_store.mark_dirty()

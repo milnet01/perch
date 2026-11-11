@@ -50,7 +50,11 @@ function outputName(output) {
 function windowTypeString(w) {
     // WindowType enum is numeric; map to the strings Perch expects.
     // Values: 0=Normal, 1=Desktop, 2=Dock, 3=Toolbar, 4=Menu, 5=Dialog,
-    //         6=Override, 7=TopMenu, 8=Utility, 9=Splash, 10+=others.
+    //         6=Override, 7=TopMenu, 8=Utility, 9=Splash, 10=DropdownMenu,
+    //         11=PopupMenu, 14=ComboBox, 18=AppletPopup, others unknown.
+    // A popup (a tray icon's menu, a panel applet) must read as a menu
+    // whatever its type number, so Perch never moves it.
+    if (w.popupWindow) return "menu";
     switch (w.windowType) {
         case 0: return "normal";
         case 1: return "desktop";
@@ -61,6 +65,10 @@ function windowTypeString(w) {
         case 7: return "menu";
         case 8: return "utility";
         case 9: return "splash";
+        case 10:
+        case 11:
+        case 14:
+        case 18: return "menu";
         default: return "unknown";
     }
 }
@@ -89,7 +97,9 @@ function describeWindow(w) {
         h: g ? g.height : 0,
         output: outputName(w.output),
         desktop: (w.desktops && w.desktops.length > 0) ? (w.desktops[0].x11DesktopNumber - 1) : -1,
-        role: w.windowRole || ""
+        role: w.windowRole || "",
+        // A dialog's owner; "" for a top-level window.
+        parent: (w.transient && w.transientFor) ? winId(w.transientFor) : ""
     };
 }
 

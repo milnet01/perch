@@ -224,6 +224,8 @@ identity = "app:<app_id>" [ "::title:<title_regex>" ] [ "::rolespecific:<X>" ]
 - Extra segments are added when the user (or a rule) pins on title / role / pid.
 - A window reporting neither `app_id` nor `wm_class` has no identity. Perch still places it, and the dialog's window list shows `app:unknown`, but no `windows` entry is written under that key — every such window shares it, so each would overwrite the last.
 
+- Only an app's **main window** writes its entry: a window of type `NORMAL` with no parent, and the app's first one still open. A dialog, popup or second window never writes it and is never restored from it (`docs/07-rules-engine.md` §Evaluation order, step 5), so it cannot shrink or move the main window next time.
+
 This ensures two Firefox windows with different profiles can be remembered separately if the user has asked for title-based distinction, but otherwise collapse into one remembered geometry.
 
 ### Retention

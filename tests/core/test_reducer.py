@@ -57,6 +57,7 @@ def _window(
     title: str = "Mozilla Firefox",
     monitor: str = "DP-1",
     type_: WindowType = WindowType.NORMAL,
+    parent: str | None = None,
 ) -> WindowInfo:
     return WindowInfo(
         id=wid,
@@ -69,6 +70,7 @@ def _window(
         geometry=Geometry(100, 100, 800, 600),
         monitor=monitor,
         desktop=0,
+        parent=parent,
     )
 
 
@@ -858,6 +860,88 @@ async def test_window_without_app_id_or_wm_class_is_not_remembered(
     reducer.handle_geometry_changed("w8", Geometry(5, 5, 50, 50), "DP-1", 0)
 
     assert store.get_last_seen("app:unknown") is None
+
+
+# ── Last-seen covers an app's main window only ────────────────────────────
+@pytest.mark.parametrize(
+    ("type_", "parent"),
+    [
+        (WindowType.DIALOG, None),
+        (WindowType.MENU, None),
+        (WindowType.SPLASH, None),
+        (WindowType.UNKNOWN, None),
+        (WindowType.NORMAL, "main"),
+    ],
+)
+async def test_secondary_window_is_neither_restored_nor_remembered(
+    tmp_path: Path, type_: WindowType, parent: str | None
+) -> None:
+    """A dialog, popup menu or splash shares its app's identity. Restoring
+    the main window's geometry onto it (or the reverse) moved tray menus far
+    from the click and opened dialogs at title-bar size."""
+    backend, reducer, store = await _make({}, tmp_path)
+    store.record_window("app:firefox", Geometry(500, 300, 1200, 800), "DP-1", 0)
+    await reducer.start()
+
+    window = _window("d1", type_=type_, parent=parent)
+    backend._spawn_window(window)
+    await reducer.handle_window_opened(window)
+    reducer.handle_geometry_changed("d1", Geometry(5, 5, 50, 50), "DP-1", 0)
+
+    assert backend.commands.names() == []
+    record = store.get_last_seen("app:firefox")
+    assert record is not None
+    assert record.geometry == Geometry(500, 300, 1200, 800)
+
+
+async def test_second_window_of_an_open_app_is_not_restored(
+    tmp_path: Path,
+) -> None:
+    """Two windows share one remembered geometry; placing the second on
+    top of the first is never what the user wants."""
+    backend, reducer, store = await _make({}, tmp_path)
+    store.record_window("app:firefox", Geometry(500, 300, 1200, 800), "DP-1", 0)
+    await reducer.start()
+
+    first = _window("w1")
+    backend._spawn_window(first)
+    await reducer.handle_window_opened(first)
+    second = _window("w2")
+    backend._spawn_window(second)
+    await reducer.handle_window_opened(second)
+
+    geom_calls = [
+        args for name, args in backend.commands.entries if name == "set_geometry"
+    ]
+    assert [c[0] for c in geom_calls] == ["w1"]
+
+
+async def test_only_the_first_open_window_of_an_app_is_remembered(
+    tmp_path: Path,
+) -> None:
+    """A compose window moved while the main window is open must not
+    overwrite the main window's geometry."""
+    backend, reducer, store = await _make({}, tmp_path)
+    await reducer.start()
+
+    first = _window("w1")
+    second = _window("w2")
+    for w in (first, second):
+        backend._spawn_window(w)
+        await reducer.handle_window_opened(w)
+    reducer.handle_geometry_changed("w2", Geometry(5, 5, 50, 50), "DP-1", 0)
+    assert store.get_last_seen("app:firefox") is None
+
+    reducer.handle_geometry_changed("w1", Geometry(10, 10, 900, 700), "DP-1", 0)
+    record = store.get_last_seen("app:firefox")
+    assert record is not None
+    assert record.geometry == Geometry(10, 10, 900, 700)
+
+    reducer.handle_window_closed("w1")
+    reducer.handle_geometry_changed("w2", Geometry(20, 20, 640, 480), "DP-1", 0)
+    record = store.get_last_seen("app:firefox")
+    assert record is not None
+    assert record.geometry == Geometry(20, 20, 640, 480)
 
 
 # ── Maximize fallback target ──────────────────────────────────────────────

@@ -29,15 +29,17 @@ def _w(type_: WindowType) -> WindowInfo:
     )
 
 
-def test_builtin_covers_desktop_and_dock() -> None:
+def test_builtin_covers_system_surfaces_menus_and_splash() -> None:
     assert frozenset(
-        {WindowType.DESKTOP, WindowType.DOCK}
+        {WindowType.DESKTOP, WindowType.DOCK, WindowType.MENU, WindowType.SPLASH}
     ) == BUILTIN_EXCLUDED_TYPES
 
 
 def test_is_builtin_excluded_positive() -> None:
     assert is_builtin_excluded(_w(WindowType.DESKTOP))
     assert is_builtin_excluded(_w(WindowType.DOCK))
+    assert is_builtin_excluded(_w(WindowType.MENU))
+    assert is_builtin_excluded(_w(WindowType.SPLASH))
 
 
 def test_is_builtin_excluded_negative() -> None:

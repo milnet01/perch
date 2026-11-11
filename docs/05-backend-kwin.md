@@ -301,7 +301,8 @@ Capabilities(
 | `wm_class` | `window.resourceClass` |
 | `title` | `window.caption` |
 | `pid` | `window.pid` |
-| `type` | `window.windowType` → mapped to `WindowType` |
+| `type` | `window.windowType` → mapped to `WindowType`; any `window.popupWindow` (a tray or applet menu) and the dropdown, popup, combo-box and applet-popup types map to `MENU` |
+| `parent` | `window.transientFor` when `window.transient` — the owner of a dialog; absent for a top-level window |
 | `state` | Composed from `window.fullScreen`, `window.minimized`, `window.maximizeMode` |
 
 Plasma 6 scripting renamed `client*` properties and signals to `window*` across the API; use the new names. Any KWin documentation that still says `client.caption` is stale.
