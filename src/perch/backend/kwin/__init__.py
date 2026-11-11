@@ -26,10 +26,18 @@ if TYPE_CHECKING:
 #: ``/app/`` or a dev checkout's ``src/`` path directly.
 BUNDLED_SCRIPT_DIR: Path = Path(__file__).resolve().parent / "script"
 
-#: KPackage plugin id. Matches ``metadata.json`` ``KPlugin.Id``; passed to
-#: ``org.kde.KWin.Scripting.loadScript(path, plugin_id)`` so
-#: ``unloadScript(plugin_id)`` can find the same script later.
+#: KPackage plugin id. Matches ``metadata.json`` ``KPlugin.Id`` and names
+#: the install directory. Never the name the live script is loaded under:
+#: see :data:`SCRIPT_LOAD_NAME`.
 PLUGIN_ID: str = "org.milnet01.perch"
+
+#: The name passed to ``Scripting.loadScript(path, name)`` and later to
+#: ``unloadScript(name)``. It must differ from :data:`PLUGIN_ID`: on every
+#: settings reload KWin unloads, by name, the script of each installed
+#: package not enabled in kwinrc, and Perch's package is never enabled.
+#: Under the package's own name the live script died with every reload
+#: (PERC-0097).
+SCRIPT_LOAD_NAME: str = "org.milnet01.perch.live"
 
 #: The script version that the Python half is wired to. Kept in one place
 #: so drift between ``metadata.json`` and the installer can be checked.
@@ -50,6 +58,7 @@ __all__ = [
     "INTERFACE_NAME",
     "OBJECT_PATH",
     "PLUGIN_ID",
+    "SCRIPT_LOAD_NAME",
     "SERVICE_NAME",
     "KWinBackend",
 ]

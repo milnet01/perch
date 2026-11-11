@@ -19,6 +19,9 @@ Sections under each release are populated on a best-effort basis — empty secti
   The Flatpak used to refuse with "Perch is already running" until you
   logged out. The single-copy lock is now one the system releases the
   moment Perch stops.
+- **Perch stays connected when KWin reloads its settings** (PERC-0097)
+  Each time KWin reloaded its settings, Perch's window tracking switched
+  off without a word until Perch was restarted.
 
 ## [2.0.0] — 2026-10-08
 

@@ -51,7 +51,7 @@ from perch.backend.types import (
 )
 from perch.logging_privacy import redact_payload, summarize_keys
 
-from . import PLUGIN_ID, SERVICE_NAME
+from . import PLUGIN_ID, SCRIPT_LOAD_NAME, SERVICE_NAME
 from .hotkeys import (
     HotkeyBusyError,
     HotkeyParseError,
@@ -141,7 +141,7 @@ class KWinBackend(WindowBackend):
     def __init__(
         self,
         *,
-        plugin_id: str = PLUGIN_ID,
+        load_name: str = SCRIPT_LOAD_NAME,
         bus_setup: _BusSetup | None = None,
         scripting_factory: _ScriptingFactory | None = None,
         script_installer: _ScriptInstaller | None = None,
@@ -149,7 +149,7 @@ class KWinBackend(WindowBackend):
         kwin_owner_changes: _OwnerChanges | None = None,
     ) -> None:
         super().__init__()
-        self._plugin_id = plugin_id
+        self._load_name = load_name
         self._bus_setup = bus_setup or _default_bus_setup
         self._scripting_factory = scripting_factory or _default_scripting_factory
         self._script_installer = script_installer or ensure_installed
@@ -225,13 +225,16 @@ class KWinBackend(WindowBackend):
         await self._service.export()
 
         self._scripting = await self._scripting_factory()
-        # Defensive: if Perch crashed previously, the same plugin id may still
+        # Defensive: if Perch crashed previously, the same name may still
         # be registered. Unload now so loadScript can bind a fresh instance.
-        await unload_script_if_loaded(self._scripting, self._plugin_id)
+        # A Perch before PERC-0097 loaded under the package id; unload that
+        # too, or its script would keep polling beside the new one.
+        await unload_script_if_loaded(self._scripting, self._load_name)
+        await unload_script_if_loaded(self._scripting, PLUGIN_ID)
 
         main_js = self._script_installer()
         self._script_id, self._per_script = await install_and_run_script(
-            self._scripting, main_js, self._plugin_id
+            self._scripting, main_js, self._load_name
         )
 
         try:
@@ -290,10 +293,10 @@ class KWinBackend(WindowBackend):
         self._on_kwin_lost("KWin restarted")
         self._service.reset_script_sender()
         try:
-            await unload_script_if_loaded(self._scripting, self._plugin_id)
+            await unload_script_if_loaded(self._scripting, self._load_name)
             main_js = self._script_installer()
             self._script_id, self._per_script = await install_and_run_script(
-                self._scripting, main_js, self._plugin_id
+                self._scripting, main_js, self._load_name
             )
             await asyncio.wait_for(
                 self._service.script_ready.wait(), timeout=SCRIPT_READY_TIMEOUT_S
@@ -342,7 +345,7 @@ class KWinBackend(WindowBackend):
             self._service.invalidate_polls()
 
         if self._scripting is not None:
-            await unload_script_if_loaded(self._scripting, self._plugin_id)
+            await unload_script_if_loaded(self._scripting, self._load_name)
 
         if self._service is not None:
             self._service.reset_completion_state()

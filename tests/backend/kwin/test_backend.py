@@ -26,6 +26,7 @@ from perch.backend.base import (
     UnknownOutput,
     UnknownWindow,
 )
+from perch.backend.kwin import PLUGIN_ID, SCRIPT_LOAD_NAME
 from perch.backend.kwin.backend import KWinBackend
 from perch.backend.kwin.service import PerchKWin1
 from perch.backend.types import Geometry, OutputInfo, WindowState, WindowType
@@ -186,12 +187,12 @@ async def test_start_emits_backend_connected_and_loads_script(
     order: list[str] = []
     run_result = _mock_run_script.return_value
 
-    def _unload(*_a: object, **_k: object) -> bool:
-        order.append("unload")
+    def _unload(_scripting: object, name: str) -> bool:
+        order.append(f"unload {name}")
         return True
 
-    def _run(*_a: object, **_k: object) -> object:
-        order.append("run")
+    def _run(_scripting: object, _path: object, name: str) -> object:
+        order.append(f"run {name}")
         return run_result
 
     _mock_unload_script.side_effect = _unload
@@ -199,8 +200,16 @@ async def test_start_emits_backend_connected_and_loads_script(
     await b.start()
     assert connected == [True]
     _bus_setup.assert_awaited_once()
-    # Defensive unload of a prior-session ghost before our load.
-    assert order == ["unload", "run"]
+    # Defensive unload of a prior-session ghost before our load, under
+    # both the live name and the package id a pre-PERC-0097 Perch used.
+    # The live script never takes the package id: a KWin settings reload
+    # unloads that name.
+    assert SCRIPT_LOAD_NAME != PLUGIN_ID
+    assert order == [
+        f"unload {SCRIPT_LOAD_NAME}",
+        f"unload {PLUGIN_ID}",
+        f"run {SCRIPT_LOAD_NAME}",
+    ]
 
 
 async def test_start_raises_backend_unavailable_if_script_never_ready(

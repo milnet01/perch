@@ -197,3 +197,41 @@ def test_a_moved_window_reports_its_new_geometry() -> None:
             await b.stop()
 
     asyncio.run(run())
+
+
+# ── A KWin settings reload keeps the script (PERC-0097) ───────────────────
+
+
+def test_the_script_survives_a_kwin_settings_reload(
+    virtual_kwin_session: str,
+) -> None:
+    """Perch installs its script as a KWin package and KWin leaves that
+    package disabled. On every settings reload KWin unloads a disabled
+    package's script BY NAME, so a live script loaded under the package's
+    own name died with it and Perch heard nothing more until restarted."""
+    import os
+    import subprocess
+
+    async def run() -> None:
+        b = KWinBackend(hotkey_provider=MockHotkeyProvider())
+        await b.start()
+        try:
+            subprocess.run(
+                [
+                    "dbus-send", "--session", "--print-reply",
+                    "--dest=org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure",
+                ],
+                env={**os.environ, "DBUS_SESSION_BUS_ADDRESS": virtual_kwin_session},
+                check=True,
+                capture_output=True,
+            )
+            await asyncio.sleep(1.0)
+            try:
+                outs = await asyncio.wait_for(b.list_outputs(), timeout=5.0)
+            except TimeoutError:
+                pytest.fail("the script stopped answering after a KWin reload")
+            assert outs
+        finally:
+            await b.stop()
+
+    asyncio.run(run())

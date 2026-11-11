@@ -132,12 +132,13 @@ Uses **`sdbus-python`** for D-Bus. The backend owns the `io.github.milnet01.Perc
    b. Acquire the bus name `io.github.milnet01.Perch` (release it in `stop`).
    c. Install the bundled script:
       - For Flatpak installs, ensure the script is copied to the host's `~/.local/share/kwin/scripts/org.milnet01.perch/` (see [10-packaging.md](10-packaging.md)). KWin runs on the host and cannot read Flatpak's `/app/` path — or its sandboxed `$XDG_DATA_HOME`.
-      - Call `org.kde.KWin.Scripting.loadScript(path, pluginId)` → `run()`. The two-argument form is required so `unloadScript(pluginId)` later works; the single-argument form loads anonymously and cannot be unloaded cleanly.
+      - First unload any script left loaded under the load name (a crashed Perch's) or under the package id `org.milnet01.perch` (where a Perch before PERC-0097 loaded it).
+      - Call `org.kde.KWin.Scripting.loadScript(path, name)` → `run()`, with `name` = `org.milnet01.perch.live`. The two-argument form is required so `unloadScript(name)` later works; the single-argument form loads anonymously and cannot be unloaded cleanly. The name must not be the package id: on every settings reload KWin unloads, by name, the script of each installed package not enabled in `kwinrc`, and Perch's package is never enabled. Under the package id, every KWin settings reload silently cut Perch off from KWin (PERC-0097).
    d. Wait up to 2 s for the first `WindowAdded` or `OutputsChanged` to confirm the script is alive and wired.
    e. Emit `backend_connected`.
 2. `stop()`:
    a. **Invalidate in-flight `PollCommand` awaiters** (see "Poll invalidation" below). Without this, an orphan awaiter from the previous JS instance consumes the next queued command and routes its reply to a KWin callback that no longer exists.
-   b. Unload the script via `Scripting.unloadScript(pluginId)` (returns `bool`).
+   b. Unload the script via `Scripting.unloadScript(name)` (returns `bool`).
    c. Release the bus name.
 3. If the script disappears (KWin crash/restart): Perch watches `NameOwnerChanged` for `org.kde.KWin`. When the name loses its owner it invalidates polls (same reason), fails in-flight commands and emits `backend_disconnected`. When a new owner appears it forgets the old script's bus name, re-installs and re-runs the script, waits for `ScriptReady` and re-emits `backend_connected`; a failed reload emits `backend_error`. Hotkey bindings are not re-registered. Window state is not lost because `state.json` on disk is authoritative.
 

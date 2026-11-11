@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: PERC=96 -->
+<!-- ants-roadmap-id-high-water: PERC=97 -->
 
 # Perch — Roadmap
 
@@ -2367,7 +2367,7 @@ Goal: fewer first-run support tickets; the config is safe.
   Kind: fix.
   Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
 
-- 📋 [PERC-0096] **Let the Flatpak start again after Perch is killed or crashes.**
+- 🚧 [PERC-0096] **Let the Flatpak start again after Perch is killed or crashes.**
   Seen 2026-11-08: after flatpak kill, a fresh start logs "another
   Perch is already running; exiting" and shows the already-running box.
   The lock file $XDG_RUNTIME_DIR/perch.lock (in the sandbox,
@@ -2377,9 +2377,29 @@ Goal: fewer first-run support tickets; the config is safe.
   Perch itself. Where: acquire_instance_lock in src/perch/instance.py.
   Blocks the 2.0.1 release for PERC-0091. Confirm by: start, kill -9,
   start again inside flatpak run.
+  2026-11-11: fixed in 51f2766 — kernel flock replaces QLockFile;
+  regression test red before, green after. Left: live check in a rebuilt
+  Flatpak (start, kill -9, start again).
   **Layman:** If the Flatpak version of Perch crashes, it refuses to start again until you log out.
   Kind: fix.
   Source: manual-check-2026-11-08 (PERC-0091 Flatpak checks).
+
+- 🚧 [PERC-0097] **Keep Perch connected to KWin when KWin reloads its settings.**
+  Seen 2026-11-11: a PERC-0095 baseline restored KCalc 0 times in 12.
+  Perch (Flatpak, started 15:03) logged nothing after start, its state
+  never saw KCalc, and isScriptLoaded(org.milnet01.perch) was false.
+  Cause, proven with a dummy package: on a settings reload (/KWin
+  reconfigure) KWin unloads, by name, the script of every installed
+  package not enabled in kwinrc. Perch installs its package as
+  org.milnet01.perch, never enabled, and loaded its live script under the
+  same name, so every reload unloaded it. A script loaded under a name no
+  package has survived the same reload (control run). Fix: load under
+  org.milnet01.perch.live; start() also unloads a ghost under the old name.
+  Regression: test_the_script_survives_a_kwin_settings_reload in
+  tests/backend/kwin/test_live_kwin.py, red before the fix.
+  **Layman:** Each time KWin reloaded its settings, Perch stopped tracking windows without a word until you restarted it.
+  Kind: fix.
+  Source: measurement-2026-11-11 (PERC-0095 baseline).
 
 ## v1.2 — Smarts
 

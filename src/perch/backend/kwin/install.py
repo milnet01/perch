@@ -7,9 +7,9 @@ the script *inside* the ``perch`` package, which KWin cannot see from there —
 so the first time Perch starts against KWin, this module mirrors the bundle
 into the user-level search path.
 
-The target directory name is the KPackage plugin id (:data:`PLUGIN_ID`), which
-is also the handle passed to ``Scripting.loadScript(path, plugin_id)`` so
-``unloadScript(plugin_id)`` works later.
+The target directory name is the KPackage plugin id (:data:`PLUGIN_ID`). The
+live script is loaded under a different name, :data:`SCRIPT_LOAD_NAME`, which
+says why.
 
 Version pinning: the Python half bundles a specific
 :data:`BUNDLED_SCRIPT_VERSION`; if the on-disk copy disagrees we replace it.
