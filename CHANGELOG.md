@@ -15,6 +15,10 @@ Sections under each release are populated on a best-effort basis — empty secti
   Qt 6.12, so a runtime update cannot leave it failing to start. Its
   dialogs use Qt's Fusion style instead of Breeze. They still follow the
   desktop's light or dark colour scheme.
+- **Perch starts again after it crashes or is killed** (PERC-0096)
+  The Flatpak used to refuse with "Perch is already running" until you
+  logged out. The single-copy lock is now one the system releases the
+  moment Perch stops.
 
 ## [2.0.0] — 2026-10-08
 

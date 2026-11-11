@@ -29,6 +29,29 @@ def test_a_second_holder_is_refused_until_the_first_releases(
     again.unlock()
 
 
+def test_a_lock_left_by_a_dead_copy_with_our_pid_is_recovered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PERC-0096: a killed copy's lock names a PID and program name that
+    are alive again in the next start, because every Flatpak sandbox gives
+    Perch PID 2. Nobody holds the lock, so the new copy must get it."""
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    path = instance.lock_path()
+    # Make the file a dead copy would leave: written by this very process
+    # (same PID, same name), then nobody holding it any more.
+    first = instance.acquire_instance_lock()
+    assert first is not None
+    left_behind = path.read_bytes()
+    first.unlock()
+    path.write_bytes(left_behind)
+    assert path.exists()
+
+    again = instance.acquire_instance_lock()
+    assert again is not None, "a lock nobody holds blocked the start"
+    assert instance.acquire_instance_lock() is None
+    again.unlock()
+
+
 def test_lock_lives_in_the_runtime_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

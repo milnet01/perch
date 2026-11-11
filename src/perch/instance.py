@@ -2,17 +2,20 @@
 
 See ``docs/01-architecture.md`` §Why one process. A second copy would write
 the same ``state.json`` and claim the same KWin bus name as the first, so it
-refuses to start instead. The guard is a :class:`QLockFile`: Qt checks
-whether the process holding a lock still exists, so a lock left behind by a
-crash is recovered on the next start.
+refuses to start instead. The guard is a kernel ``flock`` on a lock file:
+the kernel drops it when the holder exits or is killed, so a crash leaves
+nothing to recover. Not :class:`QLockFile`, whose stale check asks whether
+the PID written in the file is alive: every Flatpak sandbox gives Perch
+PID 2, so a dead copy's lock looked held by the new copy itself (PERC-0096).
 """
 
 from __future__ import annotations
 
+import fcntl
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QLockFile, QObject, Signal
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 from . import paths
@@ -33,21 +36,34 @@ def lock_path() -> Path:
     return paths.state_dir() / "perch.lock"
 
 
-def acquire_instance_lock() -> QLockFile | None:
+class InstanceLock:
+    """A held instance lock. Exiting, or :meth:`unlock`, releases it."""
+
+    def __init__(self, fd: int) -> None:
+        self._fd: int | None = fd
+
+    def unlock(self) -> None:
+        if self._fd is not None:
+            os.close(self._fd)  # closing the descriptor drops the flock
+            self._fd = None
+
+
+def acquire_instance_lock() -> InstanceLock | None:
     """Take the lock, or return ``None`` when another Perch holds it.
 
-    The caller keeps the returned object for the life of the process;
-    releasing it (or exiting) frees the lock.
+    The caller keeps the returned object for the life of the process.
+    The file itself stays behind after release; only the flock on it
+    counts, so a leftover file never blocks a start.
     """
     path = lock_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    lock = QLockFile(str(path))
-    # Never treat a live holder's lock as stale by age: Perch runs for the
-    # whole session. A dead holder is still detected by process check.
-    lock.setStaleLockTime(0)
-    if lock.tryLock(0):
-        return lock
-    return None
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return InstanceLock(fd)
 
 
 def socket_path() -> Path:
