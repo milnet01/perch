@@ -123,7 +123,9 @@ echo ">> smoke 3/3: every bundled library finds its dependencies"
 # shellcheck disable=SC2016  # expanded inside the sandbox, not here
 flatpak run --command=sh "$APP_ID" -c '
     missing=0
-    for f in $(find /app/lib -name "*.so*" -type f); do
+    # /app/lib/debug holds split debug symbols, not loadable code: ldd on one
+    # crashes the loader and leaves a core dump per file.
+    for f in $(find /app/lib -path /app/lib/debug -prune -o -name "*.so*" -type f -print); do
         out=$(ldd "$f" 2>&1 | grep "not found") || continue
         echo "!! $f: $out" >&2
         missing=1
