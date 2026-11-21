@@ -8,6 +8,10 @@ Sections under each release are populated on a best-effort basis — empty secti
 
 ## [Unreleased]
 
+## [2.0.2] — 2026-11-21
+
+**Theme:** Quit quits, and locked apps come back full size.
+
 ### Fixed
 
 - **Quitting no longer leaves Perch hanging** (PERC-0100)
@@ -769,6 +773,6 @@ First stable release. Perch is a persistent, compositor-aware window geometry ma
 
 ### Security
 
-[Unreleased]: https://github.com/milnet01/perch/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/milnet01/perch/compare/v2.0.2...HEAD
 [1.1.0]: https://github.com/milnet01/perch/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/milnet01/perch/releases/tag/v1.0.0
