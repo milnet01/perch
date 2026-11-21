@@ -193,6 +193,13 @@ Goal: anyone can install Perch without building from source.
   item: AUR (blocked on the maintainer's account) and KDE Store, whose
   listing pointed at Flathub and now needs the GitHub release files as
   its install source.
+  AUR re-checked 2026-11-21: still blocked, now on the AUR side.
+  The AUR has paused new sign-ups after a wave of automated
+  account creation, and a password reset rejects the maintainer's
+  email, so no account exists to push to. Ready on this machine:
+  the AUR host key is verified against the fingerprint published on
+  aur.archlinux.org and is in ~/.ssh/known_hosts; the key to register
+  is ~/.ssh/id_ed25519.pub. Retry when AUR sign-ups reopen.
   **Layman:** Getting Perch listed in the places people normally install Linux software from.
   Kind: package.
   Source: docs/11-roadmap.md Post-v1 ideas (migrated 2026-08-26).
