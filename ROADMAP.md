@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: PERC=100 -->
+<!-- ants-roadmap-id-high-water: PERC=101 -->
 
 # Perch — Roadmap
 
@@ -2496,6 +2496,21 @@ Goal: fewer first-run support tickets; the config is safe.
   **Layman:** Quitting could hang if a window was being handled at that moment; Perch now finishes that work before it exits.
   Kind: fix.
   Source: user-report-2026-11-11.
+
+- ✅ [PERC-0101] **A fixed-size window no longer overwrites its app's saved size.**
+  Rolodex (Tinbox) locks by closing its main window and showing a
+  fixed-size unlock window. That window became the app's only main
+  window, took the app's last-seen record, could not grow to it, and the
+  echo was saved as a user resize: state.json held 380x288 under
+  app:python3.13. The main window then reopened at that size.
+  Fix: a window the user cannot resize is not a main window
+  (is_main_window); backends report WindowInfo.resizable.
+  tests/core/test_reducer.py fixed-size cases red before, green after;
+  KWin probe 2026-11-21: the Rolodex unlock window reports
+  resizeable=false, min=max=380x260.
+  **Layman:** An app's small password or login window no longer makes its main window open tiny.
+  Kind: fix.
+  Source: user-report-2026-11-21.
 
 ## v1.2 — Smarts
 

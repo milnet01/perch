@@ -99,7 +99,9 @@ function describeWindow(w) {
         desktop: (w.desktops && w.desktops.length > 0) ? (w.desktops[0].x11DesktopNumber - 1) : -1,
         role: w.windowRole || "",
         // A dialog's owner; "" for a top-level window.
-        parent: (w.transient && w.transientFor) ? winId(w.transientFor) : ""
+        parent: (w.transient && w.transientFor) ? winId(w.transientFor) : "",
+        // false for a fixed-size window such as a password prompt.
+        resizable: w.resizeable !== false
     };
 }
 

@@ -56,6 +56,8 @@ class WindowInfo:
     desktop: DesktopIndex
     parent: WindowId | None = None
     role: str = ""
+    # False when the user cannot resize the window: a fixed-size prompt.
+    resizable: bool = True
 
 
 @dataclass(frozen=True, slots=True)

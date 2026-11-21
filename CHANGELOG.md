@@ -14,6 +14,11 @@ Sections under each release are populated on a best-effort basis — empty secti
   A Quit or logout could hang if a window event was still being handled,
   which happens most on Python 3.14. Perch now finishes every background
   task before it exits. The ten-second exit backstop from 2.0.1 stays.
+- **A password window no longer shrinks its app's main window** (PERC-0101)
+  An app that locks by hiding its main window behind a fixed-size
+  password window used to reopen tiny: Perch saved the password
+  window's size as the app's size. Perch now leaves windows that cannot
+  be resized alone, and neither moves them nor remembers them.
 
 ## [2.0.1] — 2026-11-11
 

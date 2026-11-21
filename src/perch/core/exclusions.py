@@ -40,12 +40,18 @@ def is_builtin_excluded(window: WindowInfo) -> bool:
 def is_main_window(window: WindowInfo) -> bool:
     """True if ``window`` is an ordinary top-level window, not a dialog.
 
+    A window the user cannot resize is not one: an app's fixed-size password
+    prompt would take the main window's record, fail to grow to it, and save
+    its own size over it.
+
     Last-seen geometry is keyed by application, so only this kind may write
     or receive it: a dialog given the main window's geometry, or the reverse,
     is wrong whichever way round it happens (``docs/07-rules-engine.md``
     §Evaluation order, step 5).
     """
-    return window.type is WindowType.NORMAL and not window.parent
+    return (
+        window.type is WindowType.NORMAL and not window.parent and window.resizable
+    )
 
 
 def is_user_excluded(

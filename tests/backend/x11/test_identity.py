@@ -10,7 +10,11 @@ together correctly. End-to-end proof against a real WM is in
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, cast
+
+import pytest
+from Xlib import Xutil
 
 from perch.backend.types import Geometry, OutputInfo, WindowState, WindowType
 from perch.backend.x11.ewmh import AtomTable
@@ -73,6 +77,7 @@ class _FakeWindow:
         geom: tuple[int, int] = (800, 600),
         translate_to: tuple[int, int] = (110, 70),
         transient_for: int | None = None,
+        normal_hints: Any = None,
     ) -> None:
         self.id = wid
         self._attrs = _Attrs(override_redirect=override_redirect)
@@ -83,6 +88,10 @@ class _FakeWindow:
         self._geom = geom
         self._translate_to = translate_to
         self._transient_for = transient_for
+        self._normal_hints = normal_hints
+
+    def get_wm_normal_hints(self) -> Any:
+        return self._normal_hints
 
     def get_attributes(self) -> _Attrs:
         return self._attrs
@@ -272,6 +281,33 @@ def test_transient_parent_surfaces_as_wid_string() -> None:
     got = read_window_info(_FakeDisplay(), _atoms(_FakeAtoms()), win, _OUTPUTS)
     assert got is not None
     assert got.parent == str(0x200033)
+
+
+def _hints(flags: int, min_wh: tuple[int, int], max_wh: tuple[int, int]) -> Any:
+    return SimpleNamespace(
+        flags=flags,
+        min_width=min_wh[0],
+        min_height=min_wh[1],
+        max_width=max_wh[0],
+        max_height=max_wh[1],
+    )
+
+
+@pytest.mark.parametrize(
+    ("hints", "expected"),
+    [
+        (None, True),
+        (_hints(Xutil.PMinSize | Xutil.PMaxSize, (380, 260), (380, 260)), False),
+        (_hints(Xutil.PMinSize | Xutil.PMaxSize, (380, 260), (900, 700)), True),
+        (_hints(Xutil.PMinSize, (380, 260), (380, 260)), True),
+    ],
+)
+def test_resizable_reads_wm_normal_hints(hints: Any, expected: bool) -> None:
+    """A minimum size equal to the maximum is a fixed-size window (PERC-0101)."""
+    win = _FakeWindow(normal_hints=hints)
+    got = read_window_info(_FakeDisplay(), _atoms(_FakeAtoms()), win, _OUTPUTS)
+    assert got is not None
+    assert got.resizable is expected
 
 
 def test_offscreen_window_falls_back_to_primary_monitor() -> None:

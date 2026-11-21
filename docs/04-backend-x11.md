@@ -159,6 +159,7 @@ Capabilities(
 Setting `MINIMIZED` sends the ICCCM `WM_CHANGE_STATE` message. Coming back out needs `_NET_ACTIVE_WINDOW` (wm-spec §5.7), because clearing `_NET_WM_STATE` bits does nothing to a window the WM has unmapped. `set_state(NORMAL)` therefore reads the window's current state and sends the activation only when it really is iconified — activating also raises and focuses, and doing that unconditionally would make applying a layout shuffle the focus across every window it touches.
 | `role` | `WM_WINDOW_ROLE`. |
 | `parent` | `WM_TRANSIENT_FOR`. |
+| `resizable` | `WM_NORMAL_HINTS`: false when it sets a minimum size equal to its maximum size. |
 
 ## Window subscription pattern
 

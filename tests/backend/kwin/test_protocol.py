@@ -142,6 +142,13 @@ def test_decode_window_info_reads_a_dialogs_parent() -> None:
     assert decode_window_info({"id": "x"}).parent is None
 
 
+def test_decode_window_info_reads_resizable() -> None:
+    # Absent means resizable, so an older script never hides a main window.
+    assert decode_window_info({"id": "p", "resizable": False}).resizable is False
+    assert decode_window_info({"id": "w", "resizable": True}).resizable is True
+    assert decode_window_info({"id": "w"}).resizable is True
+
+
 def test_decode_output_entry_uses_expected_defaults() -> None:
     out = decode_output_entry({"name": "HDMI-A-1", "x": 0, "y": 0, "w": 1920, "h": 1080})
     assert out["name"] == "HDMI-A-1"

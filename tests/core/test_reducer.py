@@ -58,6 +58,7 @@ def _window(
     monitor: str = "DP-1",
     type_: WindowType = WindowType.NORMAL,
     parent: str | None = None,
+    resizable: bool = True,
 ) -> WindowInfo:
     return WindowInfo(
         id=wid,
@@ -71,6 +72,7 @@ def _window(
         monitor=monitor,
         desktop=0,
         parent=parent,
+        resizable=resizable,
     )
 
 
@@ -942,6 +944,60 @@ async def test_only_the_first_open_window_of_an_app_is_remembered(
     record = store.get_last_seen("app:firefox")
     assert record is not None
     assert record.geometry == Geometry(20, 20, 640, 480)
+
+
+async def test_fixed_size_window_does_not_overwrite_its_apps_main_window(
+    tmp_path: Path,
+) -> None:
+    """PERC-0101. An app that locks by closing its main window and showing a
+    fixed-size password window: that window was the app's only main window,
+    took the record, could not grow to it, and its echo was saved as a user
+    resize. The main window then reopened at the password window's size."""
+    backend, reducer, store = await _make({}, tmp_path)
+    store.record_window("app:firefox", Geometry(500, 300, 1200, 800), "DP-1", 0)
+    await reducer.start()
+
+    prompt = _window("p1", resizable=False)
+    backend._spawn_window(prompt)
+    await reducer.handle_window_opened(prompt)
+    reducer.handle_geometry_changed("p1", Geometry(1250, 596, 380, 288), "DP-1", 0)
+    reducer.handle_window_closed("p1")
+
+    assert backend.commands.names() == []
+    record = store.get_last_seen("app:firefox")
+    assert record is not None
+    assert record.geometry == Geometry(500, 300, 1200, 800)
+
+    main = _window("w1")
+    backend._spawn_window(main)
+    await reducer.handle_window_opened(main)
+    geom_calls = [
+        args for name, args in backend.commands.entries if name == "set_geometry"
+    ]
+    assert [(c[0], c[1]) for c in geom_calls] == [
+        ("w1", Geometry(500, 300, 1200, 800))
+    ]
+
+
+async def test_open_fixed_size_window_does_not_block_the_main_window(
+    tmp_path: Path,
+) -> None:
+    """A fixed-size window still open when the main window opens does not
+    make the main window a "second window" of its app."""
+    backend, reducer, store = await _make({}, tmp_path)
+    store.record_window("app:firefox", Geometry(500, 300, 1200, 800), "DP-1", 0)
+    await reducer.start()
+
+    prompt = _window("p1", resizable=False)
+    main = _window("w1")
+    for w in (prompt, main):
+        backend._spawn_window(w)
+        await reducer.handle_window_opened(w)
+
+    geom_calls = [
+        args for name, args in backend.commands.entries if name == "set_geometry"
+    ]
+    assert [c[0] for c in geom_calls] == ["w1"]
 
 
 # ── Maximize fallback target ──────────────────────────────────────────────

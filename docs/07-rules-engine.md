@@ -27,7 +27,7 @@ Top to bottom, first match wins. The order is:
 2. **User exclusions** (`[exclusions]` in config). Emits `IGNORE`.
 3. **User rules** (`[[rules]]`, in config order). First match whose `context` also matches — `APPLY_ACTION`. Context mismatches are skipped silently, not treated as misses.
 4. **Active layout**, if one is set and has an entry matching this window. `APPLY_ACTION` using the layout entry's `apply`.
-5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`. Only fires on `OPENED` / `USER_TRIGGER`; on `CHANGED` the engine falls through to `IGNORE`. Only for a **main window** — type `NORMAL` with no parent (`is_main_window` in `src/perch/core/exclusions.py`) — and only when no earlier-opened main window of the same app is still open. A dialog or a second window would otherwise take the main window's geometry.
+5. **Last-seen geometry** from `state.json`, if `general.restore_on_open = true` and we have an entry. Emits `RESTORE_LAST_SEEN`. Only fires on `OPENED` / `USER_TRIGGER`; on `CHANGED` the engine falls through to `IGNORE`. Only for a **main window** — type `NORMAL`, no parent, and resizable (`is_main_window` in `src/perch/core/exclusions.py`) — and only when no earlier-opened main window of the same app is still open. A dialog, a second window or a fixed-size window such as a password prompt would otherwise take the main window's geometry, and a fixed-size one would then save its own small size over it.
 6. **Do nothing.** (`IGNORE` with `source = "no-match"`.)
 
 This ordering is deliberate:

@@ -20,6 +20,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from Xlib import X as _X
+from Xlib import Xutil
 from Xlib import error as _xerror
 
 from perch.backend.types import (
@@ -102,6 +103,7 @@ def read_window_info(
     # 6. Role / parent (role is ICCCM WM_WINDOW_ROLE, parent is WM_TRANSIENT_FOR).
     role = _read_role(atoms, window)
     parent = _read_transient_for(window)
+    resizable = _read_resizable(window)
 
     # 7. Geometry — frame coords → client-area Geometry via _NET_FRAME_EXTENTS.
     geom = _read_client_geometry(display, atoms, window)
@@ -125,6 +127,7 @@ def read_window_info(
         desktop=desktop,
         parent=str(parent) if parent is not None else None,
         role=role,
+        resizable=resizable,
     )
 
 
@@ -206,6 +209,22 @@ def _read_transient_for(window: Window) -> int | None:
     if transient is None:
         return None
     return int(transient.id)
+
+
+def _read_resizable(window: Window) -> bool:
+    """False when WM_NORMAL_HINTS fixes the size (minimum equals maximum)."""
+    try:
+        hints = window.get_wm_normal_hints()
+    except (*_DEAD, AttributeError):
+        return True
+    if hints is None:
+        return True
+    both = Xutil.PMinSize | Xutil.PMaxSize
+    if hints.flags & both != both:
+        return True
+    return not (
+        hints.min_width == hints.max_width and hints.min_height == hints.max_height
+    )
 
 
 def _read_client_geometry(

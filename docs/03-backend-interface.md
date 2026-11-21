@@ -65,6 +65,7 @@ class WindowInfo:
     desktop:     DesktopIndex              # -1 if sticky / all
     parent:      WindowId | None = None    # transient-for relationship
     role:        str = ""                  # X11 WM_WINDOW_ROLE; "" on Wayland
+    resizable:   bool = True               # False when the user cannot resize it (fixed size)
 
 
 @dataclass(frozen=True, slots=True)
